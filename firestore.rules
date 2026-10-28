@@ -1,0 +1,113 @@
+rules_version = '2';
+// یاساکانی ئاسایشی تەکسیەکەم
+// هەر تۆمارێکی هاوبەش خانەیەکی «_r»ـی هەیە: لیستی UIDـی ئەو کەسانەی دەتوانن بیخوێننەوە
+// (سەرنشینی خاوەن و شۆفێرەکەی). بەڕێوەبەر هەموو شتێک دەبینێت.
+// ژمارەی مۆبایلی سەرنشین تەنها لە accounts و pax دایە، کە تەنها خۆی و بەڕێوەبەر دەیانبینن.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function isAdmin() {
+      return signedIn() && (request.auth.uid in ['H1rrhWrw1KRm0ZdnxK89QBetbaC3']
+        || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+    function isDriver() {
+      return signedIn() && request.auth.token.email != null && request.auth.token.email.matches('.*@d[.]taxikam[.]app$');
+    }
+    function isPax() {
+      return signedIn() && request.auth.token.email != null && request.auth.token.email.matches('.*@p[.]taxikam[.]app$');
+    }
+    function inR() { return signedIn() && request.auth.uid in resource.data._r; }
+    function inNewR() { return signedIn() && request.auth.uid in request.resource.data._r; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // ---------- گشتی ----------
+    match /admins/{id} { allow read: if isAdmin(); allow write: if false; }
+    match /meta/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /partners/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /news/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
+
+    // ---------- تەنها بەڕێوەبەر ----------
+    match /broadcasts/{id} { allow read, write: if isAdmin(); }
+    match /partnerPays/{id} { allow read, write: if isAdmin(); }
+    match /payouts/{id} { allow read: if isAdmin() || inR(); allow write: if isAdmin(); }
+    // هەر کەسێک دەتوانێت دروستی بکات، تەنها بەڕێوەبەر دەیخوێنێتەوە
+    match /partnerEarnings/{id} { allow read, update, delete: if isAdmin(); allow create: if signedIn(); }
+    match /reports/{id} { allow read, update, delete: if isAdmin(); allow create: if signedIn(); }
+    match /adminNotices/{id} { allow read, update, delete: if isAdmin(); allow create: if signedIn(); }
+
+    // ---------- ئاگادارکردنەوە و مێژوو (کەسانی تر بۆ خاوەنەکەی دەینووسن) ----------
+    match /pnotices/{id} { allow read, update, delete: if isAdmin() || inR(); allow create: if signedIn(); }
+    match /phistory/{id} { allow read, update, delete: if isAdmin() || inR(); allow create: if signedIn(); }
+    match /dnotices/{id} { allow read, update, delete: if isAdmin() || inR(); allow create: if signedIn(); }
+    match /ledger/{id} { allow read: if isAdmin() || inR(); allow create: if signedIn(); allow update, delete: if isAdmin(); }
+    // «resource == null»: ئامێرەکە پێش دروستکردن دەپشکنێت ئایا هەیە (transaction)، بەڵگەنامەی نەبوو هیچ ئاشکرا ناکات
+    match /driverLog/{id} { allow read: if resource == null || isAdmin() || inR(); allow update, delete: if isAdmin() || inR(); allow create: if isAdmin() || inNewR(); }
+
+    // ---------- هەژمارەکان ----------
+    // ژمارەی مۆبایلی سەرنشین تەنها لێرەدایە: تەنها خۆی و بەڕێوەبەر
+    match /accounts/{id} {
+      allow read: if isAdmin() || (signedIn() && uid() == id);
+      allow create: if isAdmin() || (isPax() && uid() == id && !('blocked' in request.resource.data));
+      allow update: if isAdmin() || (signedIn() && uid() == id && !changed().hasAny(['blocked']));
+      allow delete: if isAdmin();
+    }
+    match /pax/{id} { allow read, write: if isAdmin() || (signedIn() && uid() == id); }
+    // بەشی تایبەتی شۆفێر (بەڵگەنامە، ناونیشان، موچە)
+    match /drivers/{id} {
+      allow read: if isAdmin() || (signedIn() && uid() == id);
+      allow create: if isAdmin() || (isDriver() && uid() == id);
+      allow update: if isAdmin() || (signedIn() && uid() == id);
+      allow delete: if isAdmin();
+    }
+    // بەشی گشتی شۆفێر (ناو، ئۆتۆمبێل، هەڵسەنگاندن). شۆفێر خۆی ناتوانێت خۆی چالاک بکات
+    match /dpub/{id} {
+      allow read: if signedIn();
+      allow create: if isAdmin() || (isDriver() && uid() == id && request.resource.data.status == 'pending');
+      allow update: if isAdmin()
+        || (signedIn() && uid() == id && !changed().hasAny(['status', 'rating', 'reviews', 'plateType']))
+        || (signedIn() && changed().hasOnly(['rating', 'reviews', 'tags', 'freeSeats', 'trips', 'workDays', '_t', 'id']));
+      allow delete: if isAdmin();
+    }
+    match /img/{id} {
+      allow read: if isAdmin() || (signedIn() && (resource.data.pub == true || resource.data.o == uid()));
+      allow create: if signedIn() && request.resource.data.o == uid();
+      allow update, delete: if isAdmin() || (signedIn() && resource.data.o == uid());
+    }
+
+    // ---------- تۆمارە هاوبەشەکان (سەرنشین و شۆفێرەکەی) ----------
+    match /requests/{id} {
+      // شۆفێران داواکارییە کراوەکان دەبینن تا نرخ بنێرن (بێ ژمارەی مۆبایل)
+      allow read: if isAdmin() || inR() || (isDriver() && resource.data.status == 'open');
+      allow create: if isAdmin() || (isPax() && request.resource.data.owner == uid() && inNewR());
+      // خاوەنەکەی هەموو شتێک؛ شۆفێر تەنها نرخ، ڕەتکردنەوە و داخستنی داواکاری ڕاستەوخۆ
+      allow update: if isAdmin() || (inR() && resource.data.owner == uid())
+        || (isDriver() && (resource.data.status == 'open' || inR()) && changed().hasOnly(['offers', 'declined', '_r', 'status', 'closedReason']));
+      allow delete: if isAdmin() || inR();
+    }
+    match /subscriptions/{id} {
+      allow read, update, delete: if isAdmin() || inR();
+      allow create: if isAdmin() || inNewR();
+    }
+    match /trips/{id} {
+      // کاتێک شۆفێرێک جێگرەوەی دەوێت، شۆفێرانی تر گەشتەکە دەبینن و دەتوانن وەریبگرن
+      allow read: if resource == null || isAdmin() || inR() || (isDriver() && resource.data.swapOpen == true);
+      allow update: if isAdmin() || inR() || (isDriver() && resource.data.swapOpen == true);
+      allow create: if isAdmin() || inNewR();
+      allow delete: if isAdmin() || inR();
+    }
+    match /swaps/{id} {
+      allow read, update: if isAdmin() || inR() || (isDriver() && resource.data.status == 'open');
+      allow create: if isAdmin() || inNewR();
+      allow delete: if isAdmin() || inR();
+    }
+    match /routes/{id} {
+      allow read, update, delete: if isAdmin() || inR();
+      allow create: if isAdmin() || inNewR();
+    }
+    match /messages/{id} {
+      allow read, update, delete: if isAdmin() || inR();
+      allow create: if isAdmin() || inNewR();
+    }
+  }
+}
