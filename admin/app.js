@@ -247,7 +247,10 @@
   };
 
   const DST = { ok: ['پەسەندکراو', 'ok'], pending: ['چاوەڕێی پشکنین', 'note'], rejected: ['ڕەتکرایەوە', 'danger'] };
-  const PAY = { fib: 'FIB', fastpay: 'FastPay', cash: 'کاش' };
+  // شێوازەکانی موچە لە ڕێکخستنەکانەوە دێن (بەڕێوەبەر زیادیان دەکات)
+  const PAY = new Proxy({}, { get: (_, k) => (typeof k === 'string' && k && k !== 'undefined' && k !== 'null' ? TK.payName(k) : undefined) });
+  /** ئایا شۆفێر شێوازی موچەکەی گۆڕیوە و بەڕێوەبەر هێشتا پشتڕاستی نەکردووەتەوە */
+  const payChanged = (d) => TK.payUnconfirmed(d);
   const imgTile = (id, label) => {
     const src = TK.img(id);
     return src ? `<button class="doc-img" data-act="zoomImg" data-arg="${esc(id)}|${esc(label)}"><img src="${src}" alt=""><span>${esc(label)}</span></button>` : `<div class="doc-img empty"><span>${esc(label)}</span><small>بار نەکراوە</small></div>`;
@@ -343,7 +346,7 @@
           </div>
           <div class="h3">کار و موچە</div><div class="form-grid">
             ${input('n-areas', 'ناوچەکانی کار', f.workAreas || '', { full: true })}
-            ${select('n-pay', 'وەرگرتنی موچە', f.payMethod, [['cash', 'کاش'], ['fib', 'FIB'], ['fastpay', 'FastPay']])}
+            ${select('n-pay', 'وەرگرتنی موچە', f.payMethod, TK.payMethods().filter((m) => m.on !== false || m.id === f.payMethod).map((m) => [m.id, m.name]))}
             ${input('n-payacc', 'ژمارەی حیساب', f.payAccount || '', { ltr: true })}
             ${check('n-kids', 'شۆفێری منداڵان', f.kids)}
             ${check('n-childseat', 'کورسیی منداڵی هەیە', f.childseat)}
@@ -444,6 +447,7 @@
       delete rec.verified;
       delete rec.pass;
       delete rec.pass2;
+      rec.payAckFor = TK.payKey(rec); // بەڕێوەبەر خۆی شێوازی موچەی نووسیوە
       s.drivers.push(rec);
       TK.dnoticeAdd(s, { driverId: id, kind: 'ok', title: 'بەخێربێیت بۆ تەکسیەکەم', body: f.verified ? 'هەژمارەکەت چالاکە. «ئامادەی کارم» چالاک بکە بۆ وەرگرتنی داواکاری.' : 'تیمی تەکسیەکەم بەڵگەنامەکانت دەپشکنێت.', link: 'today' });
     });
@@ -480,6 +484,10 @@
             </div>
             <div class="grid3"><div class="card stat flat"><b class="brand">★ ${d.reviews ? d.rating : '-'}</b><span class="xs muted">${d.reviews || 0} هەڵسەنگاندن</span></div><div class="card stat flat"><b>${d.trips || 0}</b><span class="xs muted">گەشت</span></div><div class="card stat flat"><b>${subs.length}</b><span class="xs muted">بەژداری</span></div></div>
             <div class="row between sm"><span class="muted">وەرگرتنی موچە</span><b>${PAY[d.payMethod] || '-'}${d.payAccount ? ` <span class="latin">${esc(d.payAccount)}</span>` : ''}</b></div>
+            ${payChanged(d) ? `<div class="card note col tight"><div class="row">${icon('alert', 18, 'var(--brand)')}<b class="grow sm">شۆفێر شێوازی موچەی گۆڕیوە${d.payChangedAt ? `، ${fmt.ago(d.payChangedAt)}` : ''}</b></div>
+              <div class="xs">پێشتر: ${esc(PAY[(d.payPrev || {}).method] || '-')}${(d.payPrev || {}).account ? ` <span class="latin">${esc(d.payPrev.account)}</span>` : ''}. ئێستا: ${esc(PAY[d.payMethod] || '-')}${d.payAccount ? ` <span class="latin">${esc(d.payAccount)}</span>` : ''}</div>
+              <div class="xs muted">پێش ناردنی موچە، بە تەلەفۆن لەگەڵ شۆفێر پشتڕاستی بکەرەوە کە خۆی گۆڕیویەتی.</div>
+              <button class="btn sm ok" data-act="ackPay" data-arg="${d.id}">${icon('check', 16, 'currentColor', 2.4)}پشتڕاستم کردەوە</button></div>` : ''}
             <div class="row between sm"><span class="muted">تۆمارکراو</span><b>${fmt.date(d.joinedAt)}</b></div>
             <div class="row wrap" style="gap:8px">
               ${d.status !== 'active' ? `<button class="btn sm ok" data-act="setDStatus" data-arg="${d.id}|active" ${allOk ? '' : 'disabled'}>${icon('check', 16, 'currentColor', 2.4)}پشتڕاستکردنەوە و چالاککردن</button>` : ''}
@@ -586,6 +594,8 @@
       const d = s.drivers.find((x) => x.id === id);
       d.status = st;
       if (st !== 'active') d.online = false;
+      // لە کاتی پشتڕاستکردنەوەی هەژمار، شێوازی موچەی ئێستاش پشتڕاست دەکرێتەوە
+      if (st === 'active' && d.payAckFor == null) d.payAckFor = TK.payKey(d);
       pushDN(s, { driverId: id, kind: st === 'active' ? 'ok' : 'info', red: st !== 'active', title: st === 'active' ? 'هەژمارەکەت پشتڕاست کرایەوە' : 'هەژمارەکەت ڕاگیرا', body: st === 'active' ? 'بەخێربێیت! ئێستا دەتوانیت «ئامادەی کارم» چالاک بکەیت و داواکاری وەربگریت' : 'بۆ زانیاری زیاتر پەیوەندی بە تیمی تەکسیەکەم بکە', link: 'today' });
     });
     TK.toast(st === 'active' ? 'شۆفێر چالاک کرا' : 'شۆفێر ڕاگیرا');
@@ -1261,7 +1271,7 @@
         <div class="tbl-wrap"><table class="tbl">
           <thead><tr><th>شۆفێر</th><th>سەرنشین</th><th>کۆ</th><th>کۆمیسیۆن</th><th>سزا / پاداشت / جێگرەوە</th><th>پاداشتی مانگ</th><th>بۆ شۆفێر</th><th></th></tr></thead>
           <tbody>${rows.map(({ d, po }) => `<tr>
-            <td class="tap" data-go="driver/${d.id}"><b class="sm">${esc(d.name)}</b></td><td>${po.subs}</td><td class="sm">${fmt.group(po.gross)}</td><td class="sm neg">${fmt.group(po.commission)}</td>
+            <td class="tap" data-go="driver/${d.id}"><b class="sm">${esc(d.name)}</b><div class="xs muted">${esc(PAY[d.payMethod] || '-')}${d.payAccount ? ` <span class="latin">${esc(d.payAccount)}</span>` : ''}</div>${payChanged(d) ? ui.badge('شێوازی موچە گۆڕدراوە', 'danger') : ''}</td><td>${po.subs}</td><td class="sm">${fmt.group(po.gross)}</td><td class="sm neg">${fmt.group(po.commission)}</td>
             <td class="sm ${po.ledgerSum < 0 ? 'neg' : 'ok'}">${po.ledgerSum ? fmt.group(Math.abs(po.ledgerSum)) : '-'}</td>
             <td class="sm ok">${po.bonus ? fmt.group(po.bonus) : '-'}</td>
             <td><b class="${po.net < 0 ? 'err' : 'brand'}">${fmt.group(po.net)}</b>${po.net < 0 ? '<div class="xs err">قەرزدارە</div>' : ''}</td>
@@ -1678,9 +1688,11 @@
         </div>`).join('')}</div>
         <div class="row between wrap" style="gap:8px;margin-top:6px"><div class="h3">شوێنەکان (${list.length})</div>
           <div class="tabs">${[['all', 'هەمووی']].concat(cities.map((c) => [c.id, c.name])).map(([k, l]) => `<button class="${fc === k ? 'on' : ''}" data-act="pcity" data-arg="${k}">${esc(l)}</button>`).join('')}</div></div>
-        <div class="xs muted">ئەم شوێنانە لە کاتی نووسیندا بۆ سەرنشین پێشنیار دەکرێن. x و y (بە کیلۆمەتر) بۆ مەزەندەکردنی دووری و نرخە. ئەگەر بەتاڵ بن، ٦ کیلۆمەتر دادەنرێت.</div>
-        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>ناو</th><th>شار</th><th>جۆر</th><th>x</th><th>y</th><th></th></tr></thead>
-          <tbody>${list.map((p) => `<tr><td><div class="row" style="gap:8px">${icon(TK.placeIcon(p.kind), 18, 'var(--brand)')}<b class="sm">${esc(p.name)}</b></div></td><td class="sm">${esc((TK.city(p.city || 'erbil') || {}).name || '')}</td><td class="sm">${(KINDS.find((k) => k[0] === p.kind) || ['', ''])[1]}</td><td class="latin sm">${p.x ?? '-'}</td><td class="latin sm">${p.y ?? '-'}</td>
+        <div class="xs muted">ئەم شوێنانە لە کاتی نووسیندا بۆ سەرنشین پێشنیار دەکرێن. شوێنی سەر نەخشە بۆ حیسابکردنی دووری، نرخ و نەخشەی گەشتە. ئەگەر دیاری نەکرابێت، x و y (بە کیلۆمەتر) بەکاردێن، و ئەگەر ئەوانیش بەتاڵ بن ٦ کیلۆمەتر دادەنرێت.</div>
+        <div class="xs muted">${list.filter((p) => TK.isGeo(p)).length} لە ${list.length} شوێن لەسەر نەخشە دیاری کراون.</div>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>ناو</th><th>شار</th><th>جۆر</th><th>نەخشە</th><th></th></tr></thead>
+          <tbody>${list.map((p) => `<tr><td><div class="row" style="gap:8px">${icon(TK.placeIcon(p.kind), 18, 'var(--brand)')}<b class="sm">${esc(p.name)}</b></div></td><td class="sm">${esc((TK.city(p.city || 'erbil') || {}).name || '')}</td><td class="sm">${(KINDS.find((k) => k[0] === p.kind) || ['', ''])[1]}</td>
+            <td>${TK.isGeo(p) ? `<span class="sm ok row" style="gap:4px">${icon('check', 14, 'currentColor', 2.6)}دیاری کراوە</span>` : `<button class="btn sm secondary" data-act="pinPlaceAdm" data-arg="${p.id}">${icon('pin', 14)}دیاریکردن</button>`}</td>
             <td><div class="row" style="gap:4px"><button class="btn sm secondary" data-act="editPlace" data-arg="${p.id}">${icon('edit', 14)}</button><button class="btn sm ghost" data-act="delPlace" data-arg="${p.id}">${icon('x', 14)}</button></div></td></tr>`).join('')}</tbody></table></div>`,
         `<button class="btn sm" data-act="editPlace">${icon('plus', 18, 'currentColor', 2.2)}شوێنی نوێ</button>`);
     },
@@ -1717,19 +1729,51 @@
     });
   };
   acts.editPlace = (id) => {
-    const p = id ? TK.place(id) : { name: '', kind: 'home', city: U.pcity && U.pcity !== 'all' ? U.pcity : 'erbil', x: '', y: '' };
-    TK.sheet(() => `<div class="h2">${id ? 'دەستکاری شوێن' : 'شوێنی نوێ'}</div>
+    const p0 = id ? TK.place(id) : { name: '', kind: 'home', city: U.pcity && U.pcity !== 'all' ? U.pcity : 'erbil', x: '', y: '' };
+    U.placeGeo = TK.isGeo(p0) ? { lat: p0.lat, lng: p0.lng } : null;
+    // خانەکان لە U.pf هەڵدەگیرێن بۆ ئەوەی دوای هەڵبژاردنی شوێن لەسەر نەخشە ون نەبن
+    U.pf = { name: p0.name, kind: p0.kind, city: p0.city || 'erbil', x: p0.x ?? '', y: p0.y ?? '' };
+    TK.sheet(() => {
+      const p = U.pf;
+      return `<div class="h2">${id ? 'دەستکاری شوێن' : 'شوێنی نوێ'}</div>
       <div class="form-grid">${input('p-name', 'ناو', p.name, { full: true })}${select('p-city', 'شار', p.city || 'erbil', TK.cities().map((c) => [c.id, c.name]))}${select('p-kind', 'جۆر', p.kind, KINDS)}${input('p-x', 'x (کم)', p.x ?? '', { type: 'number', ltr: true, step: '0.5' })}${input('p-y', 'y (کم)', p.y ?? '', { type: 'number', ltr: true, step: '0.5' })}</div>
-      <button class="btn block" data-act="savePlace" data-arg="${id || ''}">پاشەکەوت</button><button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+      <div class="card flat row">${icon('pin', 20, U.placeGeo ? 'var(--ok-text)' : 'var(--muted)')}<div class="grow sm">${U.placeGeo ? `لەسەر نەخشە دیاری کراوە <span class="latin xs muted">${U.placeGeo.lat.toFixed(5)}, ${U.placeGeo.lng.toFixed(5)}</span>` : 'هێشتا لەسەر نەخشە دیاری نەکراوە'}</div><button class="btn sm secondary" data-act="placeMap">${U.placeGeo ? 'گۆڕین' : 'دیاریکردن'}</button>${U.placeGeo ? `<button class="btn sm ghost" data-act="placeMapClear" aria-label="لابردن">${icon('x', 14)}</button>` : ''}</div>
+      <button class="btn block" data-act="savePlace" data-arg="${id || ''}">پاشەکەوت</button><button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`;
+    });
+  };
+  acts.placeMap = async () => {
+    U.pf = { name: val('p-name'), kind: val('p-kind'), city: val('p-city'), x: val('p-x'), y: val('p-y') };
+    const name = U.pf.name.trim();
+    const r = await TK.pickLocation({ title: name || 'شوێن', center: U.placeGeo, q: U.placeGeo ? '' : name });
+    if (r) U.placeGeo = { lat: +r.lat.toFixed(6), lng: +r.lng.toFixed(6) };
+    TK.sheet.refresh();
+  };
+  acts.placeMapClear = () => {
+    U.placeGeo = null;
+    TK.sheet.refresh();
+  };
+  /** دیاریکردنی خێرای شوێنێک لەسەر نەخشە لە خشتەکەوە */
+  acts.pinPlaceAdm = async (id) => {
+    const p = TK.place(id);
+    if (!p) return;
+    const r = await TK.pickLocation({ title: p.name, q: p.name });
+    if (!r) return;
+    TK.update((s) => {
+      if (!s.places || !s.places.length) s.places = JSON.parse(JSON.stringify(TK.PLACES_DEFAULTS));
+      const x = s.places.find((y) => y.id === id);
+      if (x) Object.assign(x, { lat: +r.lat.toFixed(6), lng: +r.lng.toFixed(6) });
+    });
+    TK.toast('شوێنەکە لەسەر نەخشە دیاری کرا');
   };
   acts.savePlace = (id) => {
     const name = val('p-name').trim();
     if (name.length < 2) return TK.toast('ناو بنووسە');
     const x = val('p-x') === '' ? null : +val('p-x');
     const y = val('p-y') === '' ? null : +val('p-y');
+    const g = U.placeGeo;
     TK.update((s) => {
       if (!s.places || !s.places.length) s.places = JSON.parse(JSON.stringify(TK.PLACES_DEFAULTS));
-      const data = { name, kind: val('p-kind'), city: val('p-city'), x, y };
+      const data = { name, kind: val('p-kind'), city: val('p-city'), x, y, lat: g ? g.lat : null, lng: g ? g.lng : null };
       if (id) Object.assign(s.places.find((p) => p.id === id), data);
       else s.places.push({ id: 'p' + TK.uid(), ...data });
     });
@@ -1779,6 +1823,7 @@
       ['startEarlyMin', 'شۆفێر چەند خولەک پێش کات دەتوانێت «بەڕێ کەوتم» بکات (٠ = بێ سنوور)', 'خولەک'],
       ['autoCloseMin', 'داخستنی خۆکاری گەشتێک کە لەبیر کراوە (٠ = هەرگیز)', 'خولەک'],
       ['absentWaitMin', 'شۆفێر چەند خولەک چاوەڕێی سەرنشین بکات پێش «نەهات»', 'خولەک'],
+      ['nearAlertM', 'ئاگادارکردنەوەی «شۆفێرەکەت نزیکە» لە چەند مەترەوە (٠ = هەرگیز)', 'مەتر'],
     ]],
     ['ڕۆت (تەکسی هاوبەش)', [
       ['stopMin', 'ماوەی نێوان دوو وێستگە', 'خولەک'],
@@ -1811,6 +1856,11 @@
           <span class="sm grow">${U.cfgDirty ? 'گۆڕانکارییەکان هێشتا پاشەکەوت نەکراون' : 'هەموو یاساکانی سەرەوە پێکەوە پاشەکەوت دەکرێن'}</span>
           <button class="btn secondary sm" data-act="resetRules">گەڕاندنەوە بۆ بنەڕەت</button>
           <button class="btn sm" data-act="saveRules">${icon('check', 18, 'currentColor', 2.4)}پاشەکەوتی یاساکان</button>
+        </div>
+        <div class="card col"><div class="h3">شێوازەکانی وەرگرتنی موچەی شۆفێر</div>
+          <div class="xs muted">شۆفێر لە ئەپەکەی خۆیەوە یەکێک لەمانە هەڵدەبژێرێت. هەر کاتێک گۆڕی، ئاگادار دەکرێیتەوە.</div>
+          <div class="list">${TK.payMethods().map((m) => `<div class="item"><div class="ico-box">${icon('wallet', 18, 'var(--brand)')}</div><div class="grow"><b class="sm">${esc(m.name)}</b><div class="xs muted">${m.account === false ? 'بێ ژمارەی حیساب' : 'ژمارەی حیساب پێویستە'}، ${S().drivers.filter((d) => d.payMethod === m.id).length} شۆفێر</div></div>${ui.toggle('payMethodOn', m.on !== false, m.id)}</div>`).join('')}</div>
+          <div class="row wrap" style="gap:8px"><input class="input grow" id="pm-name" style="min-height:42px;min-width:160px" placeholder="ناوی شێوازی نوێ، بۆ نموونە: Zain Cash"><label class="row sm" style="gap:6px"><input type="checkbox" id="pm-acc" checked>ژمارەی حیساب پێویستە</label><button class="btn sm" data-act="addPayMethod">${icon('plus', 16)}زیادکردن</button></div>
         </div>
         <div class="cols">
           <div class="card col"><div class="h3">ئەکاونتی بەڕێوەبەر</div>
@@ -1861,6 +1911,33 @@
     TK.update((s) => {
       s.config = {};
     });
+  };
+  const ensurePay = (s) => {
+    if (!s.payMethods || !s.payMethods.length) s.payMethods = JSON.parse(JSON.stringify(TK.PAY_METHODS_DEFAULTS));
+    return s.payMethods;
+  };
+  acts.payMethodOn = (id) => {
+    const on = TK.payMethods().filter((m) => m.on !== false);
+    const m = TK.payMethod(id);
+    if (m && m.on !== false && on.length <= 1) return TK.toast('دەبێت لانیکەم یەک شێواز چالاک بێت');
+    TK.update((s) => {
+      const x = ensurePay(s).find((y) => y.id === id);
+      if (x) x.on = x.on === false;
+    });
+  };
+  acts.addPayMethod = () => {
+    const name = String(val('pm-name') || '').trim();
+    if (name.length < 2) return TK.toast('ناوەکە بنووسە');
+    if (TK.payMethods().some((m) => m.name.toLowerCase() === name.toLowerCase())) return TK.toast('ئەم ناوە هەیە');
+    const acc = !!(document.getElementById('pm-acc') || {}).checked;
+    TK.update((s) => {
+      ensurePay(s).push({ id: 'pm' + TK.uid(), name, on: true, account: acc });
+    });
+    TK.toast('زیاد کرا');
+  };
+  acts.ackPay = (id) => {
+    actions.ackPayChange(id);
+    TK.toast('پشتڕاست کرایەوە');
   };
   acts.saveAdminPass = async (a, el) => {
     const done = TK.busyBtn(el);

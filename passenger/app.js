@@ -749,7 +749,9 @@
     const s = S();
     return {
       step: 1, memberIds: s.family.members.length === 1 ? [s.family.members[0].id] : [], mode: 'one', rideType: 'shared', womanOnly: false,
-      fromId: s.passenger.homeId || 'azadi', fromNote: '', toId: '', toNote: '', go: '07:30', dir: 'both', backTime: '14:00', startDate: isoDay(1),
+      fromId: s.passenger.homeId || 'azadi', fromNote: '', toId: '', toNote: '', go: '07:30',
+      // شوێنی ماڵ لەسەر نەخشە (ئەگەر پێشتر دیاری کرابێت)
+      fromGeo: s.passenger.homeId && s.pins && s.pins._home ? s.pins._home : null, toGeo: null, dir: 'both', backTime: '14:00', startDate: isoDay(1),
       days: [false, true, true, true, true, true, false], note: '', prefDriver: prefDriver || null,
     };
   }
@@ -781,7 +783,7 @@
       const rideType = dr.rideType === 'private' ? 'private' : hasChild && hasAdult ? 'family' : hasChild ? 'kids' : 'shared';
       return {
         names: fmt.names(g.map((m) => m.name)),
-        price: TK.priceFor({ fromId: dr.fromId, toId: dr.toId, days: dr.days, oneWay: dr.dir !== 'both', mode: dr.mode, rideType, riders: g.length, hasChild }),
+        price: TK.priceFor({ fromId: dr.fromId, toId: dr.toId, fromGeo: dr.fromGeo, toGeo: dr.toGeo, days: dr.days, oneWay: dr.dir !== 'both', mode: dr.mode, rideType, riders: g.length, hasChild }),
         hasChild, riders: g.length, rideType,
       };
     });
@@ -845,20 +847,45 @@
       ${info.members.length ? '' : `<div class="hint">${icon('help', 16)}سەرەتا کەسێک هەڵبژێرە کە سوار دەبێت</div>`}`;
   }
 
+  async function pinPlaceWith(key, useHere) {
+    const dr = U.draft;
+    if (!dr) return;
+    const id = dr[key + 'Id'];
+    const cur = dr[key + 'Geo'] || TK.placeGeo(id);
+    const r = await TK.pickLocation({ title: key === 'from' ? 'شوێنی سوار بوون' : 'شوێنی مەبەست', center: cur, q: id ? '' : (dr[key + 'Q'] || '').trim(), useHere });
+    if (!r || U.draft !== dr) return;
+    dr[key + 'Geo'] = { lat: r.lat, lng: r.lng };
+    // ئەگەر هێشتا ناوی نییە، ناوی گەڕەکەکە بەکاردێت (نەک ناونیشانی ورد، چونکە پێش هەڵبژاردن هەموو شۆفێران دەیبینن)
+    const label = (r.area || r.name || '').trim();
+    if (!id && label) {
+      dr[key + 'Id'] = 'c:' + label;
+      dr[key + 'Q'] = '';
+    }
+    TK.render();
+  }
   /** خانەی شوێن: بنووسە و ئەپەکە شوێنەکە دەدۆزێتەوە («بەخت» ← گەڕەکی بەختیاری) */
   function placeField(key, dr) {
     const id = dr[key + 'Id'];
     const other = dr[key === 'from' ? 'toId' : 'fromId'];
     const color = key === 'from' ? 'var(--success)' : 'var(--amber)';
+    const geo = dr[key + 'Geo'];
     if (id) {
       const pl = TK.place(id);
-      return `<div class="picked">${icon(TK.placeIcon(pl.kind), 20, color)}<b class="grow">${esc(pl.name)}</b><button type="button" class="link" data-act="clearPlace" data-arg="${key}">گۆڕین</button></div>`;
+      const pg = TK.placeGeo(id);
+      // شوێنی ورد تەنها دوای هەڵبژاردنی شۆفێر دەدرێت بە شۆفێرەکە؛ پێش ئەوە تەنها ئەم ناوە دەبینرێت
+      const line = geo
+        ? `${icon('check', 16, 'var(--ok-text)', 2.6)}<span class="ok">شوێنی ورد لەسەر نەخشە دیاری کرا</span><button type="button" class="link" data-act="pinPlace" data-arg="${key}">گۆڕین</button>`
+        : `${icon('pin', 16, 'var(--muted)')}<span class="muted">${pg ? 'شوێنی گشتی ئەم ناوچەیە' : 'شوێنی ورد دیاری نەکراوە'}</span><button type="button" class="link" data-act="pinPlace" data-arg="${key}">دیاریکردن لەسەر نەخشە</button>`;
+      return `<div class="picked">${icon(TK.placeIcon(pl.kind), 20, color)}<b class="grow">${esc(pl.name)}</b><button type="button" class="link" data-act="clearPlace" data-arg="${key}">گۆڕین</button></div>
+        <div class="geo-line">${line}</div>`;
     }
-    return `<div class="place-field">
+    return `${geo ? `<div class="geo-line">${icon('check', 16, 'var(--ok-text)', 2.6)}<span class="ok">شوێنی ورد وەرگیرا. ئێستا ناوی گەڕەکەکە بنووسە</span></div>` : ''}
+    <div class="place-field">
       <span class="pin-ic">${icon('search', 20, 'var(--muted)')}</span>
       <input class="input" id="q-${key}" data-input="placeType" data-arg="${key}" placeholder="${key === 'from' ? 'بنووسە، بۆ نموونە: ئازادی' : 'بنووسە، بۆ نموونە: بەخت'}" autocomplete="off" value="${esc(dr[key + 'Q'] || '')}">
     </div>
-    <div class="sugg" id="sugg-${key}">${suggHtml(key, dr[key + 'Q'] || '', other)}</div>`;
+    <div class="sugg" id="sugg-${key}">${suggHtml(key, dr[key + 'Q'] || '', other)}</div>
+    ${geo ? '' : `<div class="place-tools">${TK.gmaps && (TK.gmaps.status === 'failed' || TK.gmaps.status === 'off') ? '' : `<button type="button" class="btn sm secondary" data-act="pinPlace" data-arg="${key}">${icon('pin', 16)}لەسەر نەخشە</button>`}<button type="button" class="btn sm secondary" data-act="herePlace" data-arg="${key}">${icon('navigate', 16)}شوێنی ئێستام</button></div>`}`;
   }
   function suggHtml(key, q, exclude) {
     const list = TK.searchPlaces(q, exclude);
@@ -871,11 +898,12 @@
     let html = list.map((p) => `<button type="button" data-act="pickPlace" data-arg="${key}|${p.id}">${icon(TK.placeIcon(p.kind), 18, 'var(--muted)')}<span class="grow">${mark(p.name)}</span></button>`).join('');
     if (qq.length >= 2 && !list.some((p) => p.name === qq)) {
       html += `<button type="button" data-act="pickPlace" data-arg="${key}|c:${esc(qq)}">${icon('pin', 18, 'var(--brand)')}<span class="grow">بەکارهێنانی «${esc(qq)}»</span></button>`;
+      if (TK.gmaps && TK.gmaps.status !== 'failed' && TK.gmaps.status !== 'off') html += `<button type="button" data-act="pinPlace" data-arg="${key}">${icon('search', 18, 'var(--brand)')}<span class="grow">گەڕانی «${esc(qq)}» لەسەر نەخشە</span></button>`;
     }
     return html;
   }
   function step2(dr) {
-    const km = dr.fromId && dr.toId ? TK.distance(dr.fromId, dr.toId) : 0;
+    const km = dr.fromId && dr.toId ? TK.distance(dr.fromId, dr.toId, dr.fromGeo, dr.toGeo) : 0;
     return `
       <div class="card col">
         <div class="field"><label>${icon('pin', 14, 'var(--success)')} لە کوێوە (شوێنی سوار بوون)</label>${placeField('from', dr)}
@@ -987,6 +1015,7 @@
     clearPlace(key) {
       U.draft[key + 'Id'] = '';
       U.draft[key + 'Q'] = '';
+      U.draft[key + 'Geo'] = null;
       TK.render();
       setTimeout(() => {
         const el = document.getElementById('q-' + key);
@@ -995,6 +1024,14 @@
     },
     dNote(v, el) {
       U.draft[el.getAttribute('data-arg')] = v;
+    },
+    /** دیاریکردنی شوێنی ورد: گەڕان یان دەرزی لەسەر نەخشە */
+    pinPlace(key) {
+      return pinPlaceWith(key, false);
+    },
+    /** شوێنی ئێستای مۆبایل (لەسەر نەخشە پشتڕاست دەکرێتەوە) */
+    herePlace(key) {
+      return pinPlaceWith(key, true);
     },
     dTime(v, el) {
       U.draft[el.getAttribute('data-arg')] = v || U.draft[el.getAttribute('data-arg')];
@@ -1452,6 +1489,8 @@
       step: 3, memberIds: x.memberIds.slice(), mode: x.mode, rideType: x.rideType === 'private' ? 'private' : 'shared', womanOnly: x.womanOnly,
       fromId: findId(x.from), toId: findId(x.to), go: x.go || '07:30', dir: x.go && x.back ? 'both' : x.go ? 'go' : 'back', backTime: x.back || '14:00', days: x.days.slice(),
       note: 'بۆ گۆڕینی شۆفێر', replacesSub: x.id,
+      // هەمان شوێنی وردی بەژدارییە کۆنەکە (نەک شوێنی ماڵ)
+      fromGeo: x.fromGeo || null, toGeo: x.toGeo || null,
     });
     TK.closeSheet();
     TK.go('new');

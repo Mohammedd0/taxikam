@@ -108,8 +108,8 @@
       ${fld('r-areas', 'ناوچەکانی کار', r.workAreas, { ph: 'بۆ نموونە: ئازادی، ئیسکان، ناوەندی شار' })}
       <div class="card row"><div class="grow"><b>شۆفێری منداڵان</b><div class="xs muted">دەتوانیت گەشتی منداڵان وەربگریت</div></div>${ui.toggle('regToggle', !!r.kidsDriver, 'kidsDriver')}</div>
       <div class="card row"><div class="grow"><b>کورسیی منداڵم هەیە</b><div class="xs muted">بۆ منداڵی بچووک</div></div>${ui.toggle('regToggle', !!r.childSeat, 'childSeat')}</div>
-      ${sel1('r-pay', 'شێوازی وەرگرتنی موچە', r.payMethod, [['fib', 'FIB'], ['fastpay', 'FastPay'], ['cash', 'کاش']])}
-      ${fld('r-payacc', 'ژمارەی حیساب (FIB یان FastPay)', r.payAccount, { ltr: true })}`,
+      ${sel1('r-pay', 'شێوازی وەرگرتنی موچە', r.payMethod, TK.payMethods().filter((m) => m.on !== false).map((m) => [m.id, m.name]))}
+      ${fld('r-payacc', 'ژمارەی حیساب (ئەگەر کاش نییە)', r.payAccount, { ltr: true })}`,
   };
   /** خوێندنەوەی خانەکانی شاشە بۆ ناو draft */
   function collect(r) {
@@ -370,7 +370,27 @@
   const meId = () => S().driver.meId;
   const cityName = () => (TK.city((sel.me() || {}).city) || {}).name || 'هەولێر';
   /** کردنەوەی Google Maps بۆ ڕێنمایی ڕێگا بۆ وێستگەیەک */
-  const mapsUrl = (place) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place + '، ' + cityName())}`;
+  /** ڕێنمایی ڕێگا بۆ وێستگەیەک: Google Maps یان Waze (بە شوێنی ورد ئەگەر دیاری کرابێت) */
+  acts.nav = (arg) => {
+    const [id, stopId] = String(arg).split('|');
+    const rv = sel.run(id);
+    const st = rv && rv.stops.find((x) => x.id === stopId);
+    if (!st) return;
+    TK.navSheet(TK.stopGeo(rv.lead, st), st.place, cityName());
+  };
+  /** دۆخی GPS لەسەر نەخشەی گەشت (maps.js نوێی دەکاتەوە) */
+  const gpsTag = () => '<span class="live-dot"></span><span data-gps-tag>سەرنشینەکان دەیبینن</span>';
+  /** ئەگەر GPS کار ناکات، ڕوونکردنەوە */
+  function gpsCard() {
+    const g = TK.gpsState ? TK.gpsState() : 'ok';
+    if (g === 'denied') return `<div class="card danger col tight"><b>ڕێگە بە شوێن (Location) نەدراوە</b><span class="sm">سەرنشینەکان ئۆتۆمبێلەکەت لەسەر نەخشە نابینن. لە ڕێکخستنەکانی مۆبایل ڕێگە بە شوێن بدە بۆ وێبگەڕەکە، پاشان دووبارە هەوڵ بدەرەوە.</span><button class="btn sm secondary" data-act="retryGps">دووبارە هەوڵدانەوە</button></div>`;
+    if (g === 'insecure') return `<div class="card note sm">شوێنی GPS تەنها لەسەر ناونیشانی https کار دەکات.</div>`;
+    return '';
+  }
+  acts.retryGps = () => {
+    TK.retryGps && TK.retryGps();
+    setTimeout(() => TK.render(), 1500);
+  };
   const num = (n, cls = '') => `<span class="num ${cls}">${n}</span>`;
   const KIND = { pickup: 'سوارکردن', dropoff: 'دابەزاندن' };
   /** کرداری داهاتووی گەشتێک بۆ دوگمە گەورەکە */
@@ -429,7 +449,7 @@
         <div class="sm">${KIND[st.kind]}ی <b>${esc(st.riders)}</b>، ${fmt.clock(st.time)}</div>
       </div></div>
       ${st.kind === 'pickup' ? notesOf(st).map((n) => `<div class="sm quote">${icon('doc', 14, 'var(--brand)')} ${esc(n)}</div>`).join('') : ''}
-      <div class="row" style="gap:8px"><a class="btn secondary grow" href="${mapsUrl(st.place)}" target="_blank" rel="noopener">${icon('navigate', 18, 'currentColor', 2.2)}ڕێنمایی ڕێگا</a>${st.kind === 'pickup' ? owners.map(contactBtns).join('') : ''}</div>
+      <div class="row" style="gap:8px"><button class="btn secondary grow" data-act="nav" data-arg="${rv.id}|${st.id}">${icon('navigate', 18, 'currentColor', 2.2)}ڕێنمایی ڕێگا</button>${st.kind === 'pickup' ? owners.map(contactBtns).join('') : ''}</div>
     </div>`;
   }
   /** لیستی وێستگەکان بە ژمارە */
@@ -469,7 +489,7 @@
         <div class="htm"><small>${rv.status === 'active' ? 'کاتی ئەم وێستگەیە' : 'کاتی سوارکردن'}</small><div><b>${fmt.clockBare(rv.status === 'active' ? st.time : rv.time)}</b> ${fmt.period(rv.status === 'active' ? st.time : rv.time)}</div></div>
       </div>
       <div class="hchips"><span class="hchip">${icon('user', 16)}${rv.people} سەرنشین</span><span class="hchip">${icon('pin', 16)}${rv.stops.length} وێستگە</span>${chip}</div>
-      ${rv.status === 'active' ? ui.map(rv.lead, { tag: '<span class="live-dot"></span>سەرنشینەکان دەیبینن' }) : '<div class="hsep"></div>'}
+      ${rv.status === 'active' ? ui.map(rv.lead, { tag: gpsTag() }) + gpsCard() : '<div class="hsep"></div>'}
       <div class="htl">
         <div class="htl-row"><span class="htl-n">${idx + 1}</span><div class="grow">
           <div class="htl-k">${KIND[st.kind]} · ${lbl}${a && a.kind === 'board' ? ' · لە بەردەم دەرگایت' : ''}</div>
@@ -482,7 +502,7 @@
           <div class="htl-p2">${esc(last.place)}</div>
         </div></div>` : ''}
       </div>
-      <div class="hacts"><a class="hnav" href="${mapsUrl(st.place)}" target="_blank" rel="noopener">${icon('navigate', 20, 'currentColor', 2.2)}ڕێنمایی ڕێگا</a>${owners.map((o) => `<button class="hsq" data-go="chat/${encodeURIComponent(o)}" aria-label="نامە">${icon('chat', 22)}</button>${sel.peerPhone(o) ? `<a class="hsq" href="tel:0${esc(sel.peerPhone(o))}" aria-label="پەیوەندی">${icon('phone', 22)}</a>` : ''}`).join('')}</div>
+      <div class="hacts"><button class="hnav" data-act="nav" data-arg="${rv.id}|${st.id}">${icon('navigate', 20, 'currentColor', 2.2)}ڕێنمایی ڕێگا</button>${owners.map((o) => `<button class="hsq" data-go="chat/${encodeURIComponent(o)}" aria-label="نامە">${icon('chat', 22)}</button>${sel.peerPhone(o) ? `<a class="hsq" href="tel:0${esc(sel.peerPhone(o))}" aria-label="پەیوەندی">${icon('phone', 22)}</a>` : ''}`).join('')}</div>
       ${bigButton(rv)}
       ${rv.stops.length > 2 ? `<button class="btn ghost block sm" data-go="trip/${rv.id}">هەموو وێستگەکان (${rv.stops.length})</button>` : ''}
     </div>`;
@@ -642,7 +662,7 @@
       return page(`
         ${ui.header(rv.title, { back: 'today', sub: `${fmt.clock(rv.time)}، ${rv.people} کەس${rv.pooled ? '، هاوبەش' : ''}` })}
         ${top}
-        ${rv.status === 'active' || rv.status === 'scheduled' ? ui.map(rv.lead, { tag: rv.status === 'active' ? '<span class="live-dot"></span>سەرنشینەکان دەیبینن' : '' }) : ''}
+        ${rv.status === 'active' || rv.status === 'scheduled' ? ui.map(rv.lead, { tag: rv.status === 'active' ? gpsTag() : '' }) + (mineRun && rv.status === 'active' ? gpsCard() : '') : ''}
         ${mineRun && (rv.status === 'active' || rv.status === 'scheduled') ? nowPanel(rv) + bigButton(rv) : ''}
         <div class="card col"><div class="h3">وێستگەکان</div>${stopList(rv, mineRun)}</div>
         ${rv.skipped.length && rv.status !== 'skipped' ? `<div class="card note sm col tight"><b>ئەمڕۆ نایەن</b>${rv.skipped.map((t) => `<span>${esc((subById(t.subId) || {}).riderNames || t.title)}${t.skipReason ? '، ' + esc(t.skipReason) : ''}</span>`).join('')}</div>` : ''}
@@ -1098,7 +1118,8 @@
             <div class="req-route big"><span>${esc(r.from)}</span>${icon('forward', 22, 'var(--brand)', 2.4)}<span>${esc(r.to)}</span></div>
             <div class="row sm">${icon('clock', 18, 'var(--muted)')}<b>${reqTimes(r)}</b></div>
             <div class="row sm">${icon('calendar', 18, 'var(--muted)')}<span>${fmt.days(r.days)}${r.startDate ? `، لە ${fmt.day(r.startDate)}ەوە` : ''}</span></div>
-            <div class="row sm">${icon('users', 18, 'var(--muted)')}<span>${r.riders} کەس، ${r.km} کم</span></div>
+            <div class="row sm">${icon('users', 18, 'var(--muted)')}<span>${r.riders} کەس</span></div>
+            <div class="row sm">${icon('route', 18, 'var(--muted)')}<span>دووری نزیکەی ${r.km} کم${r.go && r.back ? `، ڕۆژانە ${Math.round(r.km * 2)} کم (چوون و هاتنەوە)` : ''}</span></div>
             ${ui.requestTags(r)}
             ${r.note ? `<div class="sm quote">«${esc(r.note)}»</div>` : ''}
             ${fitLine(r)}
@@ -1108,7 +1129,7 @@
             : `<div class="card col center" style="gap:6px">
               <div class="sm muted">نرخی مانگانە</div>
               <div class="stepper"><button data-act="offStep" data-arg="5000" ${o.price >= b.max ? 'disabled' : ''}>+</button><div class="val brand">${fmt.money(o.price)}</div><button data-act="offStep" data-arg="-5000" ${o.price <= b.min ? 'disabled' : ''}>−</button></div>
-              <div class="xs muted">${o.price === r.price ? 'نرخی پێشنیارکراوی سیستەم' : `پێشنیارکراو: ${fmt.money(r.price)}`}، بۆ تۆ پاش کۆمیسیۆن <b class="ok">${fmt.money(net)}</b></div>
+              <div class="xs muted">${o.price === r.price ? 'نرخی پێشنیارکراو بە پێی دووری و ڕۆژەکان' : `پێشنیارکراو بە پێی دووری: ${fmt.money(r.price)}`}، بۆ تۆ پاش کۆمیسیۆن <b class="ok">${fmt.money(net)}</b></div>
             </div>`}
           <button class="btn ghost block" data-go="chat/${encodeURIComponent(r.owner)}">${icon('chat', 18)}پرسیار لە سەرنشین</button>
           ${can ? `<div class="callfoot">${me.online ? '' : `<div class="row center sm muted" style="justify-content:center;gap:8px">بۆ قبووڵکردن «ئامادەی کارم» چالاک بکە ${ui.toggle('online', false)}</div>`}
@@ -1255,6 +1276,8 @@
           <div class="xs" style="opacity:.8">ڕۆژی موچە: ${payDay}، ${po.subs} سەرنشین</div>
         </div>
         <div class="card col tight">
+          ${po.lines.map((l) => `<div class="row between sm"><span class="grow" style="min-width:0"><span class="ellipsis" style="display:block">${esc(l.riderNames)}</span>${l.note ? `<span class="xs muted">${esc(l.note)}، نرخی تەواو ${fmt.group(l.full)}</span>` : ''}</span><b>${fmt.group(l.amount)}</b></div>`).join('')}
+          ${po.lines.length ? '<div class="hr"></div>' : ''}
           <div class="row between"><span class="muted">کۆی بەژدارییەکان</span><b>${fmt.money(po.gross)}</b></div>
           <div class="row between"><span class="muted">کۆمیسیۆنی تەکسیەکەم (${Math.round(c.commission * 100)}٪)</span><b class="neg">${fmt.money(po.commission)}</b></div>
           ${po.entries.map((x) => `<div class="row between"><span class="muted">${(LEDGER_LABEL[x.type] || ['', ''])[0]}، ${esc(x.note)}</span><b class="${x.amount < 0 ? 'neg' : 'ok'}">${fmt.money(Math.abs(x.amount))}</b></div>`).join('')}
@@ -1263,6 +1286,8 @@
           <div class="xs muted"><span class="neg">سوور</span> = لێی دەبڕدرێت، <span class="ok">سەوز</span> = بۆت زیاد دەکرێت</div>
           <div class="row between"><b>بۆ تۆ</b><b class="brand">${fmt.money(po.net)}</b></div>
         </div>
+        <div class="xs muted">بڕی هەر سەرنشینێک بە پێی ئەو ڕۆژانەیە کە لەم مانگەدا بەژدارییەکەی چالاک بووە (ڕۆژە ڕاگیراوەکان حیساب ناکرێن).</div>
+        <div class="card row">${icon('wallet', 22, 'var(--brand)')}<div class="grow"><b>شێوازی وەرگرتنی موچە</b><div class="sm">${esc(TK.payName(sel.me().payMethod))}${sel.me().payAccount ? ` <span class="latin">${esc(sel.me().payAccount)}</span>` : ''}</div></div><button class="btn sm secondary" data-act="payForm">گۆڕین</button></div>
         <div class="card col">
           <div class="row">${icon('trophy', 22, 'var(--amber)')}<b class="grow">پاداشتی مانگانە</b><b class="brand">${fmt.group(c.bonusAmount)}</b></div>
           <div class="progress"><i style="width:${Math.min(100, (po.bonusDays / c.bonusDays) * 100)}%"></i></div>
@@ -1275,6 +1300,37 @@
         ${history.length ? `<div class="list">${history.map((h) => `<div class="item"><div class="ico-box ok">${icon('wallet', 18, 'var(--ok-text)')}</div><b class="grow">${fmt.date(h.at)}</b><b>${fmt.money(h.amount)}</b></div>`).join('')}</div>` : '<div class="sm muted">هێشتا هیچ موچەیەک نەدراوە</div>'}`, 'more');
     },
   });
+
+  /** گۆڕینی شێوازی وەرگرتنی موچە */
+  acts.payForm = () => {
+    const d = sel.me();
+    U.pay = { method: d.payMethod || (TK.payMethods().find((m) => m.on !== false) || {}).id, err: '' };
+    TK.sheet(() => {
+      const m = TK.payMethod(U.pay.method) || {};
+      return `<div class="h2">شێوازی وەرگرتنی موچە</div>
+        <div class="list">${TK.payMethods().filter((x) => x.on !== false || x.id === d.payMethod).map((x) => `<button type="button" class="item tap" data-act="payPick" data-arg="${esc(x.id)}" style="text-align:right"><span class="radio ${U.pay.method === x.id ? 'on' : ''}"></span><b class="grow">${esc(x.name)}</b></button>`).join('')}</div>
+        ${m.account !== false ? `<div class="field"><label for="pay-acc">ژمارەی حیساب یان ژمارەی مۆبایلی ${esc(m.name || '')}</label><input class="input ltr latin" id="pay-acc" inputmode="numeric" value="${esc(U.pay.method === d.payMethod ? d.payAccount || '' : '')}"></div>` : ''}
+        <div class="card note sm">بۆ پاراستنی پارەکەت، تیمی تەکسیەکەم ئاگادار دەکرێتەوە و پێش ناردنی موچە لەگەڵت پشتڕاستی دەکاتەوە.</div>
+        ${U.pay.err ? `<div class="err">${esc(U.pay.err)}</div>` : ''}
+        <button class="btn block" data-act="paySave">پاشەکەوت</button>
+        <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`;
+    });
+  };
+  acts.payPick = (id) => {
+    U.pay.method = id;
+    U.pay.err = '';
+    TK.sheet.refresh();
+  };
+  acts.paySave = () => {
+    const el = document.getElementById('pay-acc');
+    const err = actions.setPayout(U.pay.method, el ? el.value : '');
+    if (err) {
+      U.pay.err = err;
+      return TK.sheet.refresh();
+    }
+    TK.closeSheet();
+    TK.toast('پاشەکەوت کرا');
+  };
 
   /* =========================================================
    * هەواڵ و ئاگادارکردنەوە
@@ -1423,12 +1479,27 @@
       const st = S().settings;
       return page(`
         ${ui.header('ڕێکخستنەکان', { back: 'more' })}
+        <div class="card row">${icon('bell', 22, 'var(--brand)')}<div class="grow"><b>ئاگادارکردنەوە لەسەر مۆبایل</b><div class="xs muted">${notifyText()}</div></div><button class="btn sm secondary" data-act="askNotify">${TK.notifyStatus() === 'granted' ? 'چالاکە' : 'چالاککردن'}</button></div>
         <div class="card row">${icon('volume', 22, 'var(--brand)')}<div class="grow"><b>دەنگ بۆ داواکاری و نامەی نوێ</b><div class="xs muted">کاتێک ئەپەکە کراوەیە</div></div>${ui.toggle('soundToggle', st.dSound !== false)}</div>
         ${st.dSound !== false ? `<button class="btn secondary block" data-act="testSound">${icon('play', 16, 'currentColor', 2, 'currentColor')}تاقیکردنەوەی دەنگ</button>` : ''}
         ${ui.settingsCard()}
         <button class="btn secondary block" data-act="changePass">${icon('lock', 18)}گۆڕینی وشەی نهێنی</button>`, 'more');
     },
   });
+  function notifyText() {
+    const st = TK.notifyStatus();
+    if (st === 'granted') return 'داواکاری نوێ و نامە کاتێک لە ئەپەکە نیت لەسەر شاشە دەردەکەون';
+    if (st === 'denied') return 'ڕێگەپێدان ڕەتکرایەوە. لە ڕێکخستنی مۆبایل بیگۆڕە';
+    if (st === 'insecure' || st === 'unsupported') return 'ئەم مۆبایلە ئێستا پشتگیری ناکات. ئەپەکە بخە سەر شاشەی سەرەکی (Add to Home Screen)';
+    return 'بۆ ئەوەی داواکاری و نامەی نوێ لەدەست نەدەیت';
+  }
+  acts.askNotify = () => {
+    TK.askNotify().then((r) => {
+      const msg = { granted: 'ئاگادارکردنەوە چالاک کرا', denied: 'ڕێگەپێدان ڕەتکرایەوە', insecure: 'ئێستا تەنها ئاگادارکردنەوەی ناو ئەپ کار دەکات', unsupported: 'ئەم وێبگەڕە پشتگیری ناکات. ئەپەکە بخە سەر شاشەی سەرەکی' }[r] || '';
+      if (msg) TK.toast(msg);
+      TK.render();
+    });
+  };
   acts.changePass = () => {
     U.cpErr = '';
     TK.sheet(() => `<div class="h2">گۆڕینی وشەی نهێنی</div>

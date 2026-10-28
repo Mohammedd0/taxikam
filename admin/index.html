@@ -2,34 +2,23 @@
 <html lang="ckb" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#13254A">
-  <title>تەکسیەکەم</title>
-  <link rel="icon" type="image/png" href="passenger/icon-192.png">
-  <link rel="preload" href="shared/fonts/NotoNaskhArabic.woff" as="font" type="font/woff" crossorigin>
-  <link rel="stylesheet" href="shared/core.css?v=24">
-  <style>
-    body { background: var(--navy); }
-    .wrap { max-width: 440px; margin: 0 auto; min-height: 100vh; padding: 40px 18px; display: flex; flex-direction: column; gap: 14px; justify-content: center; color: #fff; }
-    .pick { display: flex; align-items: center; gap: 14px; background: #fff; color: var(--navy); border-radius: 22px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
-    .pick img { width: 60px; height: 60px; border-radius: 16px; }
-    .pick b { font-size: 1.15rem; }
-  </style>
+  <meta name="robots" content="noindex">
+  <title>پانێڵی تەکسیەکەم</title>
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="../shared/fonts/NotoNaskhArabic.woff" as="font" type="font/woff" crossorigin>
+  <link rel="stylesheet" href="../shared/core.css?v=24">
+  <link rel="stylesheet" href="admin.css?v=24">
 </head>
 <body>
-  <div class="wrap">
-    <div class="col center" style="align-items:center;gap:6px;margin-bottom:10px">
-      <img src="shared/logo.png" alt="" style="width:96px;height:96px;border-radius:26px;background:#fff;padding:6px">
-      <div class="h1">تەکسیەکەم</div>
-      <div class="sm" style="opacity:.75">ئەپێک هەڵبژێرە</div>
-    </div>
-    <a class="pick" href="passenger/"><img src="passenger/icon-192.png" alt=""><div class="grow"><b>ئەپی سەرنشین</b><div class="sm muted">بەژداری، خێزان، چاودێری لایڤ</div></div></a>
-    <a class="pick" href="driver/"><img src="driver/icon-192.png" alt=""><div class="grow"><b>ئەپی شۆفێر</b><div class="sm muted">گەشتەکان، داواکاری، داهات</div></div></a>
-    <a class="pick" href="admin/"><img src="admin/icon-192.png" alt="" style="background:#13254A"><div class="grow"><b>پانێڵی بەڕێوەبردن</b><div class="sm muted">بۆ خاوەنی ئەپ: شۆفێر، دارایی، هەواڵ، یاساکان</div></div></a>
-    <div class="xs center" style="opacity:.7;margin-top:10px;line-height:1.9">
-      هەر سێ بەش بە Firebase بەستراونەتەوە.<br>
-      هەر مۆبایلێک دەتوانێت ئەپێکی جیا بەکاربهێنێت.
-    </div>
-  </div>
+  <div id="app" class="wide"></div>
+  <script src="../shared/firebase-config.js?v=24"></script>
+  <script src="../shared/core.js?v=24"></script>
+  <script src="../shared/maps.js?v=24"></script>
+  <script src="../shared/qrcode.js?v=24"></script>
+  <script src="app.js?v=24"></script>
+  <script type="module" src="../shared/cloud.js?v=24"></script>
 </body>
 </html>

@@ -56,9 +56,16 @@ service cloud.firestore {
     // بەشی تایبەتی شۆفێر (بەڵگەنامە، ناونیشان، موچە)
     match /drivers/{id} {
       allow read: if isAdmin() || (signedIn() && uid() == id);
-      allow create: if isAdmin() || (isDriver() && uid() == id);
-      allow update: if isAdmin() || (signedIn() && uid() == id);
+      // شۆفێر ناتوانێت پشتڕاستکردنەوەی بەڕێوەبەر بۆ شێوازی موچە (payAckFor) بنووسێت
+      allow create: if isAdmin() || (isDriver() && uid() == id && !('payAckFor' in request.resource.data) && !('payAckAt' in request.resource.data));
+      allow update: if isAdmin() || (signedIn() && uid() == id && !changed().hasAny(['payAckAt', 'payAckFor']));
       allow delete: if isAdmin();
+    }
+    // شوێنی زیندووی شۆفێر لە کاتی گەشتدا: تەنها سەرنشینانی ئەو گەشتە (_r) و بەڕێوەبەر دەیبینن
+    match /live/{id} {
+      allow read: if isAdmin() || inR();
+      allow create, update: if isDriver() && uid() == id && request.resource.data.d == uid() && request.resource.data._r.size() <= 12;
+      allow delete: if isAdmin() || (signedIn() && uid() == id);
     }
     // بەشی گشتی شۆفێر (ناو، ئۆتۆمبێل، هەڵسەنگاندن). شۆفێر خۆی ناتوانێت خۆی چالاک بکات
     match /dpub/{id} {

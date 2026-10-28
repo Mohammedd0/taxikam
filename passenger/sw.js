@@ -1,6 +1,6 @@
 // کارکردن بێ ئینتەرنێت: سەرەتا لە تۆڕ، ئەگەر نەبوو لە بیرگە
-const CACHE = 'taxikam-passenger-v23';
-const FILES = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', '../shared/core.css', '../shared/core.js', '../shared/firebase-config.js', '../shared/cloud.js', '../shared/logo.png', '../shared/fonts/NotoNaskhArabic.woff'];
+const CACHE = 'taxikam-passenger-v24';
+const FILES = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', '../shared/core.css', '../shared/core.js', '../shared/maps.js', '../shared/firebase-config.js', '../shared/cloud.js', '../shared/logo.png', '../shared/fonts/NotoNaskhArabic.woff'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
@@ -9,6 +9,9 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // نەخشەی Google و شتی دەرەوە ڕاستەوخۆ لە تۆڕ (بێ بیرگە)
+  const same = new URL(e.request.url).origin === location.origin;
+  if (!same && !/gstatic\.com\/firebasejs\//.test(e.request.url)) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

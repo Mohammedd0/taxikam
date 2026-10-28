@@ -933,3 +933,33 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 .btn.loading { opacity: .65; pointer-events: none; position: relative; }
 .btn.loading::after { content: ''; width: 16px; height: 16px; margin-inline-start: 8px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; display: inline-block; vertical-align: middle; animation: tkspin .7s linear infinite; }
 @keyframes tkspin { to { transform: rotate(360deg); } }
+
+/* ---------- نەخشەی ڕاستەقینە (Google Maps) ---------- */
+.map .gm { width: 100%; height: 260px; }
+.map.tall .gm { height: 340px; }
+.map.gm-on { background: #e9edf3; }
+[data-theme="dark"] .map.gm-on { background: #14213d; }
+.map .map-tag { z-index: 2; }
+.gm-mk { position: absolute; transform: translate(-50%, -50%); pointer-events: none; }
+.gm-stop {
+  display: flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 4px;
+  border-radius: 12px; background: #fff; border: 3px solid #13254A; color: #13254A; font-family: inherit; font-weight: 700; font-size: 12px; line-height: 1; box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+}
+.gm-stop.pickup:empty { width: 18px; min-width: 18px; height: 18px; border-color: #16A34A; }
+.gm-stop.mine { background: #F5A623; border-color: #fff; color: #0B1733; min-width: 28px; height: 28px; border-radius: 15px; font-size: 13px; }
+.gm-stop.mine:empty { width: 24px; min-width: 24px; height: 24px; }
+.gm-stop.done { background: #22C55E; border-color: #fff; color: #fff; }
+.gm-car { position: relative; display: block; width: 36px; height: 36px; }
+.gm-car i { position: absolute; inset: -9px; border-radius: 50%; background: rgba(245, 166, 35, .28); animation: gmPulse 1.8s ease-out infinite; }
+.gm-car b { position: absolute; inset: 0; border-radius: 50%; background: #13254A; border: 3px solid #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0, 0, 0, .35); }
+@keyframes gmPulse { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .gm-car i { animation: none; } }
+/* هەڵبژاردنی شوێن: دەرزی لە ناوەڕاستی نەخشەکە */
+.gm-pick { position: relative; height: 300px; border-radius: var(--r-md); overflow: hidden; background: var(--map-bg); }
+.gm-pick .gm { width: 100%; height: 100%; }
+.gm-pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); z-index: 2; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .35)); }
+.gm-here { position: absolute; left: 12px; bottom: 12px; z-index: 2; width: 44px; height: 44px; border-radius: 50%; background: var(--card); box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center; }
+.geo-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .82rem; }
+.geo-line .link { font-size: .82rem; }
+.place-tools { display: flex; gap: 8px; margin-top: 8px; }
+.place-tools .btn { flex: 1; }
