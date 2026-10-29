@@ -1017,3 +1017,79 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 .wc-coins { margin-inline-start: auto; flex: none; display: inline-flex; align-items: center; }
 .wc-coins i { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #F7B733, #C77A0A); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
 .wc-coins i + i { margin-inline-start: -12px; background: linear-gradient(135deg, #FDE68A, #E0B84F); opacity: .95; }
+
+
+/* کارتی بەژداری (شێوەی بلیت) */
+.tsub { border-radius: 28px; overflow: hidden; background: var(--card); border: 1px solid var(--line); box-shadow: 0 12px 35px rgba(15, 23, 42, .08); }
+.tsub.paused { opacity: .75; }
+.ts-top { background: linear-gradient(160deg, #13254A 0%, #0F1D3A 60%, #1B3266 100%); color: #fff; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.ts-head { display: flex; align-items: center; gap: 12px; }
+.ts-av, .ts-dav { position: relative; flex: none; width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.3rem; }
+.ts-av { background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .15); color: #F5A623; }
+.ts-ok { position: absolute; bottom: -5px; left: -5px; width: 22px; height: 22px; border-radius: 50%; background: #16A34A; border: 2.5px solid #fff; display: flex; align-items: center; justify-content: center; }
+.ts-name { font-weight: 900; font-size: 1.15rem; }
+.ts-place { display: flex; align-items: center; gap: 6px; font-size: .9rem; color: rgba(255, 255, 255, .8); margin-top: 3px; min-width: 0; }
+.ts-state { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 99px; font-weight: 700; font-size: .85rem; color: #34D399; background: rgba(16, 185, 129, .15); border: 1px solid rgba(52, 211, 153, .35); }
+.ts-state i { width: 8px; height: 8px; border-radius: 50%; background: #34D399; }
+.ts-state.off { color: #FCA5A5; background: rgba(239, 68, 68, .15); border-color: rgba(252, 165, 165, .35); }
+.ts-state.off i { background: #FCA5A5; }
+.ts-box { border-radius: 20px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .12); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.ts-times { display: flex; align-items: center; gap: 12px; }
+.ts-t { flex: 1; display: flex; align-items: center; gap: 10px; }
+.ts-t small { display: block; font-size: .75rem; color: rgba(255, 255, 255, .6); }
+.ts-t b { font-size: 1rem; }
+.ts-ti { flex: none; width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
+.ts-ti.go { background: rgba(245, 166, 35, .15); }
+.ts-ti.back { background: rgba(129, 140, 248, .18); }
+.ts-sep { width: 1px; align-self: stretch; background: rgba(255, 255, 255, .15); }
+.ts-more { border-top: 1px solid rgba(255, 255, 255, .12); padding-top: 12px; }
+.ts-more summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; font-size: .92rem; }
+.ts-more summary::-webkit-details-marker { display: none; }
+.ts-link { display: inline-flex; align-items: center; gap: 4px; color: #F5A623; font-weight: 700; font-size: .85rem; white-space: nowrap; }
+.ts-more[open] .ts-link svg { transform: rotate(180deg); }
+.ts-detail { margin-top: 10px; color: rgba(255, 255, 255, .85); }
+.ts-detail .muted { color: rgba(255, 255, 255, .6); }
+/* بڕینی بلیت: هێڵی خاڵخاڵ و دوو نیوە بازنە */
+.ts-cut { position: relative; height: 0; border-top: 2px dashed var(--line); margin: 0 20px; }
+.ts-cut::before, .ts-cut::after { content: ''; position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--bg); }
+.ts-cut::before { right: -32px; }
+.ts-cut::after { left: -32px; }
+.ts-bottom { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+.ts-ver { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 99px; font-size: .8rem; font-weight: 700; color: var(--ok-text); background: var(--ok-bg, rgba(16, 185, 129, .12)); border: 1px solid rgba(16, 185, 129, .3); }
+.ts-drv { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 20px; background: var(--bg); border: 1px solid var(--line); }
+.ts-dav { background: linear-gradient(145deg, #1E293B, #0B1733); color: #F5A623; overflow: visible; }
+.ts-dav img { width: 100%; height: 100%; object-fit: cover; border-radius: 18px; }
+.ts-dav.w { background: linear-gradient(145deg, #831843, #500724); }
+.ts-rate { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 8px; background: var(--note-bg); color: var(--brand); font-weight: 700; font-size: .78rem; flex: none; }
+.ts-price { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 18px; background: #FFFBEB; border: 1px solid #FDE68A; font-weight: 700; }
+.ts-price b { color: #B45309; font-size: 1.2rem; font-weight: 900; }
+.ts-price b small { font-size: .85rem; }
+.ts-pi { width: 36px; height: 36px; border-radius: 12px; background: #FEF3C7; display: flex; align-items: center; justify-content: center; }
+[data-theme="dark"] .ts-price { background: rgba(245, 166, 35, .1); border-color: rgba(245, 166, 35, .3); }
+[data-theme="dark"] .ts-price b { color: #FBBF24; }
+[data-theme="dark"] .ts-pi { background: rgba(245, 166, 35, .15); }
+.ts-acts { display: flex; gap: 8px; }
+.ts-acts .btn { flex: 1; min-height: 52px; border-radius: 18px; }
+.ts-chat { flex: none; width: 56px; height: 52px; border-radius: 18px; background: #13254A; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(19, 37, 74, .3); }
+/* دوگمەی گەڕان بەناو شۆفێرەکاندا */
+.sfind { display: flex; align-items: center; gap: 14px; width: 100%; text-align: right; padding: 16px; border-radius: 26px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(15, 23, 42, .06); }
+.sfind b { display: block; font-size: 1.05rem; }
+.sfind small { display: block; color: var(--muted); font-size: .82rem; margin-top: 2px; }
+.sf-ic { flex: none; width: 56px; height: 56px; border-radius: 18px; background: #13254A; display: flex; align-items: center; justify-content: center; }
+.sf-go { flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--chip); display: flex; align-items: center; justify-content: center; color: var(--muted); }
+
+/* بەشی سەرەوەی کارتی بەژداری: ڕووناک لە جیاتی تاریک */
+.ts-top { background: linear-gradient(160deg, #FFF7E6 0%, #FFFFFF 60%, #EEF4FF 100%); color: var(--text); }
+.ts-av { background: #FEF3C7; border-color: #FDE68A; color: #D97706; }
+.ts-place { color: var(--muted); }
+.ts-box { background: rgba(19, 37, 74, .04); border-color: var(--line); }
+.ts-t small { color: var(--muted); }
+.ts-sep { background: var(--line); }
+.ts-more { border-top-color: var(--line); }
+.ts-more summary svg { stroke: var(--muted); }
+.ts-link svg { stroke: currentColor; }
+.ts-detail { color: var(--text); }
+.ts-detail .muted { color: var(--muted); }
+.ts-state { color: #047857; background: rgba(16, 185, 129, .12); border-color: rgba(16, 185, 129, .3); }
+.ts-state i { background: #10B981; }
+.ts-link { color: #D97706; }

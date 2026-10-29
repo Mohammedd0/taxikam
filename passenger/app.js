@@ -1397,31 +1397,60 @@
         ${open.length ? `<div class="section-title"><div class="h3">داواکارییە کراوەکان</div><button class="link" data-go="requests">هەمووی</button></div>${open.map(reqCard).join('')}` : ''}
         <div class="section-title"><div class="h3">بەژدارییە چالاکەکان</div>${sel.mySubs().length ? `<span class="cntp">${sel.mySubs().length}</span>` : ''}</div>
         ${sel.mySubs().length ? sel.mySubs().map(subCard).join('') : ui.empty('calendar', 'هێشتا هیچ بەژدارییەکت نییە', 'شوێن و کات دیاری بکە و شۆفێرەکان نرخت بۆ دەنێرن', '<button class="btn" data-act="newSub">یەکەم بەژداری</button>')}
-        <button class="card row tap" style="text-align:right" data-go="drivers">${icon('search', 20)}<span class="grow bold">گەڕان بەناو شۆفێرەکاندا</span>${icon('forward', 18)}</button>`, 'subs');
+        <button class="sfind tap" data-go="drivers">
+          <span class="sf-ic">${icon('search', 24, '#F5A623', 2.4)}</span>
+          <span class="grow"><b>گەڕان بەناو شۆفێرەکاندا</b><small>دۆزینەوەی شۆفێری نوێ بەپێی گەڕەک و کاتەکەت</small></span>
+          <span class="sf-go">${icon('forward', 18)}</span>
+        </button>`, 'subs');
     },
   });
-  function subCard(sub) {
-    const d = sel.driver(sub.driverId);
+    function subCard(sub) {
+    const d = sel.driver(sub.driverId) || {};
     const names = sel.names(sub.memberIds);
     const paused = sub.status === 'paused';
-    return `<div class="card col" style="${paused ? 'opacity:.7' : ''}">
-      <div class="row">
-        <div class="row" style="gap:0">${sub.memberIds.slice(0, 3).map((id, i) => {
-          const m = sel.member(id) || {};
-          return `<span style="margin-left:${i ? -12 : 0}px;border:2px solid var(--card);border-radius:50%">${ui.avatar(m.initial || '?', m.kind === 'child' ? 'amber' : m.woman ? 'woman' : '', 38)}</span>`;
-        }).join('')}</div>
-        <div class="grow"><b>${esc(fmt.names(names))}</b><div class="xs muted">${esc(sub.to)}</div></div>
-        ${paused ? ui.badge('ڕاگیراوە', 'danger') : ui.badge('چالاک', 'ok')}
+    const lead = sel.member(sub.memberIds[0]) || {};
+    const plate = String(d.plate || '').replace(/[٠-٩]/g, (x) => '٠١٢٣٤٥٦٧٨٩'.indexOf(x));
+    const src = d.photo ? TK.img(d.photo) : '';
+    return `<div class="tsub ${paused ? 'paused' : ''}">
+      <div class="ts-top">
+        <div class="ts-head">
+          <div class="ts-av">${esc(lead.initial || (names[0] || '?').slice(0, 1))}<span class="ts-ok">${icon('check', 11, '#fff', 3.2)}</span></div>
+          <div class="grow" style="min-width:0">
+            <div class="ts-name">${esc(fmt.names(names))}</div>
+            <div class="ts-place">${icon('pin', 16, '#F5A623', 2.2)}<span class="ellipsis">${esc(String(sub.from || '').split('، ')[0])}</span></div>
+          </div>
+          <span class="ts-state ${paused ? 'off' : ''}"><i></i>${paused ? 'ڕاگیراوە' : 'چالاک'}</span>
+        </div>
+        <div class="ts-box">
+          <div class="ts-times">
+            ${sub.go ? `<div class="ts-t"><span class="ts-ti go">${icon('sun', 20, '#F5A623', 2)}</span><span><small>کاتی چوون</small><b>${fmt.clock(sub.go)}</b></span></div>` : ''}
+            ${sub.go && sub.back ? '<span class="ts-sep"></span>' : ''}
+            ${sub.back ? `<div class="ts-t"><span class="ts-ti back">${icon('route', 20, '#A5B4FC', 2)}</span><span><small>کاتی هاتنەوە</small><b>${fmt.clock(sub.back)}</b></span></div>` : ''}
+          </div>
+          <details class="ts-more">
+            <summary><span class="row" style="gap:8px">${icon('calendar', 18, 'rgba(255,255,255,.7)')}<b>${fmt.days(sub.days)}</b></span><span class="ts-link">وردەکاری زیاتر ${icon('down', 16, 'currentColor', 2.4)}</span></summary>
+            <div class="ts-detail">${ui.requestSummary(sub)}</div>
+          </details>
+        </div>
       </div>
-      <div class="col tight">
-        <div class="row sm">${icon('clock', 16, 'var(--muted)')}<span class="grow">${fmt.schedule(sub)}</span></div>
-        <div class="row sm muted">${icon('calendar', 16)}<span class="grow">${fmt.days(sub.days)}</span></div>
+      <div class="ts-cut"></div>
+      <div class="ts-bottom">
+        <div class="row between"><span class="xs muted">شۆفێری دیاریکراو</span>${d.status === 'active' ? `<span class="ts-ver">${icon('shield', 14, 'currentColor', 2.2)}پشکنراو</span>` : ''}</div>
+        <div class="ts-drv tap" data-go="driver/${d.id}">
+          <div class="ts-dav ${d.woman ? 'w' : ''}">${src ? `<img src="${src}" alt="">` : esc((d.name || '?').slice(0, 1))}${d.status === 'active' ? `<span class="ts-ok">${icon('check', 11, '#fff', 3.2)}</span>` : ''}</div>
+          <div class="grow" style="min-width:0">
+            <div class="row" style="gap:8px"><b class="ellipsis">${esc(d.name || '')}</b><span class="ts-rate">${icon('star', 13, 'var(--amber)', 1.5, 'var(--amber)')}${d.reviews ? d.rating : '٠.٠'}</span></div>
+            <div class="xs muted ellipsis">${esc([`${d.carMake || ''} ${d.carModel || ''}`.trim() || d.car, d.carColor].filter(Boolean).join(' · '))}</div>
+          </div>
+          <span class="mplate sm" data-raw><span class="mp-s">IRQ<br>KR</span><span class="mp-n latin">${esc(plate)}</span></span>
+        </div>
+        <div class="ts-price"><span class="row" style="gap:10px"><span class="ts-pi">${icon('wallet', 18, '#D97706', 2)}</span>نرخی مانگانە</span><b>${fmt.group(sub.price)} <small>دینار</small></b></div>
+        <div class="ts-acts">
+          <button class="btn secondary" data-act="pauseSub" data-arg="${sub.id}">${icon(paused ? 'play' : 'clock', 18)}${paused ? 'دەستپێکردنەوە' : 'ڕاگرتنی کاتی'}</button>
+          <button class="btn secondary" data-act="editSub" data-arg="${sub.id}">${icon('edit', 18)}گۆڕانکاری</button>
+          <button class="ts-chat" data-go="chat/${d.id}" aria-label="نامە">${icon('chat', 22, '#F5A623', 2.2)}</button>
+        </div>
       </div>
-      <details class="more"><summary class="link">وردەکاری زیاتر</summary><div style="margin-top:8px">${ui.requestSummary(sub)}</div></details>
-      <div class="hr"></div>
-      ${dHead(d, { go: `driver/${d.id}` })}
-      <div class="row between sm"><span class="muted">نرخی مانگانە</span><b class="brand">${fmt.money(sub.price)}</b></div>
-      <div class="row" style="gap:8px"><button class="btn sm secondary grow" data-act="pauseSub" data-arg="${sub.id}">${icon(paused ? 'play' : 'clock', 16)}${paused ? 'دەستپێکردنەوە' : 'ڕاگرتنی کاتی'}</button><button class="btn sm secondary grow" data-act="editSub" data-arg="${sub.id}">${icon('edit', 16)}گۆڕانکاری</button><button class="btn sm secondary" data-go="chat/${d.id}" aria-label="نامە">${icon('chat', 16)}</button></div>
     </div>`;
   }
   acts.pauseSub = async (id) => {
