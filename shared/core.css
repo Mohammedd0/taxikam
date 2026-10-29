@@ -1093,3 +1093,32 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 .ts-state { color: #047857; background: rgba(16, 185, 129, .12); border-color: rgba(16, 185, 129, .3); }
 .ts-state i { background: #10B981; }
 .ts-link { color: #D97706; }
+
+/* دۆخی تاریک: سەرەوەی کارتی بەژداری تاریک دەبێت */
+[data-theme="dark"] .ts-top { background: linear-gradient(160deg, #1B2A4A 0%, #14213D 60%, #1F3460 100%); color: #fff; }
+[data-theme="dark"] .ts-av { background: rgba(245, 166, 35, .15); border-color: rgba(245, 166, 35, .35); color: #FBBF24; }
+[data-theme="dark"] .ts-name { color: #fff; }
+[data-theme="dark"] .ts-place { color: rgba(255, 255, 255, .75); }
+[data-theme="dark"] .ts-box { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .12); }
+[data-theme="dark"] .ts-t small { color: rgba(255, 255, 255, .6); }
+[data-theme="dark"] .ts-t b { color: #fff; }
+[data-theme="dark"] .ts-sep { background: rgba(255, 255, 255, .15); }
+[data-theme="dark"] .ts-more { border-top-color: rgba(255, 255, 255, .12); }
+[data-theme="dark"] .ts-more summary { color: #fff; }
+[data-theme="dark"] .ts-more summary svg { stroke: rgba(255, 255, 255, .7); }
+[data-theme="dark"] .ts-detail { color: rgba(255, 255, 255, .85); }
+[data-theme="dark"] .ts-state { color: #34D399; background: rgba(16, 185, 129, .15); border-color: rgba(52, 211, 153, .35); }
+[data-theme="dark"] .ts-link { color: #FBBF24; }
+/* دوگمەکانی خوارەوە لە دۆخی تاریک کەمتر بریقەدار بن */
+[data-theme="dark"] .ts-acts .btn { background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); }
+[data-theme="dark"] .ts-chat, [data-theme="dark"] .sf-ic { background: rgba(245, 166, 35, .15); }
+[data-theme="dark"] .ts-cut::before, [data-theme="dark"] .ts-cut::after { background: var(--bg); }
+
+/* نرخی مانگانە لە دۆخی ڕووناک: لە زەردی کاڵەوە بەرەو سپی */
+:root:not([data-theme="dark"]) .ts-price {
+  background: linear-gradient(270deg, #FEF3C7 0%, #FFF9E8 45%, #FFFFFF 100%);
+  border: 1px solid #FCE7A6;
+  box-shadow: 0 4px 14px rgba(245, 166, 35, .08);
+}
+:root:not([data-theme="dark"]) .ts-pi { background: #FDE9B0; }
+:root:not([data-theme="dark"]) .ts-price b { color: #B45309; }
