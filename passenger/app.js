@@ -1,4 +1,4 @@
-/* تەکسیەکەم، ئەپی سەرنشین */
+/* یەکسا، ئەپی سەرنشین */
 (function () {
   'use strict';
   // ستایلی مۆدێرنی هاوبەش لەگەڵ ئەپی شۆفێر (drv) و ڕێکخستنی تایبەتی سەرنشین (pas)
@@ -34,7 +34,7 @@
    * سپلاش، ناساندن، چوونەژوورەوە
    * ======================================================= */
   TK.route('splash', {
-    render: () => `<div class="splash"><img src="../shared/logo.png" alt=""><div class="h1">تەکسیەکەم</div><div class="sm" style="opacity:.75">هاتووچۆی مانگانە بۆ هەموو خێزان</div></div>`,
+    render: () => `<div class="splash"><img src="../shared/logo.png" alt=""><div class="h1">یەکسا</div><div class="sm" style="opacity:.75">هاتووچۆی مانگانە بۆ هەموو خێزان</div></div>`,
     after: () => setTimeout(() => TK.go(authed() || 'home', true), 1100),
   });
 
@@ -100,7 +100,7 @@
     TK.render();
   };
   acts.forgot = () => TK.sheet(() => `<div class="h2">وشەی نهێنیت لەبیر چووە؟</div>
-      <div class="sm muted" style="line-height:1.9">پەیوەندی بە تیمی پشتگیری تەکسیەکەم بکە بۆ یارمەتی.</div>
+      <div class="sm muted" style="line-height:1.9">پەیوەندی بە تیمی پشتگیری یەکسا بکە بۆ یارمەتی.</div>
       <button class="btn ghost block" data-close>باشە</button>`);
   acts.doLogin = async (f, form) => {
     if (U.busy) return;
@@ -277,7 +277,7 @@
       return page(`
         <div class="topbar">
           <button class="icon-btn plain" data-go="profile" aria-label="پرۆفایل">${ui.avatar(first.slice(0, 1), 'navy', 40)}</button>
-          <div class="brandmark"><img src="../shared/logo.png" alt=""><span class="name">تەکسیەکەم</span></div>
+          <div class="brandmark"><img src="../shared/logo.png" alt=""><span class="name">یەکسا</span></div>
           <button class="icon-btn" data-go="notices" aria-label="ئاگادارکردنەوەکان">${icon('bell', 22)}${unread ? `<span class="dot-badge">${unread}</span>` : ''}</button>
         </div>
         ${ui.carousel(ads, { bleed: true })}
@@ -445,7 +445,7 @@
     const t = sel.trip(id);
     const late = TK.minutesUntil(t.time);
     TK.sheet(() => `<div class="h2">شۆفێر نەهات؟</div>
-      <div class="sm muted">${late > 0 ? `کاتی گەشتەکە ${fmt.clock(t.time)}ـە و هێشتا ${late} خولەکی ماوە. ` : ''}ئەگەر ڕاپۆرت بکەیت، قەرەبوو خۆکار بۆ فاتورەکەت زیاد دەکرێت و شۆفێر سزا دەدرێت. تیمی تەکسیەکەم ڕاپۆرتەکە دەپشکنێت.</div>
+      <div class="sm muted">${late > 0 ? `کاتی گەشتەکە ${fmt.clock(t.time)}ـە و هێشتا ${late} خولەکی ماوە. ` : ''}ئەگەر ڕاپۆرت بکەیت، قەرەبوو خۆکار بۆ فاتورەکەت زیاد دەکرێت و شۆفێر سزا دەدرێت. تیمی یەکسا ڕاپۆرتەکە دەپشکنێت.</div>
       <div class="field"><label for="nsnote">تێبینی (ئارەزوومەندانە)</label><textarea class="input" id="nsnote" placeholder="بۆ نموونە: ٢٠ خولەک چاوەڕێمان کرد"></textarea></div>
       <button class="btn block" style="background:var(--danger);color:#fff" data-act="confirmNoShow" data-arg="${id}">ناردنی ڕاپۆرت</button>
       <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
@@ -485,23 +485,23 @@
   acts.sos = () => {
     TK.sheet(() => `
       <div class="h2">فریاکەوتن</div>
-      <div class="muted">شوێنی ئێستای گەشتەکە بۆ سەرپەرشتیارەکانی خێزان و تیمی تەکسیەکەم دەنێردرێت.</div>
+      <div class="muted">شوێنی ئێستای گەشتەکە بۆ سەرپەرشتیارەکانی خێزان و تیمی یەکسا دەنێردرێت.</div>
       <div class="grid2">
         <a class="btn danger-solid lg" href="tel:104">${icon('phone', 18)}پۆلیس ١٠٤</a>
         <a class="btn danger-solid lg" href="tel:122">${icon('phone', 18)}فریاگوزاری ١٢٢</a>
       </div>
-      <button class="btn secondary block" data-act="sosTeam">ئاگادارکردنەوەی تیمی تەکسیەکەم</button>
+      <button class="btn secondary block" data-act="sosTeam">ئاگادارکردنەوەی تیمی یەکسا</button>
       <button class="btn ghost block" data-close>داخستن</button>`);
   };
   acts.sosTeam = () => {
     TK.closeSheet();
-    TK.toast('تیمی تەکسیەکەم ئاگادار کرا و پەیوەندیت پێوە دەکات');
+    TK.toast('تیمی یەکسا ئاگادار کرا و پەیوەندیت پێوە دەکات');
   };
   /** هاوبەشکردنی دەق (یان کۆپی ئەگەر مۆبایل پشتگیری نەکات) */
-  const shareText = (text) => (navigator.share ? navigator.share({ title: 'تەکسیەکەم', text }).catch(() => {}) : acts.copy(text));
+  const shareText = (text) => (navigator.share ? navigator.share({ title: 'یەکسا', text }).catch(() => {}) : acts.copy(text));
   acts.shareTrip = (id) => {
     const t = sel.trip(id);
-    shareText(`${t.title}، گەیشتن نزیکەی ${fmt.clock(sim.eta(t))}، تەکسیەکەم`);
+    shareText(`${t.title}، گەیشتن نزیکەی ${fmt.clock(sim.eta(t))}، یەکسا`);
   };
 
   /* =========================================================
@@ -691,7 +691,7 @@
       if (!d) return page(ui.header('نامە', { back: 'inbox' }) + ui.empty('chat', 'شۆفێرەکە نەدۆزرایەوە', ''));
       const QUICK = ['باشە، سوپاس', 'ئامادەین', '٥ خولەک چاوەڕێ بکە', 'ئەمڕۆ نایەین', 'لە بەردەم دەرگاین'];
       return `<div class="screen" style="padding-bottom:150px">
-        ${ui.header(d.name, { back: 'inbox', sub: d.car, right: `<a class="icon-btn" href="tel:0${esc(d.phone)}" aria-label="پەیوەندی">${icon('phone', 20)}</a>` })}
+        ${ui.header(d.name, { back: 'inbox', sub: d.car, cls: 'chathead', avatar: TK.img(d.photo) ? `<img class="avatar" src="${TK.img(d.photo)}" alt="" style="width:42px;height:42px;object-fit:cover">` : ui.avatar(String(d.name || '؟').slice(0, 1), 'navy', 42), right: `<a class="icon-btn" href="tel:0${esc(d.phone)}" aria-label="پەیوەندی">${icon('phone', 20)}</a>` })}
         <div class="card col tight">
           <div class="row between"><span class="sm">ژمارەی شۆفێر</span><a class="latin bold" href="tel:0${esc(d.phone)}" dir="ltr">${fmt.phone(d.phone)}</a></div>
           <div class="row between"><span class="sm">ژمارەکەت بۆ شۆفێر شاراوەیە</span>${icon('lock', 16, 'var(--muted)')}</div>
@@ -1300,7 +1300,7 @@
           ${ui.dAvatar(d, 84)}
           <div class="row" style="gap:6px"><div class="h2">${esc(d.name)}</div>${icon('shield', 20, 'var(--success)', 2.2)}</div>
           <div class="sm muted">${esc(d.car)}</div><div style="margin:4px 0">${ui.plate(d.plate, d.plateType)}</div>
-          <div class="row wrap" style="gap:6px;justify-content:center">${ui.badge('پشکنراو', 'ok')}${d.woman ? ui.badge('شۆفێری ئافرەت', 'woman') : ''}${d.kidsDriver ? ui.badge('شۆفێری منداڵان', 'note') : ''}${d.joinedAt ? ui.badge(`لەگەڵ تەکسیەکەم لە ${fmt.MONTHS[new Date(d.joinedAt).getMonth()]}ی ${new Date(d.joinedAt).getFullYear()}ەوە`) : ''}</div>
+          <div class="row wrap" style="gap:6px;justify-content:center">${ui.badge('پشکنراو', 'ok')}${d.woman ? ui.badge('شۆفێری ئافرەت', 'woman') : ''}${d.kidsDriver ? ui.badge('شۆفێری منداڵان', 'note') : ''}${d.joinedAt ? ui.badge(`لەگەڵ یەکسا لە ${fmt.MONTHS[new Date(d.joinedAt).getMonth()]}ی ${new Date(d.joinedAt).getFullYear()}ەوە`) : ''}</div>
         </div>
         <div class="grid3">
           <div class="card stat"><b class="brand">★ ${d.rating}</b><span class="xs muted">${d.reviews} هەڵسەنگاندن</span></div>
@@ -1392,7 +1392,7 @@
         ${body}`);
     },
   });
-  /** پێشنیاری تەکسیەکەم: باشترین هەڵسەنگاندن (٤.٥ یان زیاتر) کە هەرزانترینیشە، ئەگەرنا باشترین هەڵسەنگاندن */
+  /** پێشنیاری یەکسا: باشترین هەڵسەنگاندن (٤.٥ یان زیاتر) کە هەرزانترینیشە، ئەگەرنا باشترین هەڵسەنگاندن */
   function recommended(all) {
     if (all.length < 2) return null;
     const rated = all.map((o) => ({ o, d: sel.driver(o.driverId) || {} }));
@@ -1410,7 +1410,7 @@
     if (d.woman) tags.push(ui.badge('شۆفێری ئافرەت', 'woman'));
     const best = recommended(all);
     return `<div class="card offer ${best && best.driverId === o.driverId ? 'reco' : ''}">
-      ${best && best.driverId === o.driverId ? `<div class="reco-tag">${icon('star', 13, 'currentColor', 1.5, 'currentColor')}پێشنیاری تەکسیەکەم</div>` : ''}
+      ${best && best.driverId === o.driverId ? `<div class="reco-tag">${icon('star', 13, 'currentColor', 1.5, 'currentColor')}پێشنیاری یەکسا</div>` : ''}
       ${dHead(d, { go: `driver/${d.id}?req=${r.id}` })}
       <div class="row between"><div class="col tight"><div class="price">${fmt.group(o.price)} <small>دینار مانگانە</small></div>${diff ? `<span class="xs ${diff < 0 ? 'ok' : 'neg'}">${diff < 0 ? fmt.group(-diff) + ' کەمتر لە پێشنیارکراو' : fmt.group(diff) + ' زیاتر لە پێشنیارکراو'}</span>` : '<span class="xs muted">نرخی پێشنیارکراو</span>'}</div><span class="xs muted">${d.trips || 0} گەشت</span></div>
       ${tags.length ? `<div class="row wrap" style="gap:6px">${tags.join('')}</div>` : ''}
@@ -1747,7 +1747,7 @@
     const inv = h && h.lines ? h : invoice();
     TK.sheet(() => `
       <div class="receipt">
-        <div class="row between"><div class="brandmark"><img src="../shared/logo.png" alt=""><b>تەکسیەکەم</b></div><span class="badge ok">دراوە</span></div>
+        <div class="row between"><div class="brandmark"><img src="../shared/logo.png" alt=""><b>یەکسا</b></div><span class="badge ok">دراوە</span></div>
         <div style="margin:10px 0"><b>پسوولەی ${esc(h ? h.month : s.billing.month)}</b><div class="xs">${h ? fmt.date(h.at) : ''}</div><div class="xs">${esc(s.passenger.name)}، <span class="latin">+964 ${esc(s.passenger.phone)}</span></div></div>
         ${inv.lines.map((l) => `<div class="line"><span>${esc(l.label)}</span><b>${fmt.group(l.amount)}</b></div>`).join('')}
         ${inv.promo ? `<div class="line"><span>داشکاندن</span><b>${fmt.group(inv.promo)}</b></div>` : ''}
@@ -1794,7 +1794,7 @@
   };
   acts.shareCode = () => {
     const code = S().rewards.code;
-    shareText(`بە کۆدی ${code} لە تەکسیەکەم بەژداری بکە و ١٠٪ داشکاندن وەربگرە`);
+    shareText(`بە کۆدی ${code} لە یەکسا بەژداری بکە و ١٠٪ داشکاندن وەربگرە`);
   };
 
   /* =========================================================
@@ -1886,7 +1886,7 @@
         </div>
         <button class="btn danger block" data-act="logout">${icon('logout', 18)}چوونەدەرەوە</button>
         <button class="btn ghost block sm" style="color:var(--danger-text)" data-act="delAccount">${icon('x', 16)}سڕینەوەی هەژمار</button>
-        <div class="center xs muted">تەکسیەکەم، وەشانی 1.0</div>`, 'profile');
+        <div class="center xs muted">یەکسا، وەشانی 1.0</div>`, 'profile');
     },
   });
 

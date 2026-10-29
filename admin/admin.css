@@ -1,10 +1,10 @@
-/* پانێڵی بەڕێوەبردنی تەکسیەکەم */
+/* پانێڵی بەڕێوەبردنی یەکسا */
 .adm { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 100vh; }
 .side {
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
-  background: var(--navy); color: #fff; padding: 18px 12px; display: flex; flex-direction: column; gap: 4px;
+  background: linear-gradient(180deg, #2A3648, #121B2A); color: #fff; padding: 18px 12px; display: flex; flex-direction: column; gap: 4px;
 }
-:root[data-theme="dark"] .side { background: #081028; border-left: 1px solid var(--line); }
+:root[data-theme="dark"] .side { background: #12161D; border-left: 1px solid var(--line); }
 .side .brandmark { padding: 4px 8px 16px; }
 .side .brandmark .name { font-size: 1.1rem; }
 .side a {
@@ -12,7 +12,7 @@
   color: #C9D3E6; font-weight: 700; font-size: .95rem; position: relative;
 }
 .side a:hover { background: rgba(255, 255, 255, .06); }
-.side a.on { background: var(--amber); color: var(--ink); }
+.side a.on { background: rgba(255, 255, 255, .14); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12); }
 .side a .cnt { margin-right: auto; background: var(--danger); color: #fff; border-radius: 10px; font-size: .72rem; padding: 0 7px; min-width: 20px; text-align: center; }
 .side .foot { margin-top: auto; padding: 10px 8px 0; font-size: .75rem; opacity: .7; }
 .main { padding: 22px 26px 60px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -40,13 +40,13 @@
 .bars { display: flex; flex-direction: column; gap: 8px; }
 .bar { display: grid; grid-template-columns: 110px minmax(0, 1fr) 40px; gap: 10px; align-items: center; font-size: .85rem; }
 .bar .track { height: 12px; background: var(--chip); border-radius: 6px; overflow: hidden; }
-.bar .track i { display: block; height: 100%; border-radius: 6px; background: var(--amber); }
+.bar .track i { display: block; height: 100%; border-radius: 6px; background: var(--act); }
 
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
 .form-grid .full { grid-column: 1 / -1; }
 .sheet .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .check-row { display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 700; font-size: .9rem; }
-.check-row input { width: 20px; height: 20px; accent-color: var(--amber); }
+.check-row input { width: 20px; height: 20px; accent-color: var(--act); }
 .feed .item { min-height: 0; padding: 10px 12px; }
 
 /* خانەی ژمارە لەگەڵ یەکە (دینار، ٪) لەناو خانەکە */

@@ -1,4 +1,4 @@
-/* تەکسیەکەم · ستایلی هاوبەش بۆ هەردوو ئەپ */
+/* یەکسا · ستایلی هاوبەش بۆ هەردوو ئەپ */
 
 /* فۆنت لەناو پرۆژەکەدایە (بێ ئینتەرنێتیش کار دەکات). Noto Naskh Arabic هەموو پیتە کوردییەکان و لاتینیش لەخۆ دەگرێت */
 @font-face {
@@ -855,7 +855,7 @@ html.drv:not([data-theme="dark"]) .hnav, html.drv:not([data-theme="dark"]) .hsq 
 .cntp { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--chip); color: var(--muted); font-size: .78rem; font-weight: 700; }
 /* ناونیشانی گرووپەکانی پرۆفایل */
 .plabel { font-size: .82rem; font-weight: 700; color: var(--muted); margin: 4px 4px -6px; }
-/* پێشنیاری تەکسیەکەم */
+/* پێشنیاری یەکسا */
 .card.offer.reco { border: 2px solid var(--amber); padding: 13px; }
 .reco-tag { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: var(--amber); color: #10203F; font-size: .76rem; font-weight: 800; }
 /* دوگمەی فریاکەوتن لە سەرەوەی گەشت */
@@ -1146,3 +1146,256 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 .bubble.unsent { font-style: italic; opacity: .7; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .bubble.tap { cursor: pointer; }
 .bubble .undo-hint { opacity: .6; display: inline-flex; vertical-align: middle; }
+
+/* =========================================================
+ * یەکسا v34: زیوی + ئینکی، باکگراوندی شووشەیی کاڵ، دۆخی تاریکی نەرم
+ * ڕەنگ تەنها بۆ واتا: ئینکی = کردار، سەوز = تەواو، پرتەقاڵی = ئەستێرە و ژمارە، سوور = مەترسی
+ * ======================================================= */
+:root, html.drv, html.pas {
+  --amber: #F5A623;
+  --navy: #1D2939;
+  --act: #1D2939;
+  --act-grad: linear-gradient(180deg, #3A4558 0%, #1D2939 100%);
+  --act-text: #FFFFFF;
+  --act-shadow: 0 10px 22px rgba(16, 24, 40, .22);
+  --silver: #EEF1F5;
+  --silver-line: #D9DEE6;
+  --silver-text: #1D2939;
+  --bg: #F6F7FA;
+  --card: #FFFFFF;
+  --glass: rgba(255, 255, 255, .74);
+  --glass-line: rgba(255, 255, 255, .95);
+  --line: #E4E7EC;
+  --chip: #EEF1F5;
+  --text: #101828;
+  --muted: #475467;
+  --brand: #1D2939;
+  --nav: rgba(255, 255, 255, .7);
+  --danger: #D92D20;
+  --danger-bg: #FEE4E2;
+  --danger-text: #B42318;
+  --shadow: 0 6px 20px rgba(16, 24, 40, .06);
+  --shadow-lg: 0 18px 40px rgba(16, 24, 40, .16);
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 24px;
+  --r-xl: 28px;
+  --app-bg:
+    radial-gradient(circle at 88% 4%, rgba(205, 213, 224, .75), transparent 32%),
+    radial-gradient(circle at 4% 38%, rgba(184, 193, 206, .38), transparent 28%),
+    radial-gradient(circle at 72% 88%, rgba(205, 213, 224, .5), transparent 30%),
+    #F6F7FA;
+}
+:root[data-theme="dark"], html.drv[data-theme="dark"], html.pas[data-theme="dark"] {
+  --navy: #2A3140;
+  --act: #E4E7EC;
+  --act-grad: linear-gradient(180deg, #E4E7EC 0%, #C9CFD9 100%);
+  --act-text: #1A1F29;
+  --act-shadow: 0 10px 22px rgba(0, 0, 0, .28);
+  --silver: rgba(255, 255, 255, .07);
+  --silver-line: rgba(255, 255, 255, .06);
+  --silver-text: #D9DEE6;
+  --bg: #181C24;
+  --card: #232833;
+  --glass: rgba(40, 45, 56, .8);
+  --glass-line: rgba(255, 255, 255, .07);
+  --line: #323946;
+  --chip: #2C323E;
+  --text: #E4E7EC;
+  --muted: #9AA3B2;
+  --brand: #D9DEE6;
+  --nav: rgba(35, 40, 51, .82);
+  --ok-bg: #1D3A2D;
+  --ok-text: #75E0A7;
+  --note-bg: #2D291E;
+  --note-line: #574A25;
+  --danger: #E8857D;
+  --danger-bg: #3B2427;
+  --danger-text: #F1A9A2;
+  --info-bg: #1F2B40;
+  --info-text: #B4C8F0;
+  --w-bg: #33283F;
+  --map-bg: #20252F;
+  --map-road: #2E3440;
+  --map-park: #24322A;
+  --shadow: 0 6px 18px rgba(0, 0, 0, .22);
+  --shadow-lg: 0 18px 40px rgba(0, 0, 0, .4);
+  --app-bg:
+    radial-gradient(circle at 88% 4%, rgba(205, 213, 224, .10), transparent 34%),
+    radial-gradient(circle at 4% 38%, rgba(205, 213, 224, .05), transparent 30%),
+    #181C24;
+}
+
+/* باکگراوندی شووشەی شلە */
+body { background: var(--bg); }
+#app { background: transparent; }
+#app::before { content: ""; position: fixed; z-index: -1; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--app-bg); pointer-events: none; }
+#app.wide::before { max-width: none; }
+@media (min-width: 520px) {
+  body { background: #E4E7EC; }
+  :root[data-theme="dark"] body { background: #101319; }
+}
+
+/* کارت: شووشەی نیمچە شەفاف، گۆشەی خڕتر */
+html.drv .card { border-radius: var(--r-lg); }
+.card { background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-lg); box-shadow: 0 6px 20px rgba(16, 24, 40, .05), inset 0 1px 0 rgba(255, 255, 255, .7); }
+:root[data-theme="dark"] .card { box-shadow: none; }
+.card.flat { box-shadow: none; }
+.card.big { border-radius: var(--r-xl); }
+.card.note { background: var(--note-bg); border-color: var(--note-line); }
+.card.ok { background: var(--ok-bg); border-color: transparent; }
+.card.danger { background: var(--danger-bg); border-color: transparent; }
+.card.info { background: var(--info-bg); border-color: transparent; }
+.card.navy { background: var(--act-grad); color: var(--act-text); border-color: transparent; }
+:root[data-theme="dark"] .card.navy { background: #2A3140; color: #F2F4F7; }
+.card.selected, .card.pick.on, .card.offer.reco { border: 2px solid var(--act); padding: 13px; background: var(--glass); }
+.card.hero, html.drv .card.hero { border: 1px solid var(--glass-line); }
+.card.hasfree { border-color: var(--silver-line); }
+.list { background: var(--glass); border-color: var(--glass-line); border-radius: var(--r-lg); }
+html.drv .glass { background: var(--glass); border-color: var(--glass-line); }
+@media (prefers-reduced-transparency: reduce) {
+  .card, .list, html.drv .glass { background: var(--card); }
+}
+
+/* دوگمەکان: سەرەکی ئینکی (گلۆسی)، لاوەکی زیوی */
+html.drv .btn { border-radius: var(--r-md); }
+html.drv .btn.sm { border-radius: 14px; }
+.btn { border-radius: var(--r-md); background: var(--act-grad); color: var(--act-text); box-shadow: var(--act-shadow), inset 0 1px 0 rgba(255, 255, 255, .2); }
+.btn.sm { border-radius: 14px; }
+.btn.secondary, .btn.ghost { background: var(--silver); color: var(--silver-text); border: 1px solid var(--silver-line); box-shadow: none; }
+.btn.ghost { background: transparent; }
+.btn.navy { background: var(--act-grad); color: var(--act-text); }
+.btn.outline { background: transparent; border: 1.5px solid var(--act); color: var(--text); box-shadow: none; }
+.btn.ok { background: linear-gradient(180deg, #22C55E, #16A34A); color: #fff; box-shadow: 0 8px 18px rgba(22, 163, 74, .25); }
+.btn.danger { background: transparent; border: 1.5px solid var(--danger); color: var(--danger-text); box-shadow: none; }
+.btn.danger-solid { background: var(--danger); color: #fff; box-shadow: none; }
+:root[data-theme="dark"] .btn.danger-solid { color: #2A1517; }
+.icon-btn { background: var(--glass); border: 1px solid var(--glass-line); border-radius: 50%; box-shadow: 0 2px 8px rgba(16, 24, 40, .06); }
+.icon-btn.plain { background: transparent; border: 0; box-shadow: none; }
+.rbtn, .hnav, .hsq, html.drv:not([data-theme="dark"]) .hnav, html.drv:not([data-theme="dark"]) .hsq { background: var(--silver); color: var(--silver-text); border: 1px solid var(--silver-line); }
+.hnav, .hsq { border-radius: 18px; }
+.rbtn.ok { background: var(--success); color: #fff; border: 0; }
+.fab-msg, html.drv .fab-msg { background: var(--act-grad); color: var(--act-text); box-shadow: var(--act-shadow); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.fab-msg .nb, .bottom-nav .nb { background: var(--amber); color: #0B1733; border-color: var(--bg); }
+
+/* دوگمە گەورەکەی شۆفێر */
+.bigact, html.drv .bigact, html.drv .bigact.go { border-radius: 26px; background: var(--act-grad); color: var(--act-text); border: 0; box-shadow: var(--act-shadow), inset 0 1px 0 rgba(255, 255, 255, .22); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.drv .bigact.go { animation: actGlow 2.6s ease-in-out infinite; }
+@keyframes actGlow { 50% { box-shadow: 0 12px 30px rgba(16, 24, 40, .38), inset 0 1px 0 rgba(255, 255, 255, .22); } }
+:root[data-theme="dark"] html.drv .bigact.go, html.drv[data-theme="dark"] .bigact.go { animation-name: actGlowD; }
+@keyframes actGlowD { 50% { box-shadow: 0 10px 30px rgba(228, 231, 236, .18), inset 0 1px 0 rgba(255, 255, 255, .5); } }
+.bigact.ok, html.drv .bigact.ok { background: linear-gradient(180deg, #22C55E, #16A34A); color: #fff; box-shadow: 0 10px 24px rgba(22, 163, 74, .3); }
+.bigact.off, .bigact[disabled], html.drv .bigact.off, html.drv .bigact[disabled] { background: var(--silver); color: var(--muted); border: 1.5px dashed var(--silver-line); box-shadow: none; animation: none; }
+.bigact > svg { box-sizing: content-box; padding: 11px; border-radius: 16px; background: rgba(255, 255, 255, .14); }
+:root[data-theme="dark"] .bigact > svg { background: rgba(14, 19, 32, .08); }
+.bigact.off > svg, .bigact[disabled] > svg { background: transparent; }
+
+/* هەڵبژاردن: ئینکی */
+.chip.on, .days button.on, .tabs button.on { background: var(--act); border-color: var(--act); color: var(--act-text); }
+.check.on, .radio.on::after { background: var(--act); border-color: var(--act); }
+.check.on svg { stroke: var(--act-text); }
+.radio.on { border-color: var(--act); }
+.input:focus { border-color: var(--act); box-shadow: 0 0 0 4px rgba(29, 41, 57, .08); }
+:root[data-theme="dark"] .input:focus { box-shadow: 0 0 0 4px rgba(255, 255, 255, .06); }
+.picked { border: 2px solid var(--act); background: var(--silver); }
+.progress i, .steps i.on, .dots i.on, .intro .dots i.on { background: var(--act); }
+.code-box { border-color: var(--silver-line); }
+:focus-visible { outline-color: rgba(29, 41, 57, .5); }
+.seg { background: var(--silver); border-radius: 16px; }
+.seg button { border-radius: 12px; }
+.seg button.on { background: var(--card); color: var(--text); }
+:root[data-theme="dark"] .seg { background: rgba(255, 255, 255, .06); }
+:root[data-theme="dark"] .seg button.on { background: #3A4150; color: #F2F4F7; }
+.reco-tag { background: var(--act); color: var(--act-text); }
+.reco-tag svg { color: var(--amber); }
+.co-row.me { background: var(--silver); border-color: var(--act); }
+
+/* وێنەی کەسی و ژمارەی وێستگە: زیوی (تەنها دوگمەی کردار تۆخە) */
+.avatar.navy, .hav, [data-theme="dark"] .hav { background: var(--silver); color: var(--silver-text); border: 1px solid var(--silver-line); }
+.num.big, .co-n { background: var(--silver); color: var(--silver-text); border: 1.5px solid var(--silver-line); }
+.num.cur, .htl-n { background: var(--card); color: var(--text); border: 2.5px solid var(--act); box-shadow: 0 0 0 5px var(--silver); }
+.tl.now .dot i { border-color: var(--act); background: var(--act); box-shadow: 0 0 0 5px var(--silver); }
+.htl-k, .nc-when { color: var(--muted); }
+.htime { background: var(--silver); color: var(--silver-text); }
+.nc-time { background: var(--silver); }
+.srow.cur, .nowbox { background: var(--silver); }
+html.drv .nowbox { background: var(--glass); }
+
+/* ناڤی خوارەوە: شووشە */
+.bottom-nav { background: var(--nav); -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); border-radius: 36px; box-shadow: 0 10px 30px rgba(16, 24, 40, .12), 0 0 0 1px rgba(255, 255, 255, .7); }
+[data-theme="dark"] .bottom-nav { background: var(--nav); box-shadow: 0 10px 30px rgba(0, 0, 0, .35), 0 0 0 1px rgba(255, 255, 255, .06); }
+.bottom-nav a.on, [data-theme="dark"] .bottom-nav a.on { color: var(--text); }
+.bottom-nav .nav-pill { background: rgba(29, 41, 57, .08); }
+[data-theme="dark"] .bottom-nav .nav-pill { background: rgba(255, 255, 255, .1); }
+
+/* نامە: هی خۆم ئینکی */
+.bubble.me { background: var(--act-grad); color: var(--act-text); }
+.bubble.them { background: var(--glass); border-color: var(--glass-line); }
+.bubble.me .ticks.read { color: #8EC5FF; }
+:root[data-theme="dark"] .bubble.me .ticks.read { color: #1D4ED8; }
+.composer { background: var(--nav); -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); border-top: 1px solid var(--glass-line); }
+.composer .input { border-radius: 22px; }
+.composer .btn { border-radius: 50%; width: 46px; padding: 0; }
+.quick button { background: var(--silver); border: 1px solid var(--silver-line); }
+
+/* سەرەوەی چات: وەک ئینستاگرام، هەمیشە دیارە و شووشەییە */
+.header.chathead {
+  position: sticky; top: 0; z-index: 25;
+  margin: -14px -16px 0; padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  background: var(--nav); -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%);
+  border-bottom: 1px solid var(--glass-line);
+}
+.header.chathead .icon-btn { width: 44px; height: 44px; background: var(--card); border: 0; box-shadow: 0 2px 10px rgba(16, 24, 40, .08); }
+.header.chathead .h2 { font-size: 1.05rem; }
+.header.chathead .sm { font-size: .8rem; }
+.header .hd-av { flex: none; }
+
+/* تۆست و پەیامی دڵنیاکردنەوە */
+#toast { background: var(--act-grad); color: var(--act-text); border-radius: 18px; }
+:root[data-theme="dark"] #toast { background: var(--act-grad); color: var(--act-text); }
+#flash { position: fixed; inset: 0; z-index: 95; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0; transition: opacity .2s; }
+#flash.show { opacity: 1; }
+#flash .fl-box { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 28px; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%); border: 1px solid var(--glass-line); box-shadow: var(--shadow-lg); transform: scale(.9); transition: transform .25s cubic-bezier(.2, .9, .3, 1.3); max-width: 80%; text-align: center; }
+#flash.show .fl-box { transform: scale(1); }
+#flash .fl-ic { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(180deg, #22C55E, #16A34A); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 24px rgba(22, 163, 74, .35); }
+#flash b { font-size: 1.25rem; font-weight: 800; color: var(--text); }
+
+/* سپلاش و لۆگۆ */
+.splash { background: linear-gradient(180deg, #2A3648, #121B2A); }
+.splash img, .brandmark img { background: none; padding: 0; }
+.splash img { border-radius: 30px; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); }
+
+/* شیت */
+.sheet { background: var(--bg); border-radius: 28px 28px 0 0; }
+.sheet-back { background: rgba(16, 24, 40, .4); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+
+/* کارتی بەژداری: تەنها ڕەنگی نرخ و دوگمەکان لەگەڵ ڕەنگی نوێ یەک دەخرێن */
+:root:not([data-theme="dark"]) .ts-top { background: linear-gradient(160deg, #F2F4F7 0%, #FFFFFF 60%, #EEF1F5 100%); }
+:root:not([data-theme="dark"]) .ts-av { background: var(--silver); border-color: var(--silver-line); color: var(--silver-text); }
+:root:not([data-theme="dark"]) .ts-link { color: var(--act); }
+:root:not([data-theme="dark"]) .ts-price { background: linear-gradient(270deg, #EEF1F5 0%, #F7F8FA 45%, #FFFFFF 100%); border: 1px solid #E4E7EC; box-shadow: 0 4px 14px rgba(16, 24, 40, .05); }
+:root:not([data-theme="dark"]) .ts-pi { background: #E4E7EC; }
+:root:not([data-theme="dark"]) .ts-price b { color: var(--act); }
+[data-theme="dark"] .ts-top { background: linear-gradient(160deg, #2A303C 0%, #232833 60%, #2C3340 100%); }
+[data-theme="dark"] .ts-av { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .12); color: #E4E7EC; }
+[data-theme="dark"] .ts-price { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .1); }
+[data-theme="dark"] .ts-price b, [data-theme="dark"] .ts-link { color: #E4E7EC; }
+[data-theme="dark"] .ts-pi { background: rgba(255, 255, 255, .08); }
+.ts-chat, .sf-ic { background: var(--act-grad); }
+[data-theme="dark"] .ts-chat, [data-theme="dark"] .sf-ic { background: var(--act-grad); }
+.ts-chat svg, .sf-ic svg { stroke: var(--act-text); }
+.tsub, .sfind { background: var(--glass); border-color: var(--glass-line); }
+.section-title .cntp { background: var(--act); color: var(--act-text); }
+[data-theme="dark"] .section-title .cntp { background: rgba(255, 255, 255, .12); color: #E4E7EC; }
+
+/* سەرنشین: کارتی گەشتەکانی ئەمڕۆ */
+html.pas .tripcard { background: var(--glass); border-color: var(--glass-line); }
+html.pas .tripcard .btn.sm { background: var(--silver); color: var(--silver-text); box-shadow: none; }
+html.pas[data-theme="dark"] .tripcard { background: var(--glass); border-color: var(--glass-line); }
+html.pas[data-theme="dark"] .tripcard .btn.sm { background: rgba(255, 255, 255, .07); }
+html.pas .list .ico-box, html.pas .ico-box.navy { background: var(--silver); }
+html.pas[data-theme="dark"] .list .ico-box, html.pas[data-theme="dark"] .ico-box.navy { background: rgba(255, 255, 255, .07); }
+.sfind .sf-go { background: var(--silver); }
+
+.ts-acts .btn, [data-theme="dark"] .ts-acts .btn { background: var(--silver); color: var(--silver-text); border: 1px solid var(--silver-line); box-shadow: none; }
+.ts-chat svg { stroke: var(--act-text); }

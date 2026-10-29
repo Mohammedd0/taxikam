@@ -1,6 +1,6 @@
 {
-  "name": "تەکسیەکەم",
-  "short_name": "تەکسیەکەم",
+  "name": "یەکسا",
+  "short_name": "یەکسا",
   "description": "هاتووچۆی مانگانە بۆ هەموو خێزان",
   "lang": "ckb",
   "dir": "rtl",
@@ -8,8 +8,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F4F6FA",
-  "theme_color": "#F4F6FA",
+  "background_color": "#F6F7FA",
+  "theme_color": "#F6F7FA",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },

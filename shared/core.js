@@ -1,4 +1,4 @@
-/* تەکسیەکەم، کۆدی هاوبەش بۆ هەر سێ ئەپ (سەرنشین، شۆفێر، بەڕێوەبەر)
+/* یەکسا، کۆدی هاوبەش بۆ هەر سێ ئەپ (سەرنشین، شۆفێر، بەڕێوەبەر)
  * زانیارییەکان لە Firebase (Firestore) هەڵدەگیرێن و لە نێوان هەموو مۆبایلەکاندا هاوبەشن:
  * شۆفێر «سوار بوون» دادەگرێت و ئەپی سەرنشین لە مۆبایلێکی ترەوە دەستبەجێ دەیبینێت.
  */
@@ -522,7 +522,7 @@
 
   /* ---------- هاوبەشەکان (قوتابخانە، زانکۆ، کۆمپانیا) ----------
    * هەر سەرنشینێک بە کۆد یان QR دەبەسترێتەوە بە هاوبەشێک. کاتێک فاتورەی مانگ دەدرێت،
-   * ڕێژەی هاوبەش (بۆ نموونە ٣٪) لە پارەی دراو حیساب دەکرێت و لە قازانجی تەکسیەکەم دەردەچێت. */
+   * ڕێژەی هاوبەش (بۆ نموونە ٣٪) لە پارەی دراو حیساب دەکرێت و لە قازانجی یەکسا دەردەچێت. */
   function seedPartners(s) {
     s.partners = s.partners || [];
     s.partnerEarnings = s.partnerEarnings || [];
@@ -2100,7 +2100,7 @@
       if (ROLE !== 'passenger' || !cloud.me) return 'نەکرا';
       const me = cloud.me;
       const acc = state.accounts.find((a) => a.uid === me);
-      if (acc && acc.blocked) return 'ئەم هەژمارە ڕاگیراوە. بۆ سڕینەوە پەیوەندی بە پشتگیری تەکسیەکەم بکە';
+      if (acc && acc.blocked) return 'ئەم هەژمارە ڕاگیراوە. بۆ سڕینەوە پەیوەندی بە پشتگیری یەکسا بکە';
       if (state.trips.some((t) => (t.owner || 'me') === 'me' && t.status === 'active')) return 'گەشتێکت ئێستا لە ڕێگەیە. دوای تەواوبوونی هەوڵ بدەرەوە';
       try {
         await window.TKFB.reauth(String(pass || ''));
@@ -2604,7 +2604,7 @@
         s.drivers = s.drivers.filter((d) => d.id !== id);
         s.drivers.push(rec);
         s.driver.meId = id;
-        dnotice(s, id, { kind: 'info', title: 'زانیارییەکانت نێردران', body: 'تیمی تەکسیەکەم بەڵگەنامەکانت دەپشکنێت. دوای پشتڕاستکردنەوە دەتوانیت کار بکەیت.', link: 'profile' });
+        dnotice(s, id, { kind: 'info', title: 'زانیارییەکانت نێردران', body: 'تیمی یەکسا بەڵگەنامەکانت دەپشکنێت. دوای پشتڕاستکردنەوە دەتوانیت کار بکەیت.', link: 'profile' });
         anotice(s, { kind: 'driver', title: `شۆفێری نوێ: ${f.name}`, body: 'چاوەڕێی پشکنینی بەڵگەنامەکانە', link: `driver/${id}` });
       });
       imgPump();
@@ -3633,7 +3633,7 @@
     root.dataset.scale = st[TK.scaleKey || 'textScale'] || 'md';
     root.dataset.map = st.mapStyle;
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#0B1733' : '#F4F6FA');
+    if (meta) meta.setAttribute('content', dark ? '#181C24' : '#F6F7FA');
   }
   if (mq && mq.addEventListener) mq.addEventListener('change', applyTheme);
   TK.applyTheme = applyTheme;
@@ -3995,6 +3995,22 @@
 
   /* ---------- تۆست ---------- */
   let toastTimer = null;
+  /** پەیامی گەورەی دڵنیاکردنەوە (بۆ نموونە دوای «بەڕێ کەوتم»): ئایکۆنی ✓ و نووسینێکی گەورە بۆ ماوەیەکی کورت */
+  let flashT = 0;
+  TK.flash = function (msg) {
+    let el = document.getElementById('flash');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'flash';
+      el.setAttribute('role', 'status');
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `<div class="fl-box"><span class="fl-ic">${TK.icon('check', 34, '#fff', 3)}</span><b>${esc(msg)}</b></div>`;
+    localizeDigits(el);
+    el.classList.add('show');
+    clearTimeout(flashT);
+    flashT = setTimeout(() => el.classList.remove('show'), 1700);
+  };
   TK.toast = function (msg) {
     let el = document.getElementById('toast');
     if (!el) {
@@ -4268,7 +4284,7 @@
     // پێش پیشاندانی ئەپ، چاوەڕێ دەکرێت تا Firebase دەزانێت کێ چووەتە ژوورەوە و زانیارییەکانی بار دەبن
     if (cloud.ready) boot();
     else {
-      app.root.innerHTML = `<div class="splash"><img src="../shared/logo.png" alt=""><div class="h1">تەکسیەکەم</div><div class="sm" style="opacity:.75" id="bootmsg">بارکردن...</div></div>`;
+      app.root.innerHTML = `<div class="splash"><img src="../shared/logo.png" alt=""><div class="h1">یەکسا</div><div class="sm" style="opacity:.75" id="bootmsg">بارکردن...</div></div>`;
       const t0 = Date.now();
       const wait = () => {
         if (cloud.ready) return boot();
@@ -4318,8 +4334,9 @@
       return `<span class="badge ${tone}">${esc(label)}</span>`;
     },
     header(title, opts = {}) {
-      return `<div class="header">
+      return `<div class="header${opts.cls ? ' ' + opts.cls : ''}">
         ${opts.back !== false ? `<button class="icon-btn" data-back="${esc(opts.back || '')}" aria-label="گەڕانەوە">${TK.icon('back', 22)}</button>` : ''}
+        ${opts.avatar ? `<span class="hd-av">${opts.avatar}</span>` : ''}
         <div class="titles"><div class="h2">${esc(title)}</div>${opts.sub ? `<div class="sm muted">${esc(opts.sub)}</div>` : ''}</div>
         ${opts.right || ''}
       </div>`;
@@ -4699,7 +4716,7 @@
         <b>١. پاراستنی زانیاری:</b> زانیاری کەسی، وێنەی بەڵگەنامەکان و ژمارەی مۆبایل تەنها بۆ پشتڕاستکردنەوە و سەلامەتی گەشتەکان بەکاردێن و بە کەسی تر نادرێن.<br>
         <b>٢. ژمارەی مۆبایل:</b> ژمارەی سەرنشین تەنها ئەگەر خۆی ڕێگە بدات بۆ شۆفێر دیار دەبێت.<br>
         <b>٣. سەلامەتی منداڵان:</b> منداڵ هەرگیز لەگەڵ کەسی گەورەی نەناسراو سوار ناکرێت و تەنها شۆفێری پشکنراوی منداڵان گەشتی منداڵان وەردەگرن.<br>
-        ${who === 'driver' ? `<b>٤. شۆفێر:</b> زانیارییەکانت دەبێت ڕاست و نوێ بن. ئەگەر بەڵگەنامەیەک بەسەر چوو دەبێت نوێی بکەیتەوە. دواکەوتن و نەهاتن سزای لەسەرە. تەکسیەکەم دەتوانێت هەژمار ڕابگرێت ئەگەر زانیاری هەڵە بێت یان سکاڵای جددی هەبێت.<br>` : `<b>٤. سەرنشین:</b> «نایەم» تا ${cfg().skipCutoffMin} خولەک پێش گەشت دەکرێت. ئەگەر شۆفێر نەهات، ڕاپۆرت بکە و قەرەبوو دەکرێیتەوە.<br>`}
+        ${who === 'driver' ? `<b>٤. شۆفێر:</b> زانیارییەکانت دەبێت ڕاست و نوێ بن. ئەگەر بەڵگەنامەیەک بەسەر چوو دەبێت نوێی بکەیتەوە. دواکەوتن و نەهاتن سزای لەسەرە. یەکسا دەتوانێت هەژمار ڕابگرێت ئەگەر زانیاری هەڵە بێت یان سکاڵای جددی هەبێت.<br>` : `<b>٤. سەرنشین:</b> «نایەم» تا ${cfg().skipCutoffMin} خولەک پێش گەشت دەکرێت. ئەگەر شۆفێر نەهات، ڕاپۆرت بکە و قەرەبوو دەکرێیتەوە.<br>`}
         <b>٥. پارەدان:</b> نرخی مانگانە پێش دەستپێکردن ڕێک دەکەوێت و لە کاتی گەشتدا ناگۆڕێت.
       </div>
       <button class="btn block" data-close>تێگەیشتم</button>`);

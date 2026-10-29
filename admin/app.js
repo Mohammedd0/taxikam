@@ -1,4 +1,4 @@
-/* تەکسیەکەم، پانێڵی بەڕێوەبردن (خاوەنی ئەپ)
+/* یەکسا، پانێڵی بەڕێوەبردن (خاوەنی ئەپ)
  * هەموو گۆڕانکارییەک ڕاستەوخۆ لە ئەپی سەرنشین و شۆفێر دەردەکەوێت، چونکە هەمان زانیاری بەکاردەهێنن.
  */
 (function () {
@@ -80,10 +80,10 @@
     const c = counts();
     return `<div class="adm">
       <nav class="side">
-        <div class="brandmark"><img src="../shared/logo.png" alt=""><span class="name">پانێڵی تەکسیەکەم</span></div>
+        <div class="brandmark"><img src="../shared/logo.png" alt=""><span class="name">پانێڵی یەکسا</span></div>
         ${NAV.map(([k, ic, l, cnt]) => `<a href="#/${k}" class="${active === k ? 'on' : ''}">${icon(ic, 18)}<span>${l}</span>${cnt && c[cnt] ? `<span class="cnt">${c[cnt]}</span>` : ''}</a>`).join('')}
         <a href="#/login" data-act="logout">${icon('logout', 18)}<span>چوونەدەرەوە</span></a>
-        <div class="foot">تەکسیەکەم، وەشانی 1.0</div>
+        <div class="foot">یەکسا، وەشانی 1.0</div>
       </nav>
       <main class="main">
         <div class="topline"><div class="h1">${title}</div><div class="row wrap" style="gap:8px">${right}</div></div>
@@ -449,7 +449,7 @@
       delete rec.pass2;
       rec.payAckFor = TK.payKey(rec); // بەڕێوەبەر خۆی شێوازی موچەی نووسیوە
       s.drivers.push(rec);
-      TK.dnoticeAdd(s, { driverId: id, kind: 'ok', title: 'بەخێربێیت بۆ تەکسیەکەم', body: f.verified ? 'هەژمارەکەت چالاکە. «ئامادەی کارم» چالاک بکە بۆ وەرگرتنی داواکاری.' : 'تیمی تەکسیەکەم بەڵگەنامەکانت دەپشکنێت.', link: 'today' });
+      TK.dnoticeAdd(s, { driverId: id, kind: 'ok', title: 'بەخێربێیت بۆ یەکسا', body: f.verified ? 'هەژمارەکەت چالاکە. «ئامادەی کارم» چالاک بکە بۆ وەرگرتنی داواکاری.' : 'تیمی یەکسا بەڵگەنامەکانت دەپشکنێت.', link: 'today' });
     });
     U.nd2 = null;
     TK.toast('شۆفێرەکە تۆمار کرا. ژمارە و وشەی نهێنی بدە پێی');
@@ -597,7 +597,7 @@
       if (st !== 'active') d.online = false;
       // لە کاتی پشتڕاستکردنەوەی هەژمار، شێوازی موچەی ئێستاش پشتڕاست دەکرێتەوە
       if (st === 'active' && d.payAckFor == null) d.payAckFor = TK.payKey(d);
-      pushDN(s, { driverId: id, kind: st === 'active' ? 'ok' : 'info', red: st !== 'active', title: st === 'active' ? 'هەژمارەکەت پشتڕاست کرایەوە' : 'هەژمارەکەت ڕاگیرا', body: st === 'active' ? 'بەخێربێیت! ئێستا دەتوانیت «ئامادەی کارم» چالاک بکەیت و داواکاری وەربگریت' : 'بۆ زانیاری زیاتر پەیوەندی بە تیمی تەکسیەکەم بکە', link: 'today' });
+      pushDN(s, { driverId: id, kind: st === 'active' ? 'ok' : 'info', red: st !== 'active', title: st === 'active' ? 'هەژمارەکەت پشتڕاست کرایەوە' : 'هەژمارەکەت ڕاگیرا', body: st === 'active' ? 'بەخێربێیت! ئێستا دەتوانیت «ئامادەی کارم» چالاک بکەیت و داواکاری وەربگریت' : 'بۆ زانیاری زیاتر پەیوەندی بە تیمی یەکسا بکە', link: 'today' });
     });
     TK.toast(st === 'active' ? 'شۆفێر چالاک کرا' : 'شۆفێر ڕاگیرا');
   };
@@ -610,7 +610,7 @@
     const ds = d.docStatus || {};
     const w = window.open('', '_blank');
     if (!w) return TK.toast('ڕێگە بە کردنەوەی پەنجەرەی نوێ بدە');
-    const html = `<!doctype html><html lang="ckb" dir="rtl"><head><meta charset="utf-8"><title>${esc(d.name)}، تەکسیەکەم</title>
+    const html = `<!doctype html><html lang="ckb" dir="rtl"><head><meta charset="utf-8"><title>${esc(d.name)}، یەکسا</title>
       <style>@font-face{font-family:"Noto Naskh Arabic";src:url("${base}shared/fonts/NotoNaskhArabic.woff") format("woff");font-weight:400 700}
       body{font-family:"Noto Naskh Arabic",Tahoma,sans-serif;color:#13254A;margin:0;padding:28px;font-size:14px}
       header{display:flex;align-items:center;gap:16px;border-bottom:3px solid #F5A623;padding-bottom:14px;margin-bottom:14px}
@@ -622,7 +622,7 @@
       .st{display:inline-block;padding:0 10px;border-radius:99px;font-weight:700;font-size:12px}.ok{background:#DCFCE7;color:#166534}.no{background:#FDE2E2;color:#9B1C1C}.pe{background:#FFF6E5;color:#9A5B00}
       footer{margin-top:20px;font-size:11px;color:#5B6B88;border-top:1px solid #DCE3EE;padding-top:8px}
       @media print{body{padding:10mm}h2{break-after:avoid}}</style></head><body>
-      <header>${TK.img(d.photo) ? `<img class="ph" src="${TK.img(d.photo)}">` : ''}<div><h1>${esc(d.name)}</h1><div>شۆفێری تەکسیەکەم، ${d.woman ? 'مێ' : 'نێر'}، ${STATUS[d.status][0]}</div><div class="latin">${fmt.phone(d.phone)}</div></div></header>
+      <header>${TK.img(d.photo) ? `<img class="ph" src="${TK.img(d.photo)}">` : ''}<div><h1>${esc(d.name)}</h1><div>شۆفێری یەکسا، ${d.woman ? 'مێ' : 'نێر'}، ${STATUS[d.status][0]}</div><div class="latin">${fmt.phone(d.phone)}</div></div></header>
       <h2>زانیاری کەسی</h2><table>${r('ڕۆژی لەدایکبوون', d.birth ? `${fmt.day(d.birth)} (${TK.age(d.birth)} ساڵ)` : '')}${r('ناونیشان', esc(`${(TK.city(d.city) || {}).name || ''}، ${d.district || ''}، ${d.neighborhood || ''}${d.landmark ? '، ' + d.landmark : ''}`))}${r('فریاکەوتن', `${esc(d.emergencyName || '')} <span class="latin">${fmt.phone(d.emergencyPhone || '')}</span>`)}${r('ناوچەی کار', esc(d.workAreas || ''))}${r('وەرگرتنی موچە', `${PAY[d.payMethod] || ''} <span class="latin">${esc(d.payAccount || '')}</span>`)}${r('تۆمارکراو', fmt.date(d.joinedAt))}</table>
       <h2>بەڵگەنامەکان</h2><table>
         ${r('کارتی نیشتمانی', `<span class="latin">${esc(d.idNo || '')}</span>، بەسەرچوون ${d.idExpiry ? fmt.day(d.idExpiry) : '-'}`)}
@@ -634,7 +634,7 @@
       </table>
       <h2>دۆخی پشکنین</h2><table>${TK.DOC_GROUPS.map((g) => r(g.label, `<span class="st ${ds[g.key] === 'ok' ? 'ok' : ds[g.key] === 'rejected' ? 'no' : 'pe'}">${DST[ds[g.key] || 'pending'][0]}</span>${d.docReason && d.docReason[g.key] ? ` ${esc(d.docReason[g.key])}` : ''}`)).join('')}</table>
       <h2>وێنەکان</h2><div class="grid">${Object.keys(TK.PHOTO_LABELS).filter((k) => k !== 'photo').map((k) => img(k, TK.PHOTO_LABELS[k])).join('')}</div>
-      <footer>دەرکراو لە پانێڵی بەڕێوەبردنی تەکسیەکەم، ${fmt.date(Date.now())}. ئەم پەڕەیە زانیاری کەسی تێدایە، بە پارێزراوی هەڵیبگرە.</footer>
+      <footer>دەرکراو لە پانێڵی بەڕێوەبردنی یەکسا، ${fmt.date(Date.now())}. ئەم پەڕەیە زانیاری کەسی تێدایە، بە پارێزراوی هەڵیبگرە.</footer>
       <script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`;
     w.document.write(html);
     w.document.close();
@@ -656,7 +656,7 @@
       if (!d || !d.showPhotos) return;
       const [gone] = d.showPhotos.splice(+i, 1);
       if (gone) TK.removeImage(gone);
-      TK.dnoticeAdd(s, { driverId: id, kind: 'info', red: true, title: 'وێنەیەکی ئۆتۆمبێلەکەت لابرا', body: 'لەلایەن تیمی تەکسیەکەمەوە. دەتوانیت وێنەیەکی گونجاوتر دابنێیت', link: 'profile' });
+      TK.dnoticeAdd(s, { driverId: id, kind: 'info', red: true, title: 'وێنەیەکی ئۆتۆمبێلەکەت لابرا', body: 'لەلایەن تیمی یەکساوە. دەتوانیت وێنەیەکی گونجاوتر دابنێیت', link: 'profile' });
     });
     TK.toast('سڕایەوە');
   };
@@ -881,7 +881,7 @@
   acts.saveCredit = (phone) => {
     const amount = Math.abs(num('c-amount'));
     if (!amount) return TK.toast('بڕەکە بنووسە');
-    const note = val('c-note').trim() || 'قەرەبوو لەلایەن تەکسیەکەم';
+    const note = val('c-note').trim() || 'قەرەبوو لەلایەن یەکسا';
     TK.update((s) => {
       const owner = ownerOf(s, phone);
       TK.pslice(s, owner).billing.adjustments.push({ id: 'a' + TK.uid(), amount, note, at: Date.now() });
@@ -1015,7 +1015,7 @@
       const r = s.requests.find((x) => x.id === id);
       r.status = 'closed';
       r.closedReason = 'admin';
-      pushN(s, { kind: 'info', title: 'داواکارییەکەت داخرا', body: `${r.riderNames}، ${r.to}، لەلایەن تیمی تەکسیەکەم` }, r.owner || 'me');
+      pushN(s, { kind: 'info', title: 'داواکارییەکەت داخرا', body: `${r.riderNames}، ${r.to}، لەلایەن تیمی یەکسا` }, r.owner || 'me');
     });
   };
   acts.delReq = async (id) => {
@@ -1459,7 +1459,7 @@
   /* =========================================================
    * هاوبەشەکان: قوتابخانە، زانکۆ و کۆمپانیا
    * هەر هاوبەشێک کۆد و QRی خۆی هەیە. پشکەکەی ڕێژەیەکی جێگیرە لە پارەی دراوی سەرنشینەکانی
-   * (هەرچەند سەرنشین بن ڕێژەکە ناگۆڕێت)، و لە کۆمیسیۆنی تەکسیەکەم دەردەچێت نەک لە شۆفێر.
+   * (هەرچەند سەرنشین بن ڕێژەکە ناگۆڕێت)، و لە کۆمیسیۆنی یەکسا دەردەچێت نەک لە شۆفێر.
    * ======================================================= */
   const PT_TYPE = { school: ['قوتابخانە', 'school'], uni: ['زانکۆ', 'school'], company: ['کۆمپانیا', 'briefcase'], other: ['هی تر', 'users'] };
   const PT_PAY = { fib: 'FIB', fastpay: 'FastPay', cash: 'کاش', bank: 'بانک' };
@@ -1678,7 +1678,7 @@
     const p = TK.partner(id);
     printHtml(`پۆستەری ${p.name}`, `<div class="poster">
       <img src="${location.href.replace(/#.*$/, '').replace(/admin\/?(index\.html)?$/, '')}shared/logo.png" style="width:90px;height:90px" alt="">
-      <h1>تەکسیەکەم</h1>
+      <h1>یەکسا</h1>
       <p>تەکسی مانگانەی پشتڕاستکراو بۆ ${p.type === 'company' ? 'کارمەندانی' : p.type === 'uni' ? 'خوێندکارانی' : 'قوتابیانی'} <b>${esc(p.name)}</b></p>
       ${qrSvg(partnerLink(p.code), 8)}
       <p>QRەکە بە کامێرای مۆبایل بخوێنەوە، یان لە کاتی تۆمارکردن ئەم کۆدە بنووسە:</p>
@@ -1689,7 +1689,7 @@
     const p = TK.partner(id);
     const st = TK.partnerStats(S(), id);
     printHtml(`کەشف حیسابی ${p.name}`, `<h1>کەشف حیسابی ${esc(p.name)}</h1>
-      <p>تەکسیەکەم، ${fmt.date(Date.now())}. ڕێژە: ${p.pct}٪ لە پارەی دراوی هەر سەرنشینێک.</p>
+      <p>یەکسا، ${fmt.date(Date.now())}. ڕێژە: ${p.pct}٪ لە پارەی دراوی هەر سەرنشینێک.</p>
       <table><thead><tr><th>سەرنشین</th><th>مانگ</th><th>پارەی دراو</th><th>ڕێژە</th><th>بەش</th><th>دۆخ</th></tr></thead><tbody>
       ${st.earn.map((e) => `<tr><td>${esc(e.name)}</td><td>${esc(e.month)}</td><td>${fmt.money(e.paid)}</td><td>${e.pct}٪</td><td><b>${fmt.money(e.amount)}</b></td><td>${e.settled ? 'دراوە' : 'ماوە'}</td></tr>`).join('')}
       </tbody></table>
@@ -1823,7 +1823,7 @@
   TK.backupDue = backupDue;
   const RULES = [
     ['نرخ و کۆمیسیۆن', [
-      ['commission', 'کۆمیسیۆنی تەکسیەکەم', '%'],
+      ['commission', 'کۆمیسیۆنی یەکسا', '%'],
       ['basePrice', 'نرخی بنەڕەتی مانگانە', 'دینار'],
       ['perKm', 'نرخ بۆ هەر کیلۆمەترێک', 'دینار'],
       ['offerRange', 'ڕێژەی گۆڕینی نرخ لەلایەن شۆفێر', '%'],
@@ -1980,7 +1980,7 @@
     const blob = new Blob([JSON.stringify({ ...data, cloud: 1 })], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `taxikam-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `yeksa-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
