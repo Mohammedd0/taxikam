@@ -67,6 +67,7 @@
     ['drivers', 'car', 'شۆفێرەکان', 'driversAlert'],
     ['passengers', 'users', 'سەرنشینەکان'],
     ['partners', 'briefcase', 'هاوبەشەکان'],
+    ['rewards', 'gift', 'پاداشت و بانگهێشت'],
     ['subs', 'calendar', 'بەشداری و داواکاری', 'requests'],
     ['trips', 'route', 'گەشتەکان', 'swaps'],
     ['news', 'news', 'هەواڵ و ئاگادارکردنەوە'],
@@ -134,8 +135,10 @@
       const s = S();
       const c = counts();
       const drivers = s.drivers.filter((d) => d.status === 'active');
-      const gross = drivers.reduce((n, d) => n + TK.payout(s, d.id).gross, 0);
-      const fee = Math.round(gross * TK.CONFIG.commission);
+      const pos = drivers.map((d) => TK.payout(s, d.id));
+      const gross = pos.reduce((n, po) => n + po.gross, 0);
+      const fee = pos.reduce((n, po) => n + po.commission, 0);
+      const disc = monthDisc(s);
       const tc = {};
       s.trips.forEach((t) => (tc[t.status] = (tc[t.status] || 0) + 1));
       const maxT = Math.max(1, ...Object.values(tc));
@@ -161,7 +164,7 @@
           ${kpi(fmt.money(gross), 'داهاتی مانگانە (کۆی گشتی)', 'wallet', { go: 'finance' })}
           ${(() => {
             const ptm = (s.partners || []).reduce((n, p) => n + TK.partnerStats(s, p.id).month, 0);
-            return kpi(fmt.money(fee - ptm), 'قازانجی پاکی تۆ', 'trophy', { go: 'finance', cls: 'brand', sub: `کۆمیسیۆن ${Math.round(TK.CONFIG.commission * 100)}٪، بەشی هاوبەشەکان ${fmt.money(ptm)}` });
+            return kpi(fmt.money(fee - ptm - disc), 'قازانجی پاکی تۆ', 'trophy', { go: 'finance', cls: 'brand', sub: `کۆمیسیۆن: ${TK.commissionText()}، بەشی هاوبەشەکان ${fmt.money(ptm)}${disc ? `، داشکاندن ${fmt.money(disc)}` : ''}` });
           })()}
           ${kpi(c.requests, 'داواکاری کراوە', 'megaphone', { go: 'subs' })}
           ${kpi(openRep + openT, 'سکاڵا و ڕاپۆرت', 'alert', { go: 'reports', alert: openRep + openT > 0 })}
@@ -1260,6 +1263,19 @@
   /* =========================================================
    * دارایی
    * ======================================================= */
+  /** داشکاندنی بانگهێشت و پاداشتی ئەم مانگە (لە کۆمیسیۆنی یەکسا دەردەچێت): فاتورەی دراو یان فاتورەی ئێستا */
+  function monthDisc(s) {
+    return s.accounts.reduce((n, a) => {
+      const owner = ownerOf(s, a.phone);
+      const ps = TK.pslice(s, owner);
+      if (!ps || !ps.billing) return n;
+      if (ps.billing.paid) {
+        const h = (ps.billing.history || [])[0];
+        return n + (h && h.month === ps.billing.month ? h.disc || 0 : 0);
+      }
+      return n + TK.invoice(s, owner).disc;
+    }, 0);
+  }
   TK.route('finance', {
     guard,
     render() {
@@ -1273,6 +1289,7 @@
       }).filter((x) => x && (x.inv.lines.length || x.b.paid));
       const paidList = s.accounts.flatMap((a) => (acctSlice(s, a.phone) || { billing: { history: [] } }).billing.history.map((h) => ({ ...h, name: h.name || a.name }))).sort((x, y) => y.at - x.at);
       const paidIn = paidList.reduce((n, h) => n + h.total, 0);
+      const disc = monthDisc(s);
       const PT = (s.partners || []).reduce((a, p) => {
         const st = TK.partnerStats(s, p.id);
         return { month: a.month + st.month, balance: a.balance + st.balance };
@@ -1282,7 +1299,7 @@
           ${kpi(fmt.money(T.gross), 'کۆی بەشدارییەکانی مانگ', 'wallet')}
           ${kpi(fmt.money(T.net), 'بەشی شۆفێران', 'car')}
           ${kpi(fmt.money(PT.month), 'بەشی هاوبەشەکان (ئەم مانگە)', 'briefcase', { go: 'partners', sub: PT.balance ? `${fmt.money(PT.balance)} ماوە بۆ پێدان` : 'هەمووی دراوە' })}
-          ${kpi(fmt.money(T.fee - PT.month), 'قازانجی پاکی تۆ', 'trophy', { cls: 'brand', sub: `کۆمیسیۆن ${fmt.money(T.fee)} کەم بەشی هاوبەشەکان` })}
+          ${kpi(fmt.money(T.fee - PT.month - disc), 'قازانجی پاکی تۆ', 'trophy', { cls: 'brand', sub: `کۆمیسیۆن ${fmt.money(T.fee)} کەم بەشی هاوبەشەکان${disc ? ` و داشکاندنی بانگهێشت و پاداشت (${fmt.money(disc)})` : ''}` })}
         </div>
         <div class="xs muted">پارەی وەرگیراو لە سەرنشینان تا ئێستا: ${fmt.money(paidIn)}</div>
         <div class="h3">موچەی شۆفێران</div>
@@ -1308,7 +1325,7 @@
           <tbody>${bills.map(({ a, inv, b }) => `<tr>
             <td class="tap" data-go="passenger/${a.phone}"><b class="sm">${esc(a.name)}</b><div class="xs muted latin">${fmt.phone(a.phone)}</div></td>
             <td>${inv.lines.length}</td><td class="sm">${fmt.group(inv.sub)}</td>
-            <td class="sm neg">${inv.promo + inv.credit ? fmt.group(inv.promo + inv.credit) : '-'}</td>
+            <td class="sm neg">${inv.promo + inv.disc + inv.credit ? fmt.group(inv.promo + inv.disc + inv.credit) : '-'}</td>
             <td><b class="brand">${fmt.group(inv.total)}</b></td>
             <td class="sm">${{ cash: 'کاش', fastpay: 'FastPay', fib: 'FIB' }[b.method] || '-'}</td>
             <td>${b.paid ? ui.badge('دراوە', 'ok') : `<button class="btn sm ok" data-act="markPaid" data-arg="${a.phone}">پارە وەرگیرا</button>`}</td>
@@ -1343,7 +1360,7 @@
     const inv = TK.invoice(s, ownerOf(s, phone));
     const a = s.accounts.find((x) => x.phone === phone);
     if (!(await TK.ask(`پارەی ${a.name}: ${fmt.money(inv.total)} وەرگیرا؟`, { danger: false, icon: 'wallet', yes: 'تۆمارکردن' }))) return;
-    actions.pay(inv.total, Math.floor(inv.total / 1000), phone);
+    actions.pay(inv.total, 0, phone);
     TK.toast('وەک دراو تۆمار کرا');
   };
 
@@ -1812,6 +1829,291 @@
   };
 
   /* =========================================================
+   * کۆمیسیۆن، بانگهێشت و پاداشت
+   * ======================================================= */
+  /** خوێندنەوەی ژمارە لە خانەیەک (کوردی یان ئینگلیزی، بە فاریزە یان بێ) */
+  const numIn = (id) => {
+    const raw = String(val(id) || '').replace(/[,٬\s]/g, '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+    return raw === '' ? NaN : +raw;
+  };
+  const monthName = (mk) => fmt.MONTHS[Number(String(mk).slice(5, 7)) - 1] || '';
+  /** نرخی نموونە بۆ ڕوونکردنەوە: ناوەندی نرخی بەشدارییە چالاکەکان، یان ١٠٠٬٠٠٠ */
+  const samplePrice = () => {
+    const l = S().subscriptions.map((x) => x.price).filter((v) => v > 0);
+    return l.length ? Math.round(l.reduce((a, b) => a + b, 0) / l.length / 5000) * 5000 : 100000;
+  };
+
+  /* ---------- کۆمیسیۆن (لە پەڕەی یاسا و ڕێکخستن) ---------- */
+  function comExample(e) {
+    const f = TK.CONFIG.extraRiderFactor;
+    const rule = { type: e.type, pct: (e.pct || 0) / 100, fixed: e.fixed || 0 };
+    const p1 = 100000;
+    const p2 = Math.round(p1 * f);
+    const fee1 = rule.type === 'fixed' ? Math.min(p1, rule.fixed) : Math.round(p1 * rule.pct);
+    const fee2 = rule.type === 'fixed' ? Math.min(p2, Math.round((rule.fixed * f) / 250) * 250) : Math.round(p2 * rule.pct);
+    const row = (a, b, c, cls = '') => `<div class="row between sm ${cls}"><span class="grow">${a}</span><span style="min-width:90px;text-align:left">${b}</span><b style="min-width:90px;text-align:left">${c}</b></div>`;
+    return `<div class="xs muted">نموونە: بەشدارییەکی دوو کەسی بۆ مانگێکی تەواو</div>
+      ${row('<span class="muted">کەس</span>', '<span class="muted">نرخ</span>', '<span class="muted">کۆمیسیۆن</span>')}
+      ${row('کەسی یەکەم', fmt.group(p1), fmt.group(fee1))}
+      ${row(`کەسی دووەم (${fmt.n(Math.round(f * 100))}٪)`, fmt.group(p2), fmt.group(fee2))}
+      <div class="hr"></div>
+      ${row('<b>کۆ</b>', fmt.group(p1 + p2), fmt.group(fee1 + fee2))}
+      ${row('بۆ شۆفێر', '', fmt.group(p1 + p2 - fee1 - fee2), 'ok')}
+      <div class="xs muted">ئەگەر بەشدارییەکە نیوەی مانگ چالاک بێت، کۆمیسیۆنیش نیوە دەبێت (${fmt.group(Math.round((fee1 + fee2) / 2 / 250) * 250)}).</div>`;
+  }
+  function comCard() {
+    const cur = TK.commissionRule();
+    const n = TK.CONFIG.commissionNext;
+    const pending = n && n.from > TK.monthKey() ? n : null;
+    const base = pending || cur;
+    if (!U.com) U.com = { type: base.type, pct: Math.round(base.pct * 100), fixed: base.fixed };
+    const e = U.com;
+    return `<div class="card col com-card">
+      <div class="row between"><div class="h3">کۆمیسیۆنی یەکسا</div><span class="sm">ئێستا: <b>${TK.commissionText(cur)}</b></span></div>
+      ${pending ? `<div class="card note row sm" style="gap:8px">${icon('clock', 18)}<span class="grow">لە ١ی ${monthName(pending.from)}ەوە: <b>${TK.commissionText(pending)}</b></span><button class="btn sm secondary" data-act="comCancel">هەڵوەشاندنەوە</button></div>` : ''}
+      <div class="cols">
+        <div class="col">
+          <div class="field"><label>جۆری کۆمیسیۆن</label>${ui.seg('comType', [{ v: 'pct', l: 'ڕێژە (٪)' }, { v: 'fixed', l: 'بڕی جێگیر (دینار)' }], e.type)}</div>
+          ${e.type === 'pct'
+            ? input('com-pct', 'ڕێژە لە نرخی هەر بەشدارییەک', String(e.pct), { unit: '٪', attrs: 'data-input="comVal"' })
+            : input('com-fixed', 'بڕ بۆ هەر کەسێک لە مانگێکدا', fmt.group(e.fixed), { unit: 'دینار', attrs: 'data-input="comVal"', hint: `کەسی دووەم بەدواوە لە یەک بەشداری: ${fmt.n(Math.round(TK.CONFIG.extraRiderFactor * 100))}٪ی ئەم بڕە (هەمان یاسای «نرخی کەسی دووەم بەدواوە»)` })}
+          ${check('com-now', 'لە ئێستاوە جێبەجێ بکە (بۆ ئەم مانگەش)', false)}
+          <div class="xs muted">بە بنەڕەت گۆڕانکاری لە ١ی ${monthName(TK.nextMonthKey())}ەوە جێبەجێ دەبێت، بۆ ئەوەی حیسابی ئەم مانگەی شۆفێران تێک نەچێت. شۆفێران لە پەڕەی «داهات» یاساکە دەبینن.</div>
+          <button class="btn sm" data-act="comSave" style="align-self:flex-start">${icon('check', 16, 'currentColor', 2.4)}پاشەکەوتی کۆمیسیۆن</button>
+        </div>
+        <div class="col tight com-ex" id="com-ex">${comExample(e)}</div>
+      </div>
+    </div>`;
+  }
+  acts.comType = (t) => {
+    U.com.type = t;
+    TK.render();
+  };
+  acts.comVal = (v, el) => {
+    const x = +String(v).replace(/[,٬\s]/g, '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+    if (isNaN(x)) return;
+    if (el.id === 'com-pct') U.com.pct = x;
+    else U.com.fixed = x;
+    const box = document.getElementById('com-ex');
+    if (box) {
+      box.innerHTML = comExample(U.com);
+      TK.localizeDigits(box);
+    }
+  };
+  acts.comSave = async () => {
+    const e = U.com;
+    const now = !!(document.getElementById('com-now') || {}).checked;
+    if (e.type === 'pct' && !(e.pct >= 0 && e.pct <= 50)) return TK.toast('ڕێژە دەبێت لە نێوان ٠ و ٥٠٪ بێت');
+    if (e.type === 'fixed' && !(e.fixed >= 0)) return TK.toast('بڕەکە دروست نییە');
+    const rule = { type: e.type, pct: e.type === 'pct' ? e.pct / 100 : TK.commissionRule().pct, fixed: e.type === 'fixed' ? Math.round(e.fixed) : TK.commissionRule().fixed };
+    const when = now ? 'لە ئێستاوە (ئەم مانگەش)' : `لە ١ی ${monthName(TK.nextMonthKey())}ەوە`;
+    if (!(await TK.ask(`کۆمیسیۆن دەبێت بە: ${TK.commissionText(rule)}، ${when}. شۆفێران ئاگادار دەکرێنەوە.`, { danger: false, icon: 'wallet', yes: 'پاشەکەوت' }))) return;
+    TK.update((s) => {
+      const c = (s.config = s.config || {});
+      // یاسای چاوەڕوانی کۆن کە کاتی هاتووە، دەبێت بە یاسای ئێستا
+      const n = c.commissionNext;
+      if (n && n.from && n.from <= TK.monthKey()) Object.assign(c, { commissionType: n.type, commission: n.pct, commissionFixed: n.fixed });
+      if (now) {
+        Object.assign(c, { commissionType: rule.type, commission: rule.pct, commissionFixed: rule.fixed });
+        c.commissionNext = null;
+      } else c.commissionNext = Object.assign({}, rule, { from: TK.nextMonthKey() });
+      s.drivers.filter((d) => d.status === 'active').forEach((d) => pushDN(s, { driverId: d.id, kind: 'info', title: 'یاسای کۆمیسیۆن گۆڕا', body: `${TK.commissionText(rule)}، ${when}`, link: 'earnings' }));
+    });
+    U.com = null;
+    TK.toast('کۆمیسیۆن پاشەکەوت کرا');
+  };
+  acts.comCancel = async () => {
+    if (!(await TK.ask('گۆڕانکارییەکەی مانگی داهاتوو هەڵدەوەشێتەوە؟'))) return;
+    TK.update((s) => {
+      s.config = Object.assign({}, s.config, { commissionNext: null });
+    });
+    U.com = null;
+  };
+
+  /* ---------- پەڕەی پاداشت و بانگهێشت ---------- */
+  const REF_ST = { joined: ['تۆماری کرد', ''], subscribed: ['بەشداری کرد', 'ok'], cancelled: ['هەڵیوەشاندەوە', 'danger'], revoked: ['لابرا', 'danger'] };
+  function refExample(e) {
+    const price = samplePrice();
+    const amt = e.type === 'pct' ? Math.min(price, Math.min(Math.round((price * e.pct) / 100 / 250) * 250, e.max || Infinity)) : Math.min(price, e.fixed || 0);
+    const fee = TK.feeFor({ riders: 1 }, price);
+    const left = fee - 2 * amt;
+    return `<div class="xs muted">نموونە: بەشدارییەکی ${fmt.money(price)}</div>
+      <div class="row between sm"><span>ئاراس لە یەکەم مانگ دەدات</span><b><s class="was">${fmt.group(price)}</s> ${fmt.group(price - amt)}</b></div>
+      <div class="row between sm"><span>ئەحمەد لە فاتورەی داهاتووی</span><b class="ok">${fmt.group(-amt)}</b></div>
+      <div class="row between sm"><span>شۆفێر وەردەگرێت</span><b>${fmt.group(price - fee)} <span class="xs muted">(ناگۆڕێت)</span></b></div>
+      <div class="hr"></div>
+      <div class="row between sm"><span>کۆمیسیۆنی یەکسا لەم بەشدارییە</span><b>${fmt.group(fee)}</b></div>
+      <div class="row between sm"><span>کۆی داشکاندن (هەردووکیان)</span><b class="neg">${fmt.group(-2 * amt)}</b></div>
+      <div class="row between"><b>بۆ یەکسا دەمێنێتەوە، یەکەم مانگ</b><b class="${left < 0 ? 'neg' : 'brand'}">${fmt.group(left)}</b></div>
+      ${left < 0 ? `<div class="card note sm">${icon('alert', 16)} داشکاندنی هەردووکیان زیاترە لە کۆمیسیۆنی یەکەم مانگ. یەکسا لە یەکەم مانگدا ${fmt.money(-left)} زیان دەکات، لە مانگی دووەمەوە کۆمیسیۆنی تەواو دەگەڕێتەوە.</div>` : ''}`;
+  }
+  TK.route('rewards', {
+    guard,
+    render() {
+      const s = S();
+      const c = TK.CONFIG;
+      if (!U.refCfg) U.refCfg = { on: c.refOn !== false, type: c.refType || 'fixed', fixed: c.refFixed, pct: Math.round((c.refPct || 0) * 100), max: c.refMax || 0 };
+      const e = U.refCfg;
+      const refs = (s.referrals || []).slice().sort((a, b) => (b.subAt || b.at || 0) - (a.subAt || a.at || 0));
+      const nameOf = (uid, fb) => (s.accounts.find((a) => a.uid === uid) || {}).name || fb || '-';
+      const given = refs.reduce((n, r) => n + (r.status === 'subscribed' ? (r.inviteeUsedAt ? r.amount : 0) + (r.inviterUsedAt ? r.amount : 0) : 0), 0);
+      const list = TK.rewardsList();
+      const p1000 = c.pointsPer1000 || 0;
+      const avg = samplePrice();
+      return layout('rewards', 'پاداشت و بانگهێشت', `
+        <div class="kpis">
+          ${kpi(refs.length, 'بانگهێشت', 'users')}
+          ${kpi(refs.filter((r) => r.status === 'subscribed').length, 'بەشدارییان کرد', 'calendar')}
+          ${kpi(fmt.money(given), 'داشکاندنی بەکارهاتوو', 'gift', { sub: 'لە کۆمیسیۆنی یەکسا' })}
+        </div>
+        <div class="cols">
+          <div class="card col">
+            <div class="row between"><div class="h3">بانگهێشتی هاوڕێ</div>${ui.toggle('refOnT', e.on)}</div>
+            <div class="xs muted">ئەحمەد کۆدەکەی دەنێرێت بۆ ئاراس. کاتێک ئاراس بەشداری دەکات، هەردووکیان ئەم داشکاندنە وەردەگرن: ئاراس لە یەکەم مانگی، ئەحمەد لە فاتورەی داهاتووی. پارە نییە و ناکێشرێتەوە. داشکاندن لە کۆمیسیۆنی یەکسا دەبڕدرێت، شۆفێر هەمان پارەی خۆی وەردەگرێت.</div>
+            <div class="field"><label>جۆری داشکاندن</label>${ui.seg('refType', [{ v: 'fixed', l: 'بڕی جێگیر (دینار)' }, { v: 'pct', l: 'ڕێژە (٪)' }], e.type)}</div>
+            ${e.type === 'pct'
+              ? `<div class="form-grid">${input('ref-pct', 'ڕێژە لە نرخی یەکەم مانگ', String(e.pct), { unit: '٪', attrs: 'data-input="refVal"' })}${input('ref-max', 'زۆرترین بڕ', fmt.group(e.max), { unit: 'دینار', attrs: 'data-input="refVal"', hint: '٠ = بێ سنوور' })}</div>`
+              : input('ref-fixed', 'داشکاندن بۆ هەر یەکێکیان', fmt.group(e.fixed), { unit: 'دینار', attrs: 'data-input="refVal"' })}
+            <div class="col tight" id="ref-ex">${refExample(e)}</div>
+            <button class="btn sm" data-act="refSave" style="align-self:flex-start">${icon('check', 16, 'currentColor', 2.4)}پاشەکەوت</button>
+          </div>
+          <div class="card col">
+            <div class="h3">خاڵی پاداشت</div>
+            <div class="form-grid">
+              ${input('pt-1000', 'خاڵ بۆ هەر ١٬٠٠٠ دینار پارەدان', String(p1000), { unit: 'خاڵ' })}
+              ${input('pt-rate', 'خاڵ بۆ هەر هەڵسەنگاندنێک', String(c.pointsPerRating || 0), { unit: 'خاڵ' })}
+            </div>
+            <div class="xs muted">بۆ نموونە: سەرنشینێک ${fmt.money(avg)} دەدات ← ${fmt.n(fmt.group(TK.pointsFor(avg)))} خاڵ وەردەگرێت.</div>
+            <button class="btn sm secondary" data-act="ptsSave" style="align-self:flex-start">پاشەکەوتی خاڵ</button>
+          </div>
+        </div>
+        <div class="section-title"><div class="h3">پاداشتەکان</div><button class="link" data-act="rwForm">زیادکردن</button></div>
+        <div class="xs muted">سەرنشین خاڵ کۆ دەکاتەوە و لە پەڕەی «پاداشت» دەیگۆڕێتەوە. پاداشت دەبێت بە داشکاندن لە فاتورەی داهاتووی (لە کۆمیسیۆنی یەکسا).</div>
+        ${list.length ? `<div class="list">${list.map((x) => {
+          const spend = p1000 ? Math.round((x.cost / p1000) * 1000) : 0;
+          const worth = x.kind === 'days' ? Math.round((avg / 30) * x.amount) : x.amount;
+          return `<div class="item ${x.on === false ? 'off' : ''}">
+            <div class="ico-box">${icon(x.kind === 'days' ? 'calendar' : 'tag', 18)}</div>
+            <div class="grow"><b class="sm">${esc(x.title)}</b><div class="xs">${fmt.n(fmt.group(x.cost))} خاڵ ← ${TK.rewardValue(x)}${x.repeat ? '' : '، تەنها یەک جار'}</div>
+              <div class="xs muted">${spend ? `سەرنشین پێویستە نزیکەی ${fmt.money(spend)} پارە بدات تا ئەم پاداشتە وەربگرێت (${fmt.n(((worth / spend) * 100).toFixed(1))}٪ دەگەڕێتەوە بۆی)` : 'خاڵ بۆ پارەدان ٠ـە'}</div></div>
+            ${ui.toggle('rwOn', x.on !== false, x.id)}
+            <button class="icon-btn" data-act="rwForm" data-arg="${x.id}" aria-label="دەستکاری">${icon('edit', 18)}</button>
+            <button class="icon-btn" data-act="rwDel" data-arg="${x.id}" aria-label="سڕینەوە">${icon('x', 18)}</button>
+          </div>`;
+        }).join('')}</div>` : '<div class="sm muted">هیچ پاداشتێک نییە</div>'}
+        <div class="h3">بانگهێشتەکان</div>
+        ${refs.length ? `<div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>بانگهێشتکەر</th><th>هاوڕێ</th><th>کۆد</th><th>دۆخ</th><th>داشکاندن</th><th>بەکارهاتووە</th><th></th></tr></thead>
+          <tbody>${refs.map((r) => {
+            const st = REF_ST[r.status] || [r.status, ''];
+            return `<tr>
+              <td><b class="sm">${esc(nameOf(r.inviter, r.inviterName))}</b></td>
+              <td><b class="sm">${esc(nameOf(r.invitee, r.inviteeName))}</b><div class="xs muted">${fmt.ago(r.at)}</div></td>
+              <td class="latin sm">${esc(r.code || '')}</td>
+              <td>${ui.badge(st[0], st[1])}</td>
+              <td class="sm">${r.amount ? fmt.group(r.amount) : '-'}</td>
+              <td class="xs">${r.status === 'subscribed' ? `${r.inviteeUsedAt ? '✓' : '○'} هاوڕێ<br>${r.inviterUsedAt ? '✓' : '○'} بانگهێشتکەر` : '-'}</td>
+              <td>${r.status !== 'revoked' ? `<button class="btn sm danger" data-act="refRevoke" data-arg="${r.id}">لابردن</button>` : ''}</td>
+            </tr>`;
+          }).join('')}</tbody></table></div>` : '<div class="sm muted">هێشتا هیچ بانگهێشتێک نییە</div>'}`);
+    },
+  });
+  acts.refOnT = () => {
+    U.refCfg.on = !U.refCfg.on;
+    TK.render();
+  };
+  acts.refType = (t) => {
+    U.refCfg.type = t;
+    TK.render();
+  };
+  acts.refVal = (v, el) => {
+    const x = +String(v).replace(/[,٬\s]/g, '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+    if (isNaN(x)) return;
+    U.refCfg[{ 'ref-pct': 'pct', 'ref-max': 'max', 'ref-fixed': 'fixed' }[el.id]] = x;
+    const box = document.getElementById('ref-ex');
+    if (box) {
+      box.innerHTML = refExample(U.refCfg);
+      TK.localizeDigits(box);
+    }
+  };
+  acts.refSave = () => {
+    const e = U.refCfg;
+    if (e.type === 'pct' && !(e.pct > 0 && e.pct <= 100)) return TK.toast('ڕێژەکە دروست نییە');
+    if (e.type === 'fixed' && !(e.fixed >= 0)) return TK.toast('بڕەکە دروست نییە');
+    TK.update((s) => {
+      s.config = Object.assign({}, s.config, { refOn: e.on, refType: e.type, refFixed: Math.round(e.fixed || 0), refPct: (e.pct || 0) / 100, refMax: Math.round(e.max || 0) });
+    });
+    U.refCfg = null;
+    TK.toast('پاشەکەوت کرا');
+  };
+  acts.refRevoke = async (id) => {
+    const r = (S().referrals || []).find((x) => x.id === id);
+    if (!r || !(await TK.ask(`ئەم بانگهێشتە لادەبرێت؟ داشکاندنی بەکارنەهاتووی هەردووکیان نامێنێت.`))) return;
+    TK.update((s) => {
+      const x = s.referrals.find((y) => y.id === id);
+      if (x) x.status = 'revoked';
+    });
+  };
+  acts.ptsSave = () => {
+    const a = numIn('pt-1000');
+    const b = numIn('pt-rate');
+    if (!(a >= 0) || !(b >= 0)) return TK.toast('ژمارەکان دروست نین');
+    TK.update((s) => {
+      s.config = Object.assign({}, s.config, { pointsPer1000: a, pointsPerRating: Math.round(b) });
+    });
+    TK.toast('پاشەکەوت کرا');
+  };
+  /** لیستی پاداشتەکان (یەکەم گۆڕانکاری لیستی بنەڕەت کۆپی دەکات) */
+  const rwList = (s) => {
+    s.config = Object.assign({}, s.config);
+    if (!Array.isArray(s.config.rewards)) s.config.rewards = JSON.parse(JSON.stringify(TK.REWARDS_DEFAULT));
+    return s.config.rewards;
+  };
+  acts.rwOn = (id) => TK.update((s) => {
+    const x = rwList(s).find((y) => y.id === id);
+    if (x) x.on = x.on === false;
+  });
+  acts.rwDel = async (id) => {
+    if (!(await TK.ask('ئەم پاداشتە لادەبرێت؟ ئەوانەی پێشتر وەریانگرتووە دەمێننەوە.'))) return;
+    TK.update((s) => {
+      s.config.rewards = rwList(s).filter((y) => y.id !== id);
+    });
+  };
+  acts.rwForm = (id) => {
+    const x = (id && TK.rewardsList().find((y) => y.id === id)) || { title: '', cost: 1000, kind: 'iqd', amount: 10000, repeat: true };
+    U.rwKind = x.kind;
+    TK.sheet(() => `<div class="h2">${id ? 'دەستکاری پاداشت' : 'پاداشتی نوێ'}</div>
+      ${input('rw-title', 'ناو', x.title, { ph: 'بۆ نموونە: ١٠٬٠٠٠ دینار داشکاندن' })}
+      <div class="form-grid">
+        ${input('rw-cost', 'چەند خاڵ پێویستە', fmt.group(x.cost), { unit: 'خاڵ' })}
+        ${select('rw-kind', 'جۆر', x.kind, [['iqd', 'داشکاندن بە دینار'], ['days', 'ڕۆژی بەخۆڕایی']])}
+        ${input('rw-amount', 'بڕ', fmt.group(x.amount), { unit: 'دینار یان ڕۆژ', hint: 'بۆ ڕۆژی بەخۆڕایی: نرخی ئەو ڕۆژانە لە فاتورەکە دەبڕدرێت' })}
+      </div>
+      ${check('rw-repeat', 'سەرنشین دەتوانێت چەند جار وەریبگرێت', x.repeat !== false)}
+      <button class="btn block" data-act="rwSave" data-arg="${id || ''}">پاشەکەوت</button>
+      <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+  };
+  acts.rwSave = (id) => {
+    const title = String(val('rw-title') || '').trim();
+    const cost = numIn('rw-cost');
+    const amount = numIn('rw-amount');
+    const kind = val('rw-kind') === 'days' ? 'days' : 'iqd';
+    if (!title) return TK.toast('ناوی پاداشت بنووسە');
+    if (!(cost > 0) || !(amount > 0)) return TK.toast('خاڵ و بڕ دەبێت لە ٠ زیاتر بن');
+    if (kind === 'days' && amount > 31) return TK.toast('زۆرترین ٣١ ڕۆژ');
+    const repeat = !!(document.getElementById('rw-repeat') || {}).checked;
+    TK.update((s) => {
+      const l = rwList(s);
+      const data = { title, cost: Math.round(cost), kind, amount: Math.round(amount), repeat };
+      const x = id && l.find((y) => y.id === id);
+      if (x) Object.assign(x, data);
+      else l.push(Object.assign({ id: 'rw' + TK.uid(), on: true }, data));
+    });
+    TK.closeSheet();
+    TK.toast('پاشەکەوت کرا');
+  };
+
+  /* =========================================================
    * یاسا و ڕێکخستن
    * ======================================================= */
   /** بیرخستنەوەی هەفتانەی پاشەکەوت (تەنها کاتێک زانیاری هەبێت) */
@@ -1823,7 +2125,6 @@
   TK.backupDue = backupDue;
   const RULES = [
     ['نرخ و کۆمیسیۆن', [
-      ['commission', 'کۆمیسیۆنی یەکسا', '%'],
       ['basePrice', 'نرخی بنەڕەتی مانگانە', 'دینار'],
       ['perKm', 'نرخ بۆ هەر کیلۆمەترێک', 'دینار'],
       ['offerRange', 'ڕێژەی گۆڕینی نرخ لەلایەن شۆفێر', '%'],
@@ -1839,7 +2140,6 @@
       ['bonusAmount', 'پاداشتی مانگانەی شۆفێر', 'دینار'],
       ['bonusDays', 'ڕۆژی کار بۆ پاداشت', 'ڕۆژ'],
       ['debtLimit', 'سنووری قەرزی شۆفێر', 'دینار'],
-      ['pointsPer1000', 'خاڵی پاداشت بۆ هەر ١٠٠٠ دینار', 'خاڵ'],
     ]],
     ['کات', [
       ['skipCutoffMin', '«نایەم» تا چەند خولەک پێش گەشت', 'خولەک'],
@@ -1860,15 +2160,17 @@
       ['securityValidDays', 'ماوەی دروستبوونی کۆدی ئاسایش', 'ڕۆژ'],
     ]],
   ];
+  const RULE_KEYS = RULES.flatMap(([, rows]) => rows.map(([k]) => k));
   // ئەو ڕێژانەی بە بەراورد بە نرخی ئاسایین (١٠٠٪ = هەمان نرخ)
   const FACTOR = ['oneWayFactor', 'privateFactor', 'familyFactor', 'kidsFactor', 'extraRiderFactor'];
-  const PCT = ['commission', 'offerRange', 'oneWayFactor', 'privateFactor', 'familyFactor', 'kidsFactor', 'extraRiderFactor'];
+  const PCT = ['offerRange', 'oneWayFactor', 'privateFactor', 'familyFactor', 'kidsFactor', 'extraRiderFactor'];
   TK.route('settings', {
     guard,
     render() {
       const c = TK.CONFIG;
       return layout('settings', 'یاسا و ڕێکخستن', `
-        <div class="xs muted">هەر گۆڕانکارییەک دەستبەجێ لە هەموو ئەپەکان جێبەجێ دەکرێت. بۆ نموونە گۆڕینی کۆمیسیۆن یەکسەر لە داهاتی شۆفێران دەردەکەوێت.</div>
+        ${comCard()}
+        <div class="xs muted">یاساکانی خوارەوە دەستبەجێ لە هەموو ئەپەکان جێبەجێ دەکرێن.</div>
         <div class="cols">${RULES.map(([title, rows]) => `<div class="card col"><div class="h3">${title}</div><div class="form-grid rules">${rows.map(([k, l, unit]) => {
           const v = PCT.includes(k) ? Math.round(c[k] * 100) : c[k];
           const hints = [];
@@ -1916,7 +2218,10 @@
     }));
     U.cfgDirty = false;
     TK.update((s) => {
-      s.config = next;
+      // تەنها یاساکانی ئەم خشتەیە؛ کۆمیسیۆن، بانگهێشت و پاداشت دەست لێنادرێن
+      const keep = {};
+      Object.keys(s.config || {}).forEach((k) => !RULE_KEYS.includes(k) && (keep[k] = s.config[k]));
+      s.config = Object.assign(keep, next);
     });
     TK.toast('یاساکان پاشەکەوت کران');
   };
@@ -1931,9 +2236,11 @@
     }
   };
   acts.resetRules = async () => {
-    if (!(await TK.ask('هەموو یاساکان دەگەڕێنەوە بۆ بنەڕەت؟'))) return;
+    if (!(await TK.ask('هەموو یاساکانی ئەم خشتەیە دەگەڕێنەوە بۆ بنەڕەت؟ (کۆمیسیۆن، بانگهێشت و پاداشت ناگۆڕێن)'))) return;
     TK.update((s) => {
-      s.config = {};
+      const keep = {};
+      Object.keys(s.config || {}).forEach((k) => !RULE_KEYS.includes(k) && (keep[k] = s.config[k]));
+      s.config = keep;
     });
   };
   const ensurePay = (s) => {

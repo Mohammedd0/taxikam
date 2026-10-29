@@ -11,7 +11,17 @@
   // ڕێکخستنەکانی خاوەنی ئەپ (دواتر لە پانێڵی بەڕێوەبردن دەگۆڕدرێن)
   // بنەڕەتی یاساکان. خاوەنی ئەپ لە پانێڵی بەڕێوەبردن دەیانگۆڕێت (state.config)
   const CONFIG = {
-    commission: 0.12, // کۆمیسیۆنی ئەپ لە هەر بەشدارییەک
+    commission: 0.12, // کۆمیسیۆنی ئەپ لە هەر بەشدارییەک (کاتێک جۆرەکەی ٪ بێت)
+    commissionType: 'pct', // 'pct' = ڕێژە لە نرخ، 'fixed' = بڕێکی جێگیر بۆ هەر کەسێک لە مانگێکدا
+    commissionFixed: 10000, // کۆمیسیۆنی جێگیر بۆ کەسی یەکەم (کەسی دووەم بەدواوە بە ڕێژەی نرخەکەی)
+    commissionNext: null, // یاسای نوێ کە لە مانگی داهاتووەوە جێبەجێ دەبێت: { type, pct, fixed, from: 'YYYY-MM' }
+    refOn: true, // بانگهێشتی هاوڕێ
+    refType: 'fixed', // 'fixed' = دینار، 'pct' = ڕێژە لە نرخی یەکەم مانگ
+    refFixed: 5000, // داشکاندنی هەر یەکێک لە دوو هاوڕێکە
+    refPct: 0.05,
+    refMax: 10000, // زۆرترین داشکاندن کاتێک بە ٪ بێت
+    pointsPerRating: 20, // خاڵ بۆ هەر هەڵسەنگاندنێک
+    rewards: null, // لیستی پاداشتەکان (null = بنەڕەت)
     offerRange: 0.15, // شۆفێر دەتوانێت تا ١٥٪ کەمتر یان زیاتر نرخ پێشنیار بکات
     requestHours: 48, // داواکاری دوای ٤٨ کاتژمێر دادەخرێت
     basePrice: 50000, // نرخی بنەڕەتی مانگانە
@@ -463,6 +473,7 @@
   const MONTH_KEY = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const TODAY = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   TK.todayISO = () => TODAY();
+  TK.monthKey = () => MONTH_KEY();
   /** زانیاری تایبەتی هەر سەرنشینێک (کاتی گۆڕینی هەژمار هەڵدەگیرێت لە vault) */
   const PRIV = ['passenger', 'family', 'notices', 'readNoticesAt', 'rewards', 'billing', 'tickets', 'history', 'seenNews', 'pins'];
   function emptyPassenger(name = '', phone = '') {
@@ -472,7 +483,7 @@
       family: { members: name ? [{ id: 'm' + uid(), name: first, initial: name.slice(0, 1), kind: 'adult', relation: 'خاوەن ئەکاونت' }] : [], guardians: name ? [{ name: `${first} (تۆ)`, initial: name.slice(0, 1) }] : [] },
       notices: [],
       readNoticesAt: 0,
-      rewards: { points: 0, code: phone ? (phone.slice(-4) + 'TK').toUpperCase() : '', invited: 0, redeemed: [] },
+      rewards: { points: 0, code: '', redeemed: [], pending: [], used: [] },
       billing: { month: fmt.MONTHS[new Date().getMonth()], monthKey: MONTH_KEY(), adjustments: [], method: 'cash', paid: false, promo: null, history: [] },
       tickets: [],
       history: [],
@@ -515,6 +526,7 @@
       partners: [],
       partnerEarnings: [],
       partnerPays: [],
+      referrals: [],
       unsent: [],
     };
   }
@@ -546,6 +558,51 @@
     return c ? (state.partners || []).find((p) => p.code === c && p.status === 'active') : null;
   };
   TK.partner = (id) => (state.partners || []).find((p) => p.id === id);
+  /** کۆدی بانگهێشت دەناسێتەوە: { partner } یان { friend: {uid, name, code} } یان { bad: true }. بەتاڵ = null */
+  const inviteCache = new Map();
+  TK.resolveInvite = async function (code) {
+    const c = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!c) return null;
+    const partner = TK.partnerByCode(c);
+    if (partner) return { partner };
+    if (!/^[A-Z0-9]{4,10}$/.test(c)) return { bad: true };
+    if (inviteCache.has(c)) return inviteCache.get(c);
+    let out = { bad: true };
+    try {
+      const d = window.TKFB && window.TKFB.get ? await window.TKFB.get('refcodes/' + c) : null;
+      if (d && d.uid) out = { friend: { uid: d.uid, name: d.name || '', code: c } };
+    } catch (e) {
+      return { bad: true, offline: true };
+    }
+    inviteCache.set(c, out);
+    return out;
+  };
+  /** کۆدی بانگهێشتی تایبەت (وەک YK7Q4M) بۆ سەرنشینی ئێستا، یەک جار دروست دەکرێت و دووبارە نابێتەوە */
+  let refBusy = false;
+  TK.ensureRefCode = async function () {
+    if (refBusy || ROLE !== 'passenger' || !cloud.me || !window.TKFB || !window.TKFB.get) return;
+    const r = state.rewards || {};
+    if (r.code && r.codeOk) return;
+    refBusy = true;
+    try {
+      for (let i = 0; i < 6; i++) {
+        const code = TK.newRefCode();
+        await window.TKFB.write({ op: 'create', path: 'refcodes/' + code, data: { uid: cloud.me, name: (state.passenger.name || '').split(' ')[0] } });
+        const got = await window.TKFB.get('refcodes/' + code);
+        if (got && got.uid === cloud.me) {
+          update((s) => {
+            s.rewards.code = code;
+            s.rewards.codeOk = true;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      /* دواتر هەوڵ دەدرێتەوە */
+    } finally {
+      refBusy = false;
+    }
+  };
   /** ئاماری هاوبەشێک: سەرنشینەکان، پشکی ئەم مانگە، کۆ، دراو و ماوە */
   TK.partnerStats = function (s, id) {
     const d = new Date();
@@ -617,6 +674,7 @@
   const ARR = {
     requests: -1, subscriptions: 1, trips: 1, routes: 1, messages: 1, swaps: -1, dnotices: -1, adminNotices: -1,
     reports: -1, ledger: -1, payouts: -1, driverLog: -1, news: -1, broadcasts: -1, partners: 1, partnerEarnings: -1, partnerPays: -1,
+    referrals: -1, // بانگهێشتی هاوڕێ (ئەحمەد و ئاراس هەردووکیان دەیبینن)
     unsent: -1, // دەقی ڕاستەقینەی نامە گەڕێنراوەکان (تەنها بەڕێوەبەر دەیبینێت)
   };
   // زانیاری تایبەتی شۆفێر کە تەنها خۆی و بەڕێوەبەر دەیبینن (بەڵگەنامە، ناونیشان، موچە)
@@ -631,7 +689,7 @@
   // هەر ڕۆڵێک دەتوانێت چی بنووسێت: rw = دروستکردن/گۆڕین/سڕینەوە، c = تەنها دروستکردن، u = تەنها گۆڕین
   const ALL_RW = Object.keys(ARR).concat(['meta', 'pax', 'accounts', 'drivers', 'dpub', 'pnotices', 'phistory']).reduce((o, k) => ((o[k] = 'rw'), o), {});
   const MODES = {
-    passenger: { pax: 'rw', accounts: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', pnotices: 'rw', phistory: 'rw', dnotices: 'c', adminNotices: 'c', reports: 'c', ledger: 'c', partnerEarnings: 'c', dpub: 'u', unsent: 'c' },
+    passenger: { pax: 'rw', accounts: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', pnotices: 'rw', phistory: 'rw', dnotices: 'c', adminNotices: 'c', reports: 'c', ledger: 'c', partnerEarnings: 'c', dpub: 'u', unsent: 'c', referrals: 'rw' },
     driver: { drivers: 'rw', dpub: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', dnotices: 'rw', driverLog: 'rw', pnotices: 'c', phistory: 'c', adminNotices: 'c', ledger: 'c', unsent: 'c' },
     admin: ALL_RW,
     home: {},
@@ -687,6 +745,7 @@
     else if (K === 'swaps') r = [it.fromDriverId, it.takenBy].concat(c.trips.filter((t) => t.swapId === it.id || t.id === it.tripId || (it.runId && t.runId === it.runId)).map((t) => t.owner));
     else if (K === 'dnotices' || K === 'ledger' || K === 'payouts') r = [it.driverId];
     else if (K === 'driverLog') r = [it.driverId, it.originalDriverId];
+    else if (K === 'referrals') r = [it.inviter, it.invitee];
     // ئەوانەی هەموو بەشەکانی نابینن، دەستکاری لیستی خوێنەران ناکەن (تەنها زیاد دەکەن)
     const partial = (K === 'routes' && ROLE !== 'driver' && ROLE !== 'admin') || K === 'swaps';
     if (partial && prev && prev._r) r = r.concat(prev._r);
@@ -1037,7 +1096,7 @@
     if (ROLE === 'passenger') {
       return out.concat(
         [{ id: 'pax', doc: 'pax/' + uid }, { id: 'acc', doc: 'accounts/' + uid }, { id: 'dpub', col: 'dpub' }, { id: 'news', col: 'news' }],
-        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'pnotices', 'phistory'].map(R)
+        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'pnotices', 'phistory', 'referrals'].map(R)
       );
     }
     if (ROLE === 'driver') {
@@ -1451,6 +1510,16 @@
     }
     s.notices.unshift(item);
     s.notices = s.notices.slice(0, 50);
+  }
+  /** ئاگادارکردنەوەی سەرنشینێکی تر بە UID (بۆ نموونە ئەحمەد کاتێک ئاراس بەشداری دەکات) */
+  function notifyPax(s, pk, n) {
+    if (!pk) return;
+    if (!s.vault[pk]) {
+      const v = emptyPassenger();
+      v.__stub = true;
+      s.vault[pk] = v;
+    }
+    notice(s, n, pk);
   }
   /** ئاگادارکردنەوەی شۆفێرێکی دیاریکراو */
   function dnotice(s, driverId, n) {
@@ -2015,14 +2084,17 @@
     },
     async register(name, phone, pass, ref, city, gender) {
       const p = cleanPhone(phone);
-      const partner = ref ? TK.partnerByCode(ref) : null;
-      if (ref && String(ref).trim() && !partner) return 'کۆدی قوتابخانە یان کۆمپانیا دروست نییە';
       if (name.trim().split(/\s+/).length < 2) return 'ناوی تەواوت بنووسە (ناو و ناوی باوک)';
       if (!/^7\d{9}$/.test(p)) return 'ژمارەی مۆبایل دروست نییە (وەک 750 123 4567)';
       if (pass.length < 6) return 'وشەی نهێنی دەبێت لانیکەم ٦ پیت یان ژمارە بێت';
       if (gender !== 'm' && gender !== 'f') return 'ڕەگەز هەڵبژێرە (نێر یان مێ)';
       const nc = needCloud();
       if (nc) return nc;
+      // کۆدی بانگهێشت: کۆدی هاوبەش (قوتابخانە، کۆمپانیا) یان کۆدی هاوڕێ
+      const inv = await TK.resolveInvite(ref);
+      if (inv && inv.bad) return 'کۆدی بانگهێشت نەدۆزرایەوە. دڵنیابە لە کۆدەکە یان بەتاڵی بهێڵەوە';
+      const partner = inv && inv.partner;
+      const friend = inv && inv.friend;
       let u;
       try {
         u = await window.TKFB.signUp(emailOf(p, 'p'), pass);
@@ -2034,14 +2106,22 @@
         const P = emptyPassenger(name.trim(), p);
         PRIV.forEach((k) => (s[k] = P[k]));
         s.accounts = s.accounts.filter((a) => a.uid !== u.uid);
-        s.accounts.push({ uid: u.uid, phone: p, name: name.trim(), city: city || 'erbil', createdAt: Date.now(), partnerId: partner ? partner.id : null });
+        s.accounts.push({ uid: u.uid, phone: p, name: name.trim(), city: city || 'erbil', createdAt: Date.now(), partnerId: partner ? partner.id : null, refBy: friend && friend.uid !== u.uid ? friend.uid : null });
+        if (friend && friend.uid !== u.uid && cfg().refOn) {
+          const first = name.trim().split(' ')[0];
+          s.referrals = (s.referrals || []).filter((x) => x.id !== u.uid);
+          s.referrals.push({ id: u.uid, inviter: friend.uid, invitee: u.uid, inviterName: friend.name || '', inviteeName: first, code: friend.code, status: 'joined', amount: null, at: Date.now() });
+          notifyPax(s, friend.uid, { kind: 'info', title: `${first} بە کۆدەکەت هات`, body: 'کاتێک بەشداری بکات، هەردووکتان داشکاندن وەردەگرن', link: 'rewards' });
+        }
         s.passenger.city = city || 'erbil';
         s.passenger.gender = gender;
         if (s.family.members[0]) s.family.members[0].woman = gender === 'f';
         s.passenger.loggedIn = true;
         s.passenger.onboarded = true;
         notice(s, { kind: 'info', title: `بەخێربێیت ${name.trim().split(' ')[0]}`, body: 'یەکەم بەشداری مانگانەت دروست بکە. شوێن و کات دیاری بکە و شۆفێرەکان نرخت بۆ دەنێرن.' });
+        if (friend && friend.uid !== u.uid && cfg().refOn) notice(s, { kind: 'info', title: `بانگهێشتی ${friend.name || 'هاوڕێکەت'}`, body: `${TK.refText()} داشکاندن لە یەکەم مانگی بەشدارییەکەت`, link: 'rewards' });
       });
+      TK.ensureRefCode();
       return null;
     },
     /** زیادکردنی کۆدی هاوبەش دوای تۆمارکردن (تەنها ئەگەر پێشتر نەبووبێت) */
@@ -2285,6 +2365,13 @@
         sub.people = familyPeople(s, sub);
         s.subscriptions.push(sub);
         genTrips(s, sub);
+        // بانگهێشت: یەکەم بەشداری ئاراس هەردووکیان داشکاندن پێدەبەخشێت
+        const ref = (s.referrals || []).find((x) => x.invitee === meUid(r.owner));
+        if (ref && r.replacesSub && ref.subId === r.replacesSub) ref.subId = sub.id;
+        else if (ref && ref.status === 'joined' && cfg().refOn) {
+          Object.assign(ref, { status: 'subscribed', subId: sub.id, amount: TK.refAmount(sub.price), month: (sub.startDate || TODAY()).slice(0, 7), subAt: Date.now() });
+          notifyPax(s, ref.inviter, { kind: 'info', title: `${ref.inviteeName || 'هاوڕێکەت'} بەشداری کرد`, body: `${fmt.money(ref.amount)} داشکاندن لە فاتورەی داهاتووت دەبڕدرێت`, link: 'rewards' });
+        }
         if (r.replacesSub) endSub(s, r.replacesSub, 'change');
         if (d) d.freeSeats = Math.max(0, d.freeSeats - (r.mode === 'one' ? r.riders : 1));
         notice(s, { kind: 'info', title: 'بەشدارییەکەت چالاک کرا', body: `${r.riderNames} لەگەڵ ${d ? d.name : 'شۆفێر'}، ${fmt.money(offer.price)} مانگانە` }, r.owner);
@@ -2365,7 +2452,7 @@
             else d.tags.push({ label, count: 1 });
           });
         }
-        s.rewards.points += 20;
+        s.rewards.points += cfg().pointsPerRating || 0;
       });
     },
 
@@ -2385,27 +2472,47 @@
       });
       return null;
     },
+    /** تۆمارکردنی پارەدانی فاتورە. phone: بەتاڵ = سەرنشینی ئێستا، یان ژمارەی سەرنشینێک (بەڕێوەبەر) */
     pay(total, points, phone) {
       update((s) => {
-        const owner = !phone || phone === s.passenger.phone ? 'me' : phone;
+        const acc = phone && phone !== s.passenger.phone ? s.accounts.find((a) => a.phone === phone) : null;
+        const owner = !phone || phone === s.passenger.phone ? 'me' : acc ? acc.uid : phone;
         const ps = pslice(s, owner);
         if (!ps) return;
         const inv = TK.invoice(s, owner);
+        const pts = TK.pointsFor(inv.total);
+        const now = Date.now();
         ps.billing.paid = true;
-        ps.billing.history.unshift({ month: ps.billing.month, total, at: Date.now(), method: ps.billing.method, lines: inv.lines, promo: inv.promo, credit: inv.credit, name: ps.passenger.name });
-        partnerEarn(s, ps.passenger.phone, ps.passenger.name, ps.billing.month, total);
+        ps.billing.history.unshift({ month: ps.billing.month, total: inv.total, at: now, method: ps.billing.method, lines: inv.lines, promo: inv.promo, disc: inv.disc, discounts: inv.discounts.map((d) => ({ label: d.label, amount: d.amount })), credit: inv.credit, name: ps.passenger.name });
+        partnerEarn(s, ps.passenger.phone, ps.passenger.name, ps.billing.month, inv.total);
         ps.billing.adjustments = []; // قەرەبووەکان بەکارهاتن
-        ps.rewards.points += points;
-        notice(s, { kind: 'pay', title: 'پارەدان تۆمار کرا', body: `${fmt.money(total)}، ${points} خاڵی پاداشت زیاد کرا` }, owner);
+        // داشکاندنە بەکارهاتووەکان
+        ps.rewards = Object.assign({ points: 0, redeemed: [], pending: [], used: [] }, ps.rewards);
+        inv.discounts.forEach((d) => {
+          const r = d.kind !== 'reward' && (s.referrals || []).find((x) => x.id === d.id);
+          if (r && d.kind === 'refIn') r.inviteeUsedAt = now;
+          if (r && d.kind === 'refOut') r.inviterUsedAt = now;
+          if (d.kind === 'reward') {
+            const p = (ps.rewards.pending || []).find((x) => x.id === d.id);
+            ps.rewards.pending = (ps.rewards.pending || []).filter((x) => x.id !== d.id);
+            if (p) ps.rewards.used = [Object.assign({}, p, { value: d.amount, usedAt: now })].concat(ps.rewards.used || []).slice(0, 30);
+          }
+        });
+        ps.rewards.points += pts;
+        notice(s, { kind: 'pay', title: 'پارەدان تۆمار کرا', body: `${fmt.money(inv.total)}${pts ? `، ${pts} خاڵی پاداشت زیاد کرا` : ''}` }, owner);
       });
     },
-    redeem(id, cost) {
-      if (state.rewards.points < cost || state.rewards.redeemed.includes(id)) return false;
+    /** گۆڕینەوەی خاڵ بە پاداشت: دەبێت بە داشکاندنی چاوەڕوان و لە فاتورەی داهاتوو دەبڕدرێت */
+    redeem(id) {
+      const x = TK.rewardsList().find((y) => y.id === id && y.on !== false);
+      const r = state.rewards;
+      if (!x || r.points < x.cost || (!x.repeat && (r.redeemed || []).includes(id))) return null;
       update((s) => {
-        s.rewards.points -= cost;
-        s.rewards.redeemed.push(id);
+        s.rewards.points -= x.cost;
+        s.rewards.redeemed = (s.rewards.redeemed || []).filter((y) => y !== id).concat(id);
+        s.rewards.pending = (s.rewards.pending || []).concat({ id: 'rp' + uid(), rid: x.id, title: x.title, kind: x.kind, amount: x.amount, at: Date.now() });
       });
-      return true;
+      return x;
     },
     addTicket(subject) {
       update((s) => {
@@ -3099,6 +3206,8 @@
     const sub = s.subscriptions.find((x) => x.id === id);
     if (!sub) return;
     s.subscriptions = s.subscriptions.filter((x) => x.id !== id);
+    // ئەگەر ئاراس پێش یەکەم پارەدان هەڵیوەشاندەوە، داشکاندنی بانگهێشت نامێنێت
+    if (why !== 'change') (s.referrals || []).forEach((x) => x.subId === id && x.status === 'subscribed' && !x.inviteeUsedAt && (x.status = 'cancelled'));
     s.trips = s.trips.filter((t) => t.subId !== id || t.status === 'active' || t.status === 'done');
     unrouteSub(s, id, sub.riderNames);
     const d = s.drivers.find((x) => x.id === sub.driverId);
@@ -3163,9 +3272,86 @@
     return { factor, notes, amount: Math.round((x.price * factor) / 1000) * 1000 };
   }
   TK.monthShare = monthShare;
-  /** فاتورەی مانگی سەرنشینێک (بنەڕەت: سەرنشینی ئێستا) */
+  /* ---------- کۆمیسیۆنی یەکسا ----------
+   * ٪: ڕێژەیەک لە نرخی هەر بەشدارییەک.
+   * دینار: بڕێکی جێگیر بۆ کەسی یەکەم؛ کەسی دووەم بەدواوە بە هەمان ڕێژەی نرخەکەی («نرخی کەسی دووەم بەدواوە»).
+   * هەردووکیان بە پێی ڕۆژە چالاکەکانی مانگ حیساب دەکرێن. یاسای نوێ لە مانگی داهاتووەوە جێبەجێ دەبێت. */
+  const nextMonthKey = () => {
+    const d = new Date();
+    return MONTH_KEY(new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  };
+  TK.nextMonthKey = nextMonthKey;
+  TK.commissionRule = function (mk = MONTH_KEY()) {
+    const c = cfg();
+    const n = c.commissionNext;
+    if (n && n.from && mk >= n.from) return { type: n.type, pct: n.pct, fixed: n.fixed };
+    return { type: c.commissionType || 'pct', pct: c.commission, fixed: c.commissionFixed };
+  };
+  /** کێشی بەشدارییەک بە پێی ژمارەی کەس: ١ + ٠٫٧ × (کەس - ١) */
+  TK.riderWeight = function (x) {
+    const n = Math.max(1, x.riders || (x.memberIds || []).length || 1);
+    if (x.mode === 'separate' || n === 1) return 1;
+    return 1 + cfg().extraRiderFactor * (n - 1);
+  };
+  /** کۆمیسیۆنی بەشدارییەک. amount = نرخی ئەم مانگە (دوای حیسابی ڕۆژەکان)، factor = بەشی ڕۆژە چالاکەکان */
+  TK.feeFor = function (x, amount, factor = 1, rule = TK.commissionRule()) {
+    if (rule.type === 'fixed') return Math.min(amount, Math.round((rule.fixed * TK.riderWeight(x) * factor) / 250) * 250);
+    return Math.round(amount * rule.pct);
+  };
+  /** دەقی یاسای کۆمیسیۆن بۆ نیشاندان */
+  TK.commissionText = function (rule = TK.commissionRule()) {
+    if (rule.type === 'fixed') return `${fmt.money(rule.fixed)} بۆ هەر کەسێک لە مانگێکدا`;
+    return `${fmt.n(Math.round(rule.pct * 100))}٪ لە نرخی هەر بەشدارییەک`;
+  };
+
+  /* ---------- بانگهێشتی هاوڕێ ----------
+   * ئەحمەد کۆدەکەی دەنێرێت بۆ ئاراس. کاتێک ئاراس بەشداری دەکات، هەردووکیان هەمان داشکاندن وەردەگرن:
+   * ئاراس لە فاتورەی یەکەم مانگی، ئەحمەد لە فاتورەی داهاتووی. پارە نییە و ناکێشرێتەوە.
+   * داشکاندن لە کۆمیسیۆنی یەکسا دەبڕدرێت؛ داهاتی شۆفێر ناگۆڕێت. */
+  TK.refAmount = function (price) {
+    const c = cfg();
+    if (!c.refOn) return 0;
+    if (c.refType === 'pct') {
+      const v = Math.round((price * c.refPct) / 250) * 250;
+      return Math.min(price, c.refMax ? Math.min(v, c.refMax) : v);
+    }
+    return Math.min(price, c.refFixed || 0);
+  };
+  /** دەقی داشکاندنی بانگهێشت: «٥٬٠٠٠ دینار» یان «٥٪ (تا ١٠٬٠٠٠ دینار)» */
+  TK.refText = function () {
+    const c = cfg();
+    if (c.refType === 'pct') return `${fmt.n(Math.round(c.refPct * 100))}٪${c.refMax ? ` (تا ${fmt.money(c.refMax)})` : ''}`;
+    return fmt.money(c.refFixed || 0);
+  };
+  const REF_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  TK.newRefCode = () => 'YK' + Array.from({ length: 4 }, () => REF_ABC[Math.floor(Math.random() * REF_ABC.length)]).join('');
+  const meUid = (owner) => (!owner || owner === 'me' ? cloud.me : owner);
+  /** ئەو بانگهێشتەی ئەم سەرنشینە پێی هاتووە (وەک ئاراس) */
+  TK.refAsInvitee = (s, owner = 'me') => (s.referrals || []).find((r) => r.invitee === meUid(owner)) || null;
+  /** ئەو هاوڕێیانەی ئەم سەرنشینە بانگهێشتی کردوون (وەک ئەحمەد) */
+  TK.refsAsInviter = (s, owner = 'me') => (s.referrals || []).filter((r) => r.inviter === meUid(owner));
+
+  /* ---------- پاداشتەکان (بەڕێوەبەر دیارییان دەکات) ---------- */
+  const REWARDS_DEFAULT = [
+    { id: 'rw1', title: '١٠٬٠٠٠ دینار داشکاندن', cost: 500, kind: 'iqd', amount: 10000, repeat: true, on: true },
+    { id: 'rw2', title: '٢٥٬٠٠٠ دینار داشکاندن', cost: 1000, kind: 'iqd', amount: 25000, repeat: true, on: true },
+    { id: 'rw3', title: 'هەفتەیەکی بەخۆڕایی', cost: 2500, kind: 'days', amount: 7, repeat: true, on: true },
+  ];
+  TK.REWARDS_DEFAULT = REWARDS_DEFAULT;
+  TK.rewardsList = () => {
+    const l = cfg().rewards;
+    return Array.isArray(l) ? l : REWARDS_DEFAULT;
+  };
+  /** دەقی بڕی پاداشتێک: «١٠٬٠٠٠ دینار» یان «٧ ڕۆژ» */
+  TK.rewardValue = (x) => (x.kind === 'days' ? `${fmt.n(x.amount)} ڕۆژی بەخۆڕایی` : `${fmt.money(x.amount)} داشکاندن`);
+  /** خاڵ بۆ بڕێک پارە */
+  TK.pointsFor = (total) => Math.floor((total / 1000) * (cfg().pointsPer1000 || 0));
+
+  /** فاتورەی مانگی سەرنشینێک (بنەڕەت: سەرنشینی ئێستا)
+   * ڕیز: کۆی بەشدارییەکان ← کۆدی داشکاندن ← داشکاندنی بانگهێشت و پاداشت ← قەرەبوو */
   TK.invoice = function (s, owner = 'me') {
     const ps = pslice(s, owner) || { billing: { adjustments: [] } };
+    const mb = monthBounds();
     const lines = s.subscriptions.filter((x) => (x.owner || 'me') === owner).map((x) => {
       const sh = monthShare(x);
       if (!sh) return null;
@@ -3175,9 +3361,32 @@
     const sub = lines.reduce((n, l) => n + l.amount, 0);
     const b = ps.billing || {};
     const promo = b.promo ? Math.round((sub * b.promo.rate) / 1000) * 1000 : 0;
+    // داشکاندنەکان: تەنها ئەوەی بە تەواوی جێی دەبێتەوە، ئەوانی تر بۆ مانگی داهاتوو دەمێننەوە
+    const discounts = [];
+    const waiting = [];
+    let room = Math.max(0, sub - promo);
+    const take = (d) => {
+      if (d.amount > 0 && d.amount <= room) {
+        room -= d.amount;
+        discounts.push(d);
+      } else if (d.amount > 0) waiting.push(d);
+    };
+    const mk = MONTH_KEY();
+    const asInv = TK.refAsInvitee(s, owner);
+    if (asInv && asInv.status === 'subscribed' && !asInv.inviteeUsedAt && (!asInv.month || asInv.month <= mk) && lines.some((l) => l.subId === asInv.subId)) {
+      take({ kind: 'refIn', id: asInv.id, label: 'داشکاندنی بانگهێشتی هاوڕێ، یەکەم مانگ', amount: asInv.amount || 0 });
+    }
+    TK.refsAsInviter(s, owner).filter((r) => r.status === 'subscribed' && !r.inviterUsedAt).forEach((r) => {
+      take({ kind: 'refOut', id: r.id, label: `داشکاندنی بانگهێشت، ${r.inviteeName || 'هاوڕێ'}`, amount: r.amount || 0 });
+    });
+    ((ps.rewards || {}).pending || []).forEach((p) => {
+      const amount = p.kind === 'days' ? Math.round(((sub / mb.days) * p.amount) / 250) * 250 : p.amount;
+      take({ kind: 'reward', id: p.id, label: `پاداشت، ${p.title}`, amount });
+    });
+    const disc = discounts.reduce((n, d) => n + d.amount, 0);
     const adj = (b.adjustments || []).reduce((n, a) => n + a.amount, 0);
-    const credit = Math.min(adj, Math.max(0, sub - promo));
-    return { lines, sub, promo, credit, adjustments: b.adjustments || [], total: Math.max(0, sub - promo - credit) };
+    const credit = Math.min(adj, Math.max(0, sub - promo - disc));
+    return { lines, sub, promo, discounts, waiting, disc, credit, adjustments: b.adjustments || [], total: Math.max(0, sub - promo - disc - credit) };
   };
 
   /* ---------- حیسابی شۆفێر: داهات، کۆمیسیۆن، سزا، پاداشت ---------- */
@@ -3185,16 +3394,18 @@
     const c = cfg();
     const d = s.drivers.find((x) => x.id === driverId) || {};
     // هەمان بڕی فاتورەی سەرنشین: تەنها ڕۆژەکانی ئەم مانگە کە بەشدارییەکە چالاک بووە (ڕۆژە ڕاگیراوەکان کەم دەکرێنەوە)
+    const rule = TK.commissionRule();
     const lines = s.subscriptions.filter((x) => x.driverId === driverId).map((x) => ({ x, sh: monthShare(x) })).filter((l) => l.sh && l.sh.amount > 0);
+    lines.forEach((l) => (l.fee = TK.feeFor(l.x, l.sh.amount, l.sh.factor, rule)));
     const subs = lines.map((l) => l.x);
     const gross = lines.reduce((n, l) => n + l.sh.amount, 0);
-    const commission = Math.round(gross * c.commission);
+    const commission = lines.reduce((n, l) => n + l.fee, 0);
     const entries = s.ledger.filter((e) => e.driverId === driverId && !e.paidOut);
     const ledgerSum = entries.reduce((n, e) => n + e.amount, 0);
     const mk = MONTH_KEY();
     const bonusDays = (d.workDays || []).filter((x) => x.startsWith(mk)).length;
     const bonus = bonusDays >= c.bonusDays ? c.bonusAmount : 0;
-    return { gross, commission, entries, ledgerSum, bonus, bonusDays, net: gross - commission + ledgerSum + bonus, subs: subs.length, lines: lines.map((l) => ({ subId: l.x.id, riderNames: l.x.riderNames, full: l.x.price, amount: l.sh.amount, note: l.sh.notes.join('، ') })) };
+    return { gross, commission, entries, ledgerSum, bonus, bonusDays, net: gross - commission + ledgerSum + bonus, subs: subs.length, rule, lines: lines.map((l) => ({ subId: l.x.id, riderNames: l.x.riderNames, riders: l.x.riders || 1, full: l.x.price, amount: l.sh.amount, fee: l.fee, note: l.sh.notes.join('، ') })) };
   };
 
   /* =========================================================

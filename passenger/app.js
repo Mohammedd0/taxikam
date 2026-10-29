@@ -116,7 +116,11 @@
   TK.route('register', {
     render(params, query) {
       // لینک یان QRی هاوبەش: passenger/#/register?ref=NAMUNA
-      if (query && query.ref) U.ref = String(query.ref).toUpperCase();
+      if (query && query.ref && query.ref !== U.refQ) {
+        U.refQ = query.ref;
+        U.ref = String(query.ref).toUpperCase();
+        setTimeout(() => checkRef(U.ref), 0);
+      }
       const pt = U.ref ? TK.partnerByCode(U.ref) : null;
       return page(`
         ${ui.header('ئەکاونتی نوێ', { back: 'login', sub: 'تەنها یەک خولەک دەخایەنێت' })}
@@ -128,17 +132,55 @@
           <div class="field"><label for="rw">وشەی نهێنی</label><div class="pass-wrap"><input class="input ltr latin" id="rw" name="pass" type="${U.showPass ? 'text' : 'password'}" autocomplete="new-password" placeholder="لانیکەم ٦ پیت"><button type="button" class="eye" data-act="togglePass" aria-label="پیشاندانی وشەی نهێنی">${icon(U.showPass ? 'eyeOff' : 'eye', 20)}</button></div></div>
           <div class="field"><label for="rgender">ڕەگەز</label><select class="input" id="rgender" name="gender"><option value="">هەڵبژێرە</option><option value="m">نێر</option><option value="f">مێ</option></select><span class="xs muted">کاتێک لە تەکسییەکی هاوبەشدایت، سەرنشینانی تر تەنها ناوی یەکەم و ڕەگەزت دەبینن</span></div>
           <div class="field"><label for="rcity">شار</label><select class="input" id="rcity" name="city">${TK.cities().map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
-          ${U.ref || U.showRef ? `<div class="field"><label for="rref">کۆدی قوتابخانە، زانکۆ یان کۆمپانیا</label><input class="input ltr latin" id="rref" name="ref" autocapitalize="characters" placeholder="CODE" value="${esc(U.ref || '')}" style="text-transform:uppercase"></div>` : `<button type="button" class="link sm" data-act="showRef" style="align-self:flex-start">کۆدی قوتابخانە یان کۆمپانیات هەیە؟</button>`}
+          <div class="field"><label for="rref">کۆدی بانگهێشت <span class="muted xs">(ئارەزوومەندانە)</span></label>
+            <input class="input ltr latin" id="rref" name="ref" autocapitalize="characters" autocomplete="off" placeholder="YK7Q4M" value="${esc(U.ref || '')}" style="text-transform:uppercase" data-input="refInput">
+            <span class="xs muted">کۆدی هاوڕێ، ناوەندی خوێندن یان شوێنی کار</span>
+            <div id="refmsg">${refMsg()}</div></div>
           ${U.regErr ? `<div class="err">${esc(U.regErr)}</div>` : ''}
           <button class="btn block" type="submit">دروستکردنی ئەکاونت</button>
           <div class="xs muted center">بە دروستکردنی ئەکاونت ڕازی دەبیت بە <button type="button" class="link xs" data-act="showTerms">مەرج و ڕێساکان و پاراستنی زانیاری</button></div>
         </form>`);
     },
   });
-  acts.showRef = () => {
-    U.showRef = true;
-    TK.render();
+  /** پشکنینی کۆدی بانگهێشت لە کاتی نووسیندا: هاوبەش یان هاوڕێ */
+  const refMsg = () => {
+    const r = U.refRes;
+    if (!r || !U.ref) return '';
+    if (r.wait) return '<span class="xs muted">پشکنین...</span>';
+    if (r.partner) return `<div class="ref-ok">${icon('check', 16, 'currentColor', 2.6)}<span>${esc(r.partner.name)}</span></div>`;
+    if (r.friend) {
+      const amt = TK.CONFIG.refOn ? `. ${TK.refText()} داشکاندن لە یەکەم مانگت` : '';
+      return `<div class="ref-ok">${icon('check', 16, 'currentColor', 2.6)}<span>بانگهێشتی ${esc(r.friend.name || 'هاوڕێکەت')}${amt}</span></div>`;
+    }
+    return `<span class="xs err">${r.offline ? 'ئینتەرنێت نییە، دواتر دەپشکنرێت' : 'ئەم کۆدە نەدۆزرایەوە'}</span>`;
   };
+  let refTimer = 0;
+  function checkRef(v) {
+    U.ref = String(v || '').trim().toUpperCase();
+    const el = () => document.getElementById('refmsg');
+    clearTimeout(refTimer);
+    if (U.ref.length < 4) {
+      U.refRes = null;
+      if (el()) el().innerHTML = '';
+      return;
+    }
+    U.refRes = { wait: true };
+    if (el()) {
+      el().innerHTML = refMsg();
+      TK.localizeDigits(el());
+    }
+    const want = U.ref;
+    refTimer = setTimeout(async () => {
+      const r = await TK.resolveInvite(want);
+      if (U.ref !== want) return;
+      U.refRes = r || null;
+      if (el()) {
+        el().innerHTML = refMsg();
+        TK.localizeDigits(el());
+      }
+    }, 350);
+  }
+  acts.refInput = (v) => checkRef(v);
   acts.doRegister = async (f, form) => {
     if (U.busy) return;
     const done = TK.busyBtn(form);
@@ -289,10 +331,10 @@
           </div>` : ''}
 
         ${p.gender ? '' : `<div class="card note col"><b>ڕەگەزت دیاری بکە</b><span class="sm muted">کاتێک لە تەکسییەکی هاوبەشدایت، سەرنشینانی تر ناوی یەکەم و ڕەگەزت دەبینن.</span><div class="grid2"><button class="btn secondary" data-act="setGender" data-arg="m">نێر</button><button class="btn secondary" data-act="setGender" data-arg="f">مێ</button></div></div>`}
-        ${isEmpty ? `<div class="card big col" style="background:var(--note-bg);border-color:var(--note-line)">
+        ${isEmpty ? `<div class="card big col welcome-card">
             <div class="row top">
               <div class="grow col tight"><div class="h3">هێشتا هیچ گەشتێکت نییە!</div><div class="sm muted">یەکەم بەشداری مانگانەت دروست بکە. شوێن و کات دیاری بکە، و شۆفێرەکان نرخت بۆ دەنێرن.</div></div>
-              <div class="ico-box" style="width:64px;height:64px;background:var(--amber)">${icon('car', 36, '#0B1733', 1.6)}</div>
+              <div class="ico-box xl">${icon('car', 34, 'var(--act)', 1.6)}</div>
             </div>
             <button class="btn block" data-act="newSub">${icon('plus', 20, 'currentColor', 2.2)}یەکەم بەشداری</button>
           </div>` : ''}
@@ -461,7 +503,7 @@
       <div class="h3">گەشتەکە چۆن بوو؟</div>
       <div class="row" style="gap:6px;justify-content:center">${[1, 2, 3, 4, 5].map((n) => `<button data-act="rateStar" data-arg="${n}" aria-label="${n}">${icon('star', 34, 'var(--amber)', 1.5, n <= r.stars ? 'var(--amber)' : 'none')}</button>`).join('')}</div>
       <div class="chips">${TAGS.map((g) => `<button class="chip ${r.tags.includes(g) ? 'on' : ''}" data-act="rateTag" data-arg="${g}">${g}</button>`).join('')}</div>
-      <button class="btn block" data-act="sendRate" data-arg="${t.id}">ناردنی هەڵسەنگاندن، +٢٠ خاڵ</button>
+      <button class="btn block" data-act="sendRate" data-arg="${t.id}">ناردنی هەڵسەنگاندن${TK.CONFIG.pointsPerRating ? `، +${fmt.n(TK.CONFIG.pointsPerRating)} خاڵ` : ''}</button>
     </div>`;
   }
   acts.rateStar = (n) => {
@@ -478,7 +520,7 @@
     const r = U.rate || { stars: 5, tags: [] };
     actions.rateDriver(id, r.stars, r.tags);
     U.rate = null;
-    TK.toast('سوپاس! ٢٠ خاڵ زیاد کرا');
+    TK.toast(TK.CONFIG.pointsPerRating ? `سوپاس! ${fmt.n(TK.CONFIG.pointsPerRating)} خاڵ زیاد کرا` : 'سوپاس!');
   };
   const unreadFrom = (driverId) => S().messages.filter((m) => m.peer === 'me' && m.driverId === driverId && m.fromDriver && !m.readP).length;
   acts.sos = () => {
@@ -1028,8 +1070,8 @@
         ${prefFits ? '' : `<div class="err">${esc(pref.name)} بۆ ئەم گەشتە ناگونجێت (کورسی، منداڵ یان ئافرەت)</div>`}
         <button class="btn secondary block" data-act="broadcast">${icon('megaphone', 18)}بڵاوکردنەوە بۆ هەموو شۆفێرەکان</button>
       ` : `
-        <button class="card row tap" style="text-align:right;border:2px solid var(--amber)" data-act="broadcast">
-          <div class="ico-box" style="background:var(--amber)">${icon('megaphone', 22, '#0B1733')}</div>
+        <button class="card row tap pick-main" style="text-align:right" data-act="broadcast">
+          <div class="ico-box">${icon('megaphone', 22, 'var(--act)')}</div>
           <div class="grow"><b>بڵاوکردنەوە بۆ هەموو شۆفێرەکان</b><div class="xs muted">${fits} شۆفێری گونجاو دەیبینن و نرخ دەنێرن، پێشنیارکراو</div></div>${icon('forward', 20)}
         </button>
         <button class="card row tap" style="text-align:right" data-act="pickDriver">
@@ -1193,7 +1235,7 @@
         ${ui.header(dr ? 'هەڵبژاردنی شۆفێر' : 'شۆفێرەکان', { back: dr ? 'new' : 'home', sub: dr ? 'تەنها ئەو شۆفێرانەی بۆ گەشتەکەت دەگونجێن' : 'هەموو شۆفێرەکان پشکنراون' })}
         <div class="place-field"><span class="pin-ic">${icon('search', 20, 'var(--muted)')}</span><input class="input" id="dsearch" data-input="dSearch" placeholder="گەڕان: ناو، ئۆتۆمبێل یان ناوچە" autocomplete="off" value="${esc(q)}"></div>
         <div class="tabs">${[['all', 'هەمووی'], ['woman', 'شۆفێری ئافرەت'], ['kids', 'شۆفێری منداڵان']].map(([k, l]) => `<button class="${f === k ? 'on' : ''}" data-act="dfilter" data-arg="${k}">${l}</button>`).join('')}</div>
-        <div class="empty" id="dnone" style="display:none">${icon('search', 30, 'var(--amber)')}<div class="h3">هیچ شۆفێرێک نەدۆزرایەوە</div><div class="sm muted">وشەیەکی تر تاقی بکەرەوە</div></div>
+        <div class="empty" id="dnone" style="display:none">${icon('search', 30, 'var(--muted)')}<div class="h3">هیچ شۆفێرێک نەدۆزرایەوە</div><div class="sm muted">وشەیەکی تر تاقی بکەرەوە</div></div>
         ${list.length ? list.map((d) => driverRow(d, { action: dr ? `<button class="btn sm block secondary" data-act="sendDirect" data-arg="${d.id}">${icon('send', 16)}ناردنی داواکاری بۆ ${esc(d.name.split(' ')[0])}</button>` : '' })).join('') : ui.empty('search', 'هیچ شۆفێرێکی گونجاو نییە', 'داواکارییەکەت بڵاو بکەرەوە، شۆفێری نوێ دەیبینن', dr ? `<button class="btn" data-act="broadcast">بڵاوکردنەوە</button>` : '')}`);
     },
   });
@@ -1363,7 +1405,7 @@
         body += pending.length
           ? `<div class="section-title"><div class="h3">ئەو شۆفێرانەی قبووڵیان کرد</div><span class="xs muted">هەرزانترین لە سەرەوە</span></div>${pending.map((o) => offerCard(r, o, pending)).join('')}`
           : `<div class="card col" style="align-items:center;text-align:center;padding:24px">
-              <div class="ico-box" style="width:64px;height:64px;border-radius:20px">${icon('hourglass', 32, 'var(--amber)')}</div>
+              <div class="ico-box xl mute">${icon('hourglass', 32, 'var(--muted)')}</div>
               <div class="h3">چاوەڕێی وەڵامی شۆفێرەکانین</div>
               <div class="sm muted">${r.target === 'all' ? 'داواکارییەکەت بۆ هەموو شۆفێرە گونجاوەکان نیشان دراوە. کاتێک یەکێکیان قبووڵی بکات ئاگادار دەکرێیتەوە.' : 'داواکارییەکەت بۆ شۆفێرەکە نێردرا. کاتێک وەڵام بداتەوە ئاگادار دەکرێیتەوە.'}</div>
               <div class="skeleton" style="width:100%;height:64px;margin-top:6px"></div>
@@ -1400,6 +1442,17 @@
     const pick = good[0] || rated.sort((a, b) => (b.d.rating || 0) - (a.d.rating || 0))[0];
     return pick ? pick.o : null;
   }
+  /** داشکاندنی بانگهێشت بۆ یەکەم بەشداری (تەنها پێش بەشداری کردن) */
+  const refDeal = () => {
+    const r = TK.refAsInvitee(S());
+    return r && r.status === 'joined' && TK.CONFIG.refOn ? r : null;
+  };
+  /** نرخ لەگەڵ داشکاندنی یەکەم مانگ: ٧٥٬٠٠٠ هێڵی بەسەردا ← ٧٠٬٠٠٠ */
+  function dealPrice(price) {
+    const a = refDeal() ? TK.refAmount(price) : 0;
+    if (!a) return null;
+    return { a, html: `<div class="price"><s class="was">${fmt.group(price)}</s> ${fmt.group(price - a)} <small>دینار یەکەم مانگ</small></div><span class="xs ok deal">${icon('gift', 14, 'currentColor', 2)}${fmt.money(a)} داشکاندنی بانگهێشتی هاوڕێ، یەکەم مانگ</span>` };
+  }
   function offerCard(r, o, all = []) {
     const d = sel.driver(o.driverId);
     const diff = o.price - r.price;
@@ -1412,7 +1465,7 @@
     return `<div class="card offer ${best && best.driverId === o.driverId ? 'reco' : ''}">
       ${best && best.driverId === o.driverId ? `<div class="reco-tag">${icon('star', 13, 'currentColor', 1.5, 'currentColor')}پێشنیاری یەکسا</div>` : ''}
       ${dHead(d, { go: `driver/${d.id}?req=${r.id}` })}
-      <div class="row between"><div class="col tight"><div class="price">${fmt.group(o.price)} <small>دینار مانگانە</small></div>${diff ? `<span class="xs ${diff < 0 ? 'ok' : 'neg'}">${diff < 0 ? fmt.group(-diff) + ' کەمتر لە پێشنیارکراو' : fmt.group(diff) + ' زیاتر لە پێشنیارکراو'}</span>` : '<span class="xs muted">نرخی پێشنیارکراو</span>'}</div><span class="xs muted">${d.trips || 0} گەشت</span></div>
+      <div class="row between"><div class="col tight">${(dealPrice(o.price) || {}).html || `<div class="price">${fmt.group(o.price)} <small>دینار مانگانە</small></div>`}${diff ? `<span class="xs ${diff < 0 ? 'ok' : 'neg'}">${diff < 0 ? fmt.group(-diff) + ' کەمتر لە پێشنیارکراو' : fmt.group(diff) + ' زیاتر لە پێشنیارکراو'}</span>` : '<span class="xs muted">نرخی پێشنیارکراو</span>'}</div><span class="xs muted">${d.trips || 0} گەشت</span></div>
       ${tags.length ? `<div class="row wrap" style="gap:6px">${tags.join('')}</div>` : ''}
       ${o.note ? `<div class="sm" style="background:var(--chip);border-radius:12px;padding:6px 10px">«${esc(o.note)}»</div>` : ''}
       <div class="row" style="gap:8px"><button class="btn sm secondary" data-go="driver/${d.id}?req=${r.id}">پرۆفایل</button><button class="btn sm secondary" data-go="chat/${d.id}" aria-label="نامە">${icon('chat', 16)}</button><button class="btn sm grow" data-act="pickOffer" data-arg="${r.id}|${d.id}">${icon('check', 16, 'currentColor', 2.6)}هەڵبژاردنی ${esc(d.name.split(' ')[0])}</button></div>
@@ -1433,6 +1486,11 @@
           <div class="row between"><span class="muted">ڕۆژەکان</span><b class="sm">${fmt.days(r.days)}</b></div>
           <div class="hr"></div>
           <div class="row between"><span class="muted">نرخی مانگانە</span><b class="price brand">${fmt.money(o.price)}</b></div>
+          ${(() => {
+            const dp = dealPrice(o.price);
+            return dp ? `<div class="row between sm ok"><span>داشکاندنی بانگهێشتی هاوڕێ</span><b>${fmt.group(-dp.a)}</b></div>
+              <div class="row between"><span class="muted">یەکەم مانگ</span><b><s class="was">${fmt.group(o.price)}</s> ${fmt.money(o.price - dp.a)}</b></div>` : '';
+          })()}
         </div>
         <div class="xs muted">پارەدان لە کۆتایی هەر مانگێک لە ڕێگەی ئەپەوە دەبێت. دەتوانیت هەر کاتێک بەشدارییەکە ڕابگریت.</div>
         <button class="btn block" data-act="confirmOffer" data-arg="${rid}|${did}">پەسەندکردن و دەستپێکردن</button>
@@ -1692,8 +1750,10 @@
     guard: authed,
     render() {
       const s = S();
-      const inv = invoice();
       const b = s.billing;
+      // دوای پارەدان، هەمان ئەو فاتورەیە نیشان دەدرێت کە دراوە (نەک حیسابێکی نوێ)
+      const h0 = b.paid && b.history[0] && b.history[0].month === b.month && b.history[0].lines ? b.history[0] : null;
+      const inv = h0 ? { lines: h0.lines, sub: h0.lines.reduce((n, l) => n + l.amount, 0), promo: h0.promo || 0, discounts: h0.discounts || [], waiting: [], credit: h0.credit || 0, adjustments: h0.credit ? [{ note: 'قەرەبوو', amount: h0.credit }] : [], total: h0.total } : invoice();
       const methods = [{ v: 'fib', l: 'FIB' }, { v: 'fastpay', l: 'FastPay' }, { v: 'cash', l: 'کاش' }];
       return page(`
         ${ui.header('پارەدان', { back: 'profile' })}
@@ -1701,15 +1761,17 @@
           <div class="row between"><b>فاتورەی ${esc(b.month)}</b>${b.paid ? ui.badge('دراوە', 'ok') : ui.badge('ئامادەیە', 'note')}</div>
           ${inv.lines.length ? inv.lines.map((l) => `<div class="row between sm"><span class="grow" style="min-width:0"><span class="ellipsis" style="display:block">${esc(l.label)}</span>${l.note ? `<span class="xs muted">${esc(l.note)}، نرخی تەواو ${fmt.group(l.full)}</span>` : ''}</span><b>${fmt.group(l.amount)}</b></div>`).join('') : '<div class="sm muted">هیچ بەشدارییەکی چالاک نییە</div>'}
           ${inv.promo ? `<div class="row between sm ok"><span>داشکاندن (<span class="latin">${esc(b.promo.code)}</span>)</span><b>${fmt.group(inv.promo)}</b></div>` : ''}
+          ${inv.discounts.map((d) => `<div class="row between sm ok"><span>${esc(d.label)}</span><b>${fmt.group(-d.amount)}</b></div>`).join('')}
           ${inv.credit ? inv.adjustments.map((a) => `<div class="row between sm ok"><span>${esc(a.note)}</span><b>${fmt.group(a.amount)}</b></div>`).join('') : ''}
           <div class="hr"></div>
           <div class="row between"><b>کۆی گشتی</b><span class="h2 brand">${fmt.money(inv.total)}</span></div>
+          ${inv.waiting.length ? `<div class="xs muted">${fmt.money(inv.waiting.reduce((n, d) => n + d.amount, 0))} داشکاندنی چاوەڕوان لە فاتورەی داهاتوو دەبڕدرێت</div>` : ''}
         </div>
         ${b.paid ? `<button class="btn secondary block" data-act="receipt">${icon('receipt', 18)}پسوولە (چاپکردن / PDF)</button>` : `
           <div class="col tight"><div class="sm bold muted">شێوازی پارەدان</div>${ui.seg('payMethod', methods, b.method)}</div>
           ${b.promo ? '' : `<div class="row" style="gap:8px"><input class="input latin" id="promo" placeholder="کۆدی داشکاندن" style="text-transform:uppercase"><button class="btn secondary" data-act="applyPromo">جێبەجێکردن</button></div>`}
           <button class="btn block" data-act="payNow" ${inv.total ? '' : 'disabled'}>پارەدان، ${fmt.money(inv.total)}</button>
-          <div class="xs muted center">بە هەر ١٠٠٠ دینار، یەک خاڵی پاداشت وەردەگریت</div>`}
+          ${TK.CONFIG.pointsPer1000 ? `<div class="xs muted center">بە هەر ${fmt.group(1000)} دینار، ${fmt.n(TK.CONFIG.pointsPer1000)} خاڵی پاداشت وەردەگریت</div>` : ''}`}
         <div class="section-title"><div class="h3">مێژووی پارەدان</div></div>
         ${b.history.length ? `<div class="list">${b.history.map((h) => `<div class="item"><div class="ico-box ok">${icon('check', 18, 'var(--ok-text)', 2.4)}</div><div class="grow"><b>${esc(h.month)}</b><div class="xs muted">${fmt.ago(h.at)}</div></div><b>${fmt.money(h.total)}</b></div>`).join('')}</div>` : '<div class="sm muted">هێشتا هیچ پارەدانێک نییە</div>'}`);
     },
@@ -1730,9 +1792,10 @@
   };
   acts.confirmPay = () => {
     const inv = invoice();
-    actions.pay(inv.total, Math.floor(inv.total / 1000));
+    const pts = TK.pointsFor(inv.total);
+    actions.pay(inv.total, pts);
     TK.closeSheet();
-    TK.toast(`پارەدان سەرکەوتوو بوو، ${Math.floor(inv.total / 1000)} خاڵ زیاد کرا`);
+    TK.toast(`پارەدان سەرکەوتوو بوو${pts ? `، ${pts} خاڵ زیاد کرا` : ''}`);
   };
   acts.receipt = () => {
     const s = S();
@@ -1744,6 +1807,7 @@
         <div style="margin:10px 0"><b>پسوولەی ${esc(h ? h.month : s.billing.month)}</b><div class="xs">${h ? fmt.date(h.at) : ''}</div><div class="xs">${esc(s.passenger.name)}، <span class="latin">+964 ${esc(s.passenger.phone)}</span></div></div>
         ${inv.lines.map((l) => `<div class="line"><span>${esc(l.label)}</span><b>${fmt.group(l.amount)}</b></div>`).join('')}
         ${inv.promo ? `<div class="line"><span>داشکاندن</span><b>${fmt.group(inv.promo)}</b></div>` : ''}
+        ${(inv.discounts || []).map((d) => `<div class="line"><span>${esc(d.label)}</span><b>${fmt.group(-d.amount)}</b></div>`).join('')}
         ${inv.credit ? `<div class="line"><span>قەرەبوو</span><b>${fmt.group(inv.credit)}</b></div>` : ''}
         <div class="line"><b>کۆی گشتی</b><b>${fmt.money(h ? h.total : inv.total)}</b></div>
       </div>
@@ -1755,39 +1819,65 @@
   /* =========================================================
    * پاداشت
    * ======================================================= */
-  const REWARDS = [
-    { id: 'rw1', cost: 500, title: '١٠٬٠٠٠ دینار داشکاندن', sub: 'لە فاتورەی داهاتوو', icon: 'tag' },
-    { id: 'rw2', cost: 1000, title: 'ڕۆژێکی بەخۆڕایی', sub: 'بۆ یەک ئەندامی خێزان', icon: 'car' },
-    { id: 'rw3', cost: 2500, title: 'مانگێکی بەخۆڕایی بۆ منداڵێک', sub: 'گەشتی قوتابخانە', icon: 'school' },
-  ];
+  const REF_ST = { joined: ['چاوەڕێی بەشداری', ''], subscribed: ['بەشداری کرد', 'ok'], cancelled: ['هەڵوەشاوە', 'danger'], revoked: ['لابراوە', 'danger'] };
   TK.route('rewards', {
     guard: authed,
     render() {
-      const r = S().rewards;
-      const next = REWARDS.find((x) => x.cost > r.points) || REWARDS[REWARDS.length - 1];
+      const s = S();
+      const r = s.rewards;
+      const c = TK.CONFIG;
+      if (!r.codeOk) TK.ensureRefCode();
+      const list = TK.rewardsList().filter((x) => x.on !== false).slice().sort((x, y) => x.cost - y.cost);
+      const next = list.find((x) => x.cost > r.points) || list[list.length - 1];
+      const inv = TK.invoice(s);
+      const pend = inv.discounts.concat(inv.waiting);
+      const pendSum = pend.reduce((n, d) => n + d.amount, 0);
+      const mine = TK.refsAsInviter(s);
+      const joined = mine.filter((x) => x.status !== 'revoked').length;
+      const subd = mine.filter((x) => x.status === 'subscribed').length;
       return page(`
         ${ui.header('پاداشت', { back: 'home' })}
-        <div class="card navy big col">
-          <div class="row between"><span style="opacity:.8">خاڵەکانت</span>${icon('medal', 26, 'var(--amber)')}</div>
-          <div class="h1" style="font-size:2.2rem;color:var(--amber)">${r.points}</div>
-          <div class="progress" style="background:rgba(255,255,255,.15)"><i style="width:${Math.min(100, (r.points / next.cost) * 100)}%"></i></div>
-          <div class="xs" style="opacity:.8">${r.points >= next.cost ? 'دەتوانیت پاداشتێک وەربگریت' : `${next.cost - r.points} خاڵی تر بۆ «${next.title}»`}</div>
+        <div class="card navy big col pts-card">
+          <div class="row between"><span>خاڵەکانت</span>${icon('medal', 26, 'var(--amber)')}</div>
+          <div class="pts-n">${fmt.n(fmt.group(r.points))}</div>
+          ${next ? `<div class="progress"><i style="width:${Math.min(100, (r.points / next.cost) * 100)}%"></i></div>
+          <div class="xs">${r.points >= next.cost ? 'دەتوانیت پاداشتێک وەربگریت' : `${fmt.n(fmt.group(next.cost - r.points))} خاڵی تر بۆ «${esc(next.title)}»`}</div>` : ''}
         </div>
-        <div class="h3">گۆڕینەوەی خاڵ</div>
-        ${REWARDS.map((x) => {
-          const got = r.redeemed.includes(x.id);
-          return `<div class="card row"><div class="ico-box">${icon(x.icon, 20, 'var(--brand)')}</div><div class="grow"><b>${x.title}</b><div class="xs muted">${x.sub}، ${x.cost} خاڵ</div></div>
-            <button class="btn sm ${got ? 'secondary' : ''}" data-act="redeem" data-arg="${x.id}" ${got || r.points < x.cost ? 'disabled' : ''}>${got ? 'وەرگیرا' : 'وەرگرتن'}</button></div>`;
-        }).join('')}`);
+        ${pend.length ? `<div class="card ok col tight">
+          <div class="row between"><b>داشکاندنی چاوەڕوان</b><b>${fmt.money(pendSum)}</b></div>
+          ${pend.map((d) => `<div class="row between sm"><span>${esc(d.label)}</span><span>${fmt.group(d.amount)}</span></div>`).join('')}
+          <div class="xs muted">${inv.sub ? 'لە فاتورەی داهاتووت دەبڕدرێت' : 'کاتێک بەشداری بکەیت، لە یەکەم فاتورەت دەبڕدرێت'}. پارە نییە و ناکێشرێتەوە.</div>
+        </div>` : ''}
+        ${c.refOn ? `<div class="card big col invite-card">
+          <div class="row" style="gap:12px"><div class="ico-box">${icon('users', 22, 'var(--act)')}</div><div class="grow"><div class="h3">بانگهێشتی هاوڕێ</div><div class="sm muted">کاتێک هاوڕێکەت بە کۆدەکەت بەشداری دەکات، هەردووکتان ${TK.refText()} داشکاندن وەردەگرن</div></div></div>
+          ${r.code && r.codeOk ? `<div class="ref-code"><span class="latin">${esc(r.code)}</span><button class="btn sm secondary" data-act="copy" data-arg="${esc(r.code)}">${icon('copy', 16)}کۆپی</button></div>
+          <button class="btn block" data-act="shareCode">${icon('send', 18)}ناردنی کۆد بۆ هاوڕێ</button>` : `<div class="skeleton" style="height:56px"></div><div class="xs muted center">کۆدەکەت ئامادە دەکرێت...</div>`}
+          ${mine.length ? `<div class="row between sm"><span class="muted">${fmt.n(joined)} هاوڕێ هاتوون</span><span class="muted">${fmt.n(subd)} بەشدارییان کردووە</span></div>
+          <div class="list">${mine.map((x) => {
+            const st = REF_ST[x.status] || ['', ''];
+            const used = x.status === 'subscribed' && x.inviterUsedAt;
+            return `<div class="item"><div class="avatar sm">${esc((x.inviteeName || '?')[0])}</div><div class="grow"><b class="sm">${esc(x.inviteeName || '')}</b><div class="xs muted">${fmt.ago(x.subAt || x.at)}</div></div>${used ? ui.badge('بەکارهات', '') : ui.badge(x.status === 'subscribed' ? `${fmt.money(x.amount)}` : st[0], st[1])}</div>`;
+          }).join('')}</div>` : ''}
+        </div>` : ''}
+        ${list.length ? `<div class="h3">گۆڕینەوەی خاڵ</div>
+        ${list.map((x) => {
+          const got = !x.repeat && (r.redeemed || []).includes(x.id);
+          return `<div class="card row"><div class="ico-box">${icon(x.kind === 'days' ? 'calendar' : 'tag', 20, 'var(--act)')}</div><div class="grow"><b>${esc(x.title)}</b><div class="xs muted">${fmt.n(fmt.group(x.cost))} خاڵ، ${TK.rewardValue(x)}</div></div>
+            <button class="btn sm ${got || r.points < x.cost ? 'secondary' : ''}" data-act="redeem" data-arg="${x.id}" ${got || r.points < x.cost ? 'disabled' : ''}>${got ? 'وەرگیرا' : 'وەرگرتن'}</button></div>`;
+        }).join('')}
+        <div class="xs muted">پاداشت دەبێت بە داشکاندن و لە فاتورەی داهاتووت دەبڕدرێت.</div>` : ''}`);
     },
   });
-  acts.redeem = (id) => {
-    const x = REWARDS.find((y) => y.id === id);
-    if (actions.redeem(id, x.cost)) TK.toast(`«${x.title}» وەرگیرا`);
+  acts.redeem = async (id) => {
+    const x = TK.rewardsList().find((y) => y.id === id);
+    if (!x || !(await TK.ask(`«${x.title}» بە ${fmt.n(fmt.group(x.cost))} خاڵ وەردەگریت؟ ${TK.rewardValue(x)} لە فاتورەی داهاتووت دەبڕدرێت.`, { danger: false, icon: 'gift', yes: 'وەرگرتن' }))) return;
+    if (actions.redeem(id)) TK.toast(`«${x.title}» وەرگیرا`);
   };
   acts.shareCode = () => {
     const code = S().rewards.code;
-    shareText(`بە کۆدی ${code} لە یەکسا بەشداری بکە و ١٠٪ داشکاندن وەربگرە`);
+    if (!code) return;
+    const link = `${location.href.split('#')[0]}#/register?ref=${code}`;
+    shareText(`لە یەکسا بە کۆدی ${code} تۆمار بکە و ${TK.refText()} داشکاندن لە یەکەم مانگت وەربگرە:\n${link}`);
   };
 
   /* =========================================================
@@ -1808,7 +1898,7 @@
         ${ui.header('یارمەتی و پشتگیری', { back: 'profile' })}
         <div class="card danger col"><div><b>فریاکەوتن</b><div class="sm">لە کاتی مەترسیدا</div></div><div class="grid2"><a class="btn sm danger-solid" href="tel:104">${icon('phone', 16)}پۆلیس ١٠٤</a><a class="btn sm danger-solid" href="tel:122">${icon('phone', 16)}فریاگوزاری ١٢٢</a></div></div>
         <div class="h3">پرسیارە باوەکان</div>
-        <div class="list">${FAQ.map(([q, a]) => `<details class="item" style="display:block"><summary class="bold" style="cursor:pointer">${q}</summary><div class="sm muted" style="margin-top:6px">${a}</div></details>`).join('')}</div>
+        <div class="list">${FAQ.map(([q, a]) => `<details class="item faq" style="display:block"><summary class="bold">${q}${icon('down', 18, 'currentColor', 2.2)}</summary><div class="sm muted" style="margin-top:6px">${a}</div></details>`).join('')}</div>
         <div class="section-title"><div class="h3">داواکارییەکانی پشتگیری</div><button class="link" data-act="newTicket">نوێ</button></div>
         ${s.tickets.length ? `<div class="list">${s.tickets.map((t) => `<div class="item"><div class="grow"><div class="row" style="gap:6px"><b class="sm">#${t.id}</b>${ui.badge(st[t.status][0], st[t.status][1])}</div><div class="sm">${esc(t.subject)}</div>${t.reply ? `<div class="xs muted">وەڵام: ${esc(t.reply)}</div>` : ''}</div></div>`).join('')}</div>` : '<div class="sm muted">هیچ داواکارییەک نییە</div>'}`);
     },

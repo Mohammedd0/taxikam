@@ -134,6 +134,32 @@ service cloud.firestore {
         || (sender() && resource.data.get('system', false) != true && changed().hasOnly(['text', 'unsent', 'unsentAt']) && request.resource.data.unsent == true
             && request.resource.data.text == '' && request.time.toMillis() < resource.data.at + 360000)));
     }
+    // ---------- بانگهێشتی هاوڕێ ----------
+    // کۆدی بانگهێشت ← خاوەنەکەی. هەر کەسێک دەتوانێت یەک کۆد بپشکنێت (get)، بەڵام لیستی هەمووی تەنها بەڕێوەبەر
+    match /refcodes/{code} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isPax() && request.resource.data.uid == uid() && code.size() >= 4 && code.size() <= 10
+        && request.resource.data.keys().hasOnly(['uid', 'name']);
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == uid());
+    }
+    // پەیوەندی ئەحمەد (inviter) و ئاراس (invitee). ناسنامەی بەڵگەنامە = UIDـی ئاراس (هەر کەسێک تەنها یەک جار)
+    match /referrals/{id} {
+      allow read: if isAdmin() || inR();
+      allow create: if isAdmin() || (isPax() && id == uid() && request.resource.data.invitee == uid()
+        && request.resource.data.inviter != uid() && request.resource.data.status == 'joined'
+        && request.resource.data.get('inviteeUsedAt', null) == null && request.resource.data.get('inviterUsedAt', null) == null
+        && get(/databases/$(database)/documents/refcodes/$(request.resource.data.code)).data.uid == request.resource.data.inviter
+        && inNewR());
+      // ئاراس: تەنها بەشداری کرد / هەڵیوەشاندەوە / بەکارهێنا. ئەحمەد: تەنها بەکارهێنانی داشکاندنەکەی خۆی
+      allow update: if isAdmin()
+        || (signedIn() && resource.data.invitee == uid() && resource.data.status != 'revoked'
+            && changed().hasOnly(['status', 'subId', 'amount', 'month', 'subAt', 'inviteeUsedAt'])
+            && request.resource.data.status in ['joined', 'subscribed', 'cancelled'])
+        || (signedIn() && resource.data.inviter == uid() && resource.data.status == 'subscribed' && changed().hasOnly(['inviterUsedAt']));
+      allow delete: if isAdmin();
+    }
     // دەقی ڕاستەقینەی نامە گەڕێنراوەکان: تەنها بەڕێوەبەر دەیخوێنێتەوە
     match /unsent/{id} {
       allow read, update, delete: if isAdmin();

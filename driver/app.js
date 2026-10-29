@@ -724,7 +724,7 @@
   const ppl = (x) => x.riders || (x.memberIds || []).length || 1;
   Object.assign(TK.HELP, {
     routes: { title: 'ڕۆت چییە؟', body: () => `<div class="howto"><span>${num(1)}سەرنشینەکان هەڵبژێرە</span><span>${num(2)}ڕیزیان بکە: یەکەم کێ؟</span><span>${num(3)}پاشەکەوت. هەموو ڕۆژێک یەک گەشتە</span></div><p class="xs muted" style="margin-top:8px">سەرنشینەکان دەزانن چەند کەس لە تەکسییەکەن (تەنها ناوی یەکەم و ڕەگەز). نرخ ناگۆڕێت.</p>` },
-    earnings: { title: 'یاساکانی داهات', body: () => `<p>بڕی هەر سەرنشینێک بە پێی ئەو ڕۆژانەیە کە لەم مانگەدا بەشدارییەکەی چالاک بووە (ڕۆژە ڕاگیراوەکان حیساب ناکرێن).</p><p>نەهاتن بێ جێگرەوە: ${fmt.money(TK.CONFIG.noShowPenalty)} سزا.</p><p>جێگرەوە: پارەکە دوای تەواوبوونی گەشت دەگوازرێتەوە.</p>` },
+    earnings: { title: 'یاساکانی داهات', body: () => `<p><b>کۆمیسیۆنی یەکسا:</b> ${TK.commissionText()}${TK.commissionRule().type === 'fixed' ? `. کەسی دووەم بەدواوە لە یەک بەشداری بە ڕێژەی نرخەکەی (${fmt.n(Math.round(TK.CONFIG.extraRiderFactor * 100))}٪)` : ''}.</p>${nextRuleNote()}<p>بڕی هەر سەرنشینێک بە پێی ئەو ڕۆژانەیە کە لەم مانگەدا بەشدارییەکەی چالاک بووە (ڕۆژە ڕاگیراوەکان حیساب ناکرێن).</p><p>نەهاتن بێ جێگرەوە: ${fmt.money(TK.CONFIG.noShowPenalty)} سزا.</p><p>جێگرەوە: پارەکە دوای تەواوبوونی گەشت دەگوازرێتەوە.</p>` },
   });
   TK.route('routes', {
     guard: authed,
@@ -1109,7 +1109,7 @@
       if (!U.offer || U.offer.id !== id) U.offer = { id, price: r.price };
       const b = TK.offerBounds(r.price);
       const o = U.offer;
-      const net = Math.round(o.price * (1 - TK.CONFIG.commission));
+      const net = o.price - TK.feeFor(r, o.price);
       const can = r.status === 'open' && !mineO && me.status === 'active';
       return page(`
         <div class="callscreen col">
@@ -1261,6 +1261,13 @@
    * داهات
    * ======================================================= */
   const LEDGER_LABEL = { penalty: ['سزا', 'danger'], bonus: ['پاداشت', 'ok'], swap: ['جێگرەوە', 'info'], adjust: ['ڕێکخستن', ''] };
+  /** ئەگەر بەڕێوەبەر یاسای کۆمیسیۆنی گۆڕیبێت، لە مانگی داهاتووەوە جێبەجێ دەبێت */
+  function nextRuleNote() {
+    const n = TK.CONFIG.commissionNext;
+    if (!n || !n.from || n.from <= TK.monthKey()) return '';
+    const m = fmt.MONTHS[Number(n.from.slice(5, 7)) - 1];
+    return `<div class="xs note-line">${icon('clock', 14, 'currentColor', 2)}لە ${m}ەوە: ${TK.commissionText(n)}</div>`;
+  }
   TK.route('earnings', {
     guard: authed,
     render() {
@@ -1292,7 +1299,8 @@
           ${po.lines.map((l) => `<div class="row between sm"><span class="grow" style="min-width:0"><span class="ellipsis" style="display:block">${esc(l.riderNames)}</span>${l.note ? `<span class="xs muted">${esc(l.note)}، نرخی تەواو ${fmt.group(l.full)}</span>` : ''}</span><b>${fmt.group(l.amount)}</b></div>`).join('')}
           ${po.lines.length ? '<div class="hr"></div>' : ''}
           <div class="row between"><span class="muted">کۆی بەشدارییەکان</span><b>${fmt.money(po.gross)}</b></div>
-          <div class="row between"><span class="muted">کۆمیسیۆنی یەکسا (${Math.round(c.commission * 100)}٪)</span><b class="neg">${fmt.money(po.commission)}</b></div>
+          <div class="row between"><span class="muted">کۆمیسیۆنی یەکسا<span class="xs" style="display:block">${TK.commissionText(po.rule)}</span></span><b class="neg">${fmt.money(po.commission)}</b></div>
+          ${nextRuleNote()}
           ${po.entries.map((x) => `<div class="row between"><span class="muted">${(LEDGER_LABEL[x.type] || ['', ''])[0]}، ${esc(x.note)}</span><b class="${x.amount < 0 ? 'neg' : 'ok'}">${fmt.money(Math.abs(x.amount))}</b></div>`).join('')}
           <div class="row between"><span class="muted">پاداشتی مانگانە</span><b class="${po.bonus ? 'ok' : 'muted'}">${po.bonus ? fmt.money(po.bonus) : 'هێشتا نا'}</b></div>
           <div class="hr"></div>
