@@ -80,7 +80,7 @@
     const c = counts();
     return `<div class="adm">
       <nav class="side">
-        <div class="brandmark"><img src="../shared/logo.png" alt=""><span class="name">پانێڵی یەکسا</span></div>
+        <div class="side-logo">${TK.logo('inv')}<div class="xs" style="opacity:.6;margin-top:6px">پانێڵی بەڕێوەبردن</div></div>
         ${NAV.map(([k, ic, l, cnt]) => `<a href="#/${k}" class="${active === k ? 'on' : ''}">${icon(ic, 18)}<span>${l}</span>${cnt && c[cnt] ? `<span class="cnt">${c[cnt]}</span>` : ''}</a>`).join('')}
         <a href="#/login" data-act="logout">${icon('logout', 18)}<span>چوونەدەرەوە</span></a>
         <div class="foot">یەکسا، وەشانی 1.0</div>
@@ -99,7 +99,7 @@
     guard: () => (isAuthed() ? 'dash' : null),
     render() {
       return `<div class="splash" style="gap:16px">
-        <img src="../shared/logo.png" alt="">
+        ${TK.logo('big inv')}
         <div class="h1">پانێڵی بەڕێوەبردن</div>
         <div class="sm" style="opacity:.85;max-width:360px;text-align:center">بە ئیمەیڵ و وشەی نهێنی هەژماری بەڕێوەبەر بچۆ ژوورەوە (ئەو هەژمارەی لە Firebase دروستت کردووە).</div>
         <form class="col" data-submit="doLogin" style="width:min(360px, 90vw);gap:10px">

@@ -1508,3 +1508,81 @@ html.pas[data-theme="dark"] .list .ico-box, html.pas[data-theme="dark"] .ico-box
 .card .input, .sheet .input { background: var(--bg); }
 .ds-drv { background: var(--bg); border-color: var(--glass-line); }
 .ts-chat, .sf-ic { box-shadow: none; }
+
+/* ---------- لۆگۆی یەکسا (Y + هێڵ + ناوی دوو ڕەنگ) ---------- */
+.ylogo { --yl-ink: var(--act); --yl-gr: #8A8F98; --yl-bg: var(--bg); --yl-h: 34px; display: inline-flex; align-items: center; gap: calc(var(--yl-h) * .28); direction: rtl; flex: none; }
+:root[data-theme="dark"] .ylogo { --yl-gr: #8E95A2; }
+.ylogo.inv { --yl-ink: #F2F2F7; --yl-gr: #8E95A2; --yl-bg: #1C1C1E; }
+.ylogo.big { --yl-h: 58px; }
+.ylogo.sm { --yl-h: 26px; }
+.yl-mk { width: var(--yl-h); height: var(--yl-h); flex: none; display: block; }
+.yl-s { fill: none; stroke: var(--yl-ink); stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; }
+.yl-d { fill: none; stroke: var(--yl-bg); stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 5 5; }
+.yl-p { fill: #F5A623; stroke: var(--yl-bg); stroke-width: 3.5; }
+.yl-vr { width: 1.5px; height: calc(var(--yl-h) * .94); border-radius: 1px; background: var(--line); flex: none; }
+.ylogo.inv .yl-vr { background: rgba(255, 255, 255, .18); }
+.yl-tx { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; gap: calc(var(--yl-h) * .12); }
+/* «یەک» تۆخ و «سا» خۆڵەمێشی: یەک وشەیە (پیتەکان پچڕ نابن)، تەنها ڕەنگەکە لە ٥٦٪ دەگۆڕێت */
+.yl-ku { font-weight: 700; font-size: calc(var(--yl-h) * .76); line-height: 1; color: transparent; -webkit-background-clip: text; background-clip: text; background-image: linear-gradient(to left, var(--yl-ink) 0 56%, var(--yl-gr) 56% 100%); padding: 0 1px; }
+.yl-la { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-weight: 700; font-size: calc(var(--yl-h) * .27); letter-spacing: .32em; color: var(--yl-gr); direction: ltr; }
+.yl-la b { color: var(--yl-ink); font-weight: 800; }
+.topbar > .ylogo { margin-inline-start: 2px; }
+.side-logo { padding: 6px 8px 18px; }
+.splash .ylogo { animation: pop .6s ease; }
+
+/* =========================================================
+ * v38: یەکخستنی ڕەنگەکان (ڕەنگ تەنها بۆ واتا)، تابلۆ، (؟)، کارتی داهاتی ڕەش
+ * ======================================================= */
+/* سندوقی ئایکۆن و نیشانە: خۆڵەمێشی کاڵ و ئایکۆنی تۆخ */
+.ico-box, .ico-box.navy, .ico-box.info, html.pas .list .ico-box, html.pas .ico-box.navy { background: var(--silver); }
+.ico-box svg { stroke: var(--act); }
+.ico-box.ok svg { stroke: var(--ok-text); }
+.ico-box.danger svg { stroke: var(--danger-text); }
+.ico-box.woman svg { stroke: var(--w-text); }
+.ico-box[style*="--amber"] svg { stroke: #0B1733; }
+.badge.note { background: var(--silver); color: var(--text); }
+.badge.dir { background: var(--silver); color: var(--text); }
+.badge.dir::before { content: ""; width: 7px; height: 7px; border-radius: 50%; box-sizing: border-box; flex: none; }
+.badge.dir.go::before { background: var(--act); }
+.badge.dir.back::before { border: 1.5px solid var(--act); }
+.card.info { background: var(--silver); color: var(--text); border-color: transparent; }
+.card.info svg { stroke: var(--act); }
+.howto .num { background: var(--bg); color: var(--text); }
+.nc-time { background: var(--silver); }
+
+/* ڕوونکردنەوە: ئایکۆنی (؟) لە سەرەوە */
+.help-btn { flex: none; }
+.help-ic { width: 40px; height: 40px; border-radius: 14px; background: var(--silver); color: var(--act); display: flex; align-items: center; justify-content: center; flex: none; }
+.help-body { line-height: 1.9; display: flex; flex-direction: column; gap: 6px; }
+.help-body p { margin: 0; }
+
+/* وێنەی کەسی: خۆڵەمێشی کاڵ (ڕەنگی تەنها بۆ ئافرەت و منداڵ دەمێنێت) */
+.avatar:not(.woman):not(.amber):not(.ok), .avatar.navy, .pc-av, .dh-av:not(.w), .ts-dav:not(.w), .ds-av, .hav { background: var(--silver); color: var(--silver-text); border: 1px solid var(--silver-line); box-shadow: none; }
+.pc-av img, .dh-av img, .ts-dav img { border-radius: inherit; }
+
+/* کارتی بەشداری: تەنها شریتی نرخ تۆخە */
+.ts-chat, .sf-ic, [data-theme="dark"] .ts-chat, [data-theme="dark"] .sf-ic { background: var(--silver); border: 1px solid var(--silver-line); box-shadow: none; }
+.ts-chat svg, .sf-ic svg { stroke: var(--act) !important; }
+.ts-rate { background: var(--silver); color: var(--text); }
+
+/* تابلۆ: لای IRQ KR سوور بۆ تەکسی، سپیی هێڵدار بۆ تایبەت */
+.mplate { border-color: #1C1C1E; background: #fff; color: #111; }
+.mplate .mp-s { border-right: 1.5px solid #1C1C1E; }
+.mplate.taxi .mp-s { background: #E4262C; color: #fff; }
+.mplate.priv .mp-s { background: repeating-linear-gradient(135deg, #fff 0 4px, #E6E7EA 4px 6px); color: #1C1C1E; }
+
+/* کارتی داهاتی شۆفێر: ڕەشی بریقەدار (هەمان دیزاین) */
+.wcard {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, .05) 1px, transparent 1.4px) 0 0 / 14px 14px,
+    linear-gradient(135deg, #2C2C2E 0%, #1C1C1E 45%, #0E0E10 100%);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 255, 255, .08);
+}
+:root[data-theme="dark"] .wcard { border-color: rgba(255, 255, 255, .12); }
+.wcard::before { background: radial-gradient(circle, rgba(245, 166, 35, .14), transparent 70%); }
+.wcard::after { background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .08) 45%, transparent 60%); }
+.wc-pill { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .1); }
+
+/* ژمارە لە سەرەوەی بەشەکان */
+.section-title .cntp, .card .cntp { background: var(--silver); color: var(--text); min-width: 26px; height: 26px; border-radius: 13px; padding: 0 8px; }

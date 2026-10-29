@@ -1401,8 +1401,10 @@
       const a = state.accounts.find((x) => x.uid === peer);
       return a ? a.phone : '';
     },
-    unread: () => state.notices.filter((n) => n.at > state.readNoticesAt).length,
-    myDNotices: () => state.dnotices.filter((n) => n.driverId === state.driver.meId),
+    // نامەکان تەنها لە بەشی «نامەکان»دان: لە لیستی ئاگادارکردنەوە و ژمارەی زەنگەکە دەرنەچن (بانەری کاتی هاتنی نامە هەر دەمێنێت)
+    unread: () => state.notices.filter((n) => n.kind !== 'chat' && n.at > state.readNoticesAt).length,
+    myNotices: () => state.notices.filter((n) => n.kind !== 'chat'),
+    myDNotices: () => state.dnotices.filter((n) => n.driverId === state.driver.meId && n.kind !== 'chat'),
     dUnread() {
       const me = sel.me();
       return me ? sel.myDNotices().filter((n) => n.at > (me.readNoticesAt || 0)).length : 0;
@@ -2287,7 +2289,7 @@
         if (d) d.freeSeats = Math.max(0, d.freeSeats - (r.mode === 'one' ? r.riders : 1));
         notice(s, { kind: 'info', title: 'بەشدارییەکەت چالاک کرا', body: `${r.riderNames} لەگەڵ ${d ? d.name : 'شۆفێر'}، ${fmt.money(offer.price)} مانگانە` }, r.owner);
         dnotice(s, driverId, { kind: 'ok', title: `${r.ownerName} تۆی هەڵبژارد`, body: `${r.from} ← ${r.to}، ${fmt.money(offer.price)} مانگانە`, link: 'routes' });
-        r.offers.filter((o) => o.driverId !== driverId).forEach((o) => dnotice(s, o.driverId, { kind: 'info', title: 'داواکارییەکە داخرا', body: `${r.ownerName} شۆفێرێکی تری هەڵبژارد`, link: 'requests' }));
+        r.offers.filter((o) => o.driverId !== driverId).forEach((o) => dnotice(s, o.driverId, { kind: 'info', title: 'سەرنشین شۆفێرێکی تری هەڵبژارد', body: `${r.ownerName}، ${r.from.split('، ')[0]} ← ${r.to.split('، ')[0]}. داواکارییەکە داخرا.`, link: 'requests' }));
       });
     },
 
@@ -2761,7 +2763,7 @@
         const d = s.drivers.find((x) => x.id === meId);
         if (!d || d.status !== 'active' || !r || r.status !== 'open' || !(price > 0) || r.offers.some((o) => o.driverId === meId)) return;
         r.offers.push({ driverId: meId, price, note: note || '', at: Date.now(), status: 'pending' });
-        notice(s, { kind: 'offer', title: `${d.name} داواکارییەکەتی قبووڵ کرد`, body: `${r.riderNames}، ${r.to}، ${fmt.money(price)} مانگانە`, link: `request/${r.id}` }, r.owner);
+        notice(s, { kind: 'offer', title: `${d.name} نرخی ناردووە: ${fmt.money(price)}`, body: `${r.riderNames}، ${r.to}، ${fmt.money(price)} مانگانە`, link: `request/${r.id}` }, r.owner);
       });
     },
     withdrawOffer(reqId) {
@@ -3996,6 +3998,20 @@
   /* ---------- تۆست ---------- */
   let toastTimer = null;
 
+
+  /* =========================================================
+   * لۆگۆی یەکسا: نیشانەی Y (بێ باکگراوند)، هێڵێکی باریک، «یەکسا» بە دوو ڕەنگ و YEKSA
+   * cls: 'big' بۆ قەبارەی گەورە، 'inv' بۆ سەر باکگراوندی تاریک
+   * ======================================================= */
+  const Y_MARK = '<svg class="yl-mk" viewBox="0 0 100 100" aria-hidden="true"><path class="yl-s" d="M24 14 L50 50 L76 14"/><path class="yl-s" d="M50 50 L50 76"/><path class="yl-d" d="M50 57 L50 71"/><circle class="yl-p" cx="50" cy="85" r="10"/></svg>';
+  function yLogo(cls) {
+    return `<span class="ylogo${cls ? ' ' + cls : ''}" role="img" aria-label="یەکسا">${Y_MARK}<span class="yl-vr"></span><span class="yl-tx"><span class="yl-ku" aria-hidden="true">یەکسا</span><span class="yl-la latin" aria-hidden="true"><b>YEK</b>SA</span></span></span>`;
+  }
+  TK.logo = yLogo;
+  /** ڕوونکردنەوەکان: هەر ئەپێک ناوەڕۆکی خۆی زیاد دەکات. { key: { title, body: html یان function } } */
+  TK.HELP = {};
+  /** دوگمەی (؟) بۆ سەرەوەی پەڕە */
+  TK.helpBtn = (key) => `<button class="icon-btn help-btn" data-act="help" data-arg="${key}" aria-label="ڕوونکردنەوە">${TK.icon('help', 22)}</button>`;
   /* =========================================================
    * وێنەی پەڕە بەتاڵەکان (خۆڵەمێشی، هەمان شێوە لە ڕووناک و تاریک)
    * ======================================================= */
@@ -4302,13 +4318,13 @@
     // پێش پیشاندانی ئەپ، چاوەڕێ دەکرێت تا Firebase دەزانێت کێ چووەتە ژوورەوە و زانیارییەکانی بار دەبن
     if (cloud.ready) boot();
     else {
-      app.root.innerHTML = `<div class="splash"><img src="../shared/logo.png" alt=""><div class="h1">یەکسا</div><div class="sm" style="opacity:.75" id="bootmsg">بارکردن...</div></div>`;
+      app.root.innerHTML = `<div class="splash">${yLogo('big inv')}<div class="sm" style="opacity:.75" id="bootmsg">بارکردن...</div></div>`;
       const t0 = Date.now();
       const wait = () => {
         if (cloud.ready) return boot();
         if (cloud.error === 'load' || Date.now() - t0 > 15000) {
           const m = document.getElementById('bootmsg');
-          app.root.innerHTML = `<div class="splash" style="gap:14px"><img src="../shared/logo.png" alt=""><div class="h2">پەیوەندی بە سێرڤەر نییە</div><div class="sm" style="opacity:.8;max-width:300px;text-align:center;line-height:1.9">دڵنیابە ئینتەرنێتت هەیە، پاشان دووبارە هەوڵ بدەرەوە.</div><button class="btn" onclick="location.reload()">دووبارە هەوڵدانەوە</button></div>`;
+          app.root.innerHTML = `<div class="splash" style="gap:14px">${yLogo('big inv')}<div class="h2">پەیوەندی بە سێرڤەر نییە</div><div class="sm" style="opacity:.8;max-width:300px;text-align:center;line-height:1.9">دڵنیابە ئینتەرنێتت هەیە، پاشان دووبارە هەوڵ بدەرەوە.</div><button class="btn" onclick="location.reload()">دووبارە هەوڵدانەوە</button></div>`;
           void m;
           // ئەگەر دواتر پەیوەندی دروست بوو، ئەپەکە دەست پێدەکات
           const later = () => (cloud.ready ? boot() : setTimeout(later, 500));
@@ -4346,7 +4362,7 @@
       if (!d) return ui.avatar('?', '', size);
       const src = d.photo ? TK.img(d.photo) : '';
       if (src) return `<img class="avatar" src="${src}" alt="" style="width:${size}px;height:${size}px;object-fit:cover">`;
-      return ui.avatar(d.initial || (d.name || '?').slice(0, 1), d.woman ? 'woman' : 'amber', size);
+      return ui.avatar(d.initial || (d.name || '?').slice(0, 1), d.woman ? 'woman' : '', size);
     },
     badge(label, tone = '') {
       return `<span class="badge ${tone}">${esc(label)}</span>`;
@@ -4381,16 +4397,12 @@
       const art = EMPTY_ART[EMPTY_ALIAS[icon] || icon];
       return `<div class="empty">${art ? `<svg class="empty-art" viewBox="0 0 220 180" aria-hidden="true">${EMPTY_BG}${art}</svg>` : `<div class="ico-box">${TK.icon(icon, 30, 'var(--muted)')}</div>`}<div class="h3">${esc(title)}</div><div class="sm muted">${esc(text)}</div>${btn || ''}</div>`;
     },
-    /** تابلۆی ئۆتۆمبێل لە یەک پارچەدا (بۆ ئەوەی نەبێت بە دوو دێڕ) */
-    /** type: «taxi» ستوونی سوور، «private» سپی (تەنها بۆ شۆفێری ئافرەت) */
-    plate(p, type = 'taxi') {
-      // تابلۆی تەکسی هەرێمی کوردستان: ستوونی سوور (IRQ KR)، سەرەوە «22 A»، خوارەوە ژمارە
-      const raw = String(p || '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-      const nums = raw.match(/\d+/g) || [];
-      const letter = (raw.match(/[A-Za-z]/) || ['A'])[0].toUpperCase();
-      const code = nums.length > 1 ? nums[0] : '22';
-      const num = nums.length ? nums[nums.length - 1] : '';
-      return `<span class="kplate latin ${type === 'private' ? 'private' : ''}" title="${type === 'private' ? 'تابلۆی تایبەت' : 'تابلۆی تەکسی'}" data-raw aria-label="تابلۆ ${esc(code)} ${letter} ${esc(num)}"><span class="kp-side"><i>I</i><i>R</i><i>Q</i><i>KR</i></span><span class="kp-main"><span class="kp-top">${esc(code)}<span class="kp-dot"></span>${letter}</span><span class="kp-num">${esc(num)}</span></span></span>`;
+    /** تابلۆی ئۆتۆمبێل لە یەک پارچەدا (یەک شێوە لە هەموو ئەپەکان)
+     * type: «taxi» لای IRQ KR سوورە، «private» سپییە (بە هێڵی کاڵ تا لە باکگراوندی سپی جیا بێتەوە). size: 'sm' بۆ کارتەکان */
+    plate(p, type = 'taxi', size = '') {
+      const raw = String(p || '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
+      const priv = type === 'private';
+      return `<span class="mplate ${priv ? 'priv' : 'taxi'}${size ? ' ' + size : ''}" data-raw title="${priv ? 'تابلۆی تایبەت (سپی)' : 'تابلۆی تەکسی (سوور)'}" aria-label="تابلۆ ${esc(raw)}"><span class="mp-s">IRQ<br>KR</span><span class="mp-n latin">${esc(raw)}</span></span>`;
     },
     /** هەڵبژاردنی کات بە کوردی (لە جیاتی خانەی کاتی سیستەم کە «07:30 AM» پیشان دەدات) */
     timeSelect(id, value, attrs = '') {
@@ -4691,6 +4703,12 @@
 
   /* ---------- کردارە هاوبەشەکان (ڕێکخستن) ---------- */
   Object.assign(app.acts, {
+    /** ڕوونکردنەوەی پەڕە: ئایکۆنی (؟) لە سەرەوە، ناوەڕۆکەکەی لە TK.HELP */
+    help: (key) => {
+      const h = TK.HELP[key];
+      if (!h) return;
+      TK.sheet(() => `<div class="row" style="gap:10px"><span class="help-ic">${TK.icon('help', 22, 'currentColor', 2)}</span><div class="h2 grow">${esc(h.title)}</div></div><div class="help-body">${typeof h.body === 'function' ? h.body() : h.body}</div><button class="btn block" data-close>تێگەیشتم</button>`);
+    },
     /** گەڕاندنەوەی نامەی خۆت (تا ٥ خولەک) */
     msgMenu: async (id) => {
       const m = state.messages.find((x) => x.id === id);
