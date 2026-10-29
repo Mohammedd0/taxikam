@@ -1274,15 +1274,16 @@
           <div class="wc-top">
             <div class="col tight">
               <span class="wc-title"><i></i>داهاتی ئەم مانگە (پاش کۆمیسیۆن)</span>
-              <span class="wc-tag latin" data-raw>DRIVER WALLET</span>
+              <span class="wc-tag latin" data-raw>DRIVER WALLET • VIP</span>
             </div>
-            <span class="wc-chip"></span>
+            <div class="row" style="gap:10px"><span class="wc-nfc">)))</span><span class="wc-chip"><i></i></span></div>
           </div>
           <div class="wc-amount">${fmt.group(po.net)} <small>دینار</small></div>
           <div class="wc-line"></div>
           <div class="wc-foot">
             <span class="wc-pill">${icon('calendar', 16, '#FBBF24')}ڕۆژی موچە: <b>${payDay}</b></span>
             <span class="wc-pill">${icon('users', 16, '#93C5FD')}<b>${po.subs}</b> سەرنشین</span>
+            <span class="wc-coins"><i></i><i></i></span>
           </div>
         </div>
         <div class="card col tight">
