@@ -67,7 +67,7 @@
     ['drivers', 'car', 'شۆفێرەکان', 'driversAlert'],
     ['passengers', 'users', 'سەرنشینەکان'],
     ['partners', 'briefcase', 'هاوبەشەکان'],
-    ['subs', 'calendar', 'بەژداری و داواکاری', 'requests'],
+    ['subs', 'calendar', 'بەشداری و داواکاری', 'requests'],
     ['trips', 'route', 'گەشتەکان', 'swaps'],
     ['news', 'news', 'هەواڵ و ئاگادارکردنەوە'],
     ['finance', 'wallet', 'دارایی'],
@@ -155,7 +155,7 @@
       if (lowRated) alerts.push([`${lowRated} شۆفێر هەڵسەنگاندنی کەمە`, 'drivers', 'star']);
       return layout('dash', 'داشبۆرد', `
         <div class="kpis">
-          ${kpi(s.subscriptions.length, 'بەژداری چالاک', 'calendar', { go: 'subs' })}
+          ${kpi(s.subscriptions.length, 'بەشداری چالاک', 'calendar', { go: 'subs' })}
           ${kpi(s.accounts.length, 'ئەکاونتی سەرنشین', 'users', { go: 'passengers' })}
           ${kpi(`${drivers.length}`, 'شۆفێری چالاک', 'car', { go: 'drivers', sub: `${s.drivers.filter((d) => d.status === 'pending').length} چاوەڕێ، ${s.drivers.filter((d) => d.status === 'suspended').length} ڕاگیراو` })}
           ${kpi(fmt.money(gross), 'داهاتی مانگانە (کۆی گشتی)', 'wallet', { go: 'finance' })}
@@ -482,7 +482,7 @@
               <b class="sm">جۆری تابلۆ</b>
               ${d.woman ? ui.seg('plateType', [{ v: 'taxi', l: 'تەکسی (سوور)' }, { v: 'private', l: 'تایبەت (سپی)' }].map((o) => ({ ...o, v: `${d.id}|${o.v}` })), `${d.id}|${d.plateType || 'taxi'}`) : `<div class="row sm">${ui.plate(d.plate, 'taxi')}<span class="muted">شۆفێری نێر تەنها تابلۆی تەکسی</span></div>`}
             </div>
-            <div class="grid3"><div class="card stat flat"><b class="brand">★ ${d.reviews ? d.rating : '-'}</b><span class="xs muted">${d.reviews || 0} هەڵسەنگاندن</span></div><div class="card stat flat"><b>${d.trips || 0}</b><span class="xs muted">گەشت</span></div><div class="card stat flat"><b>${subs.length}</b><span class="xs muted">بەژداری</span></div></div>
+            <div class="grid3"><div class="card stat flat"><b class="brand">★ ${d.reviews ? d.rating : '-'}</b><span class="xs muted">${d.reviews || 0} هەڵسەنگاندن</span></div><div class="card stat flat"><b>${d.trips || 0}</b><span class="xs muted">گەشت</span></div><div class="card stat flat"><b>${subs.length}</b><span class="xs muted">بەشداری</span></div></div>
             <div class="row between sm"><span class="muted">وەرگرتنی موچە</span><b>${PAY[d.payMethod] || '-'}${d.payAccount ? ` <span class="latin">${esc(d.payAccount)}</span>` : ''}</b></div>
             ${d.deleteRequestedAt ? `<div class="card danger col tight"><b class="sm">${icon('alert', 16)} شۆفێر داوای سڕینەوەی هەژمارەکەی کردووە، ${fmt.ago(d.deleteRequestedAt)}</b><span class="xs">سەرەتا سەرنشینەکانی بگوازەرەوە بۆ شۆفێرێکی تر و موچەکەی تەواو بکە، پاشان «سڕینەوە» لە خوارەوە دابگرە.</span></div>` : ''}
             ${payChanged(d) ? `<div class="card note col tight"><div class="row">${icon('alert', 18, 'var(--brand)')}<b class="grow sm">شۆفێر شێوازی موچەی گۆڕیوە${d.payChangedAt ? `، ${fmt.ago(d.payChangedAt)}` : ''}</b></div>
@@ -507,14 +507,14 @@
           </div>
           <div class="card col">
             <div class="h3">حیسابی ئەم مانگە</div>
-            <div class="row between sm"><span class="muted">کۆی بەژدارییەکان</span><b>${fmt.money(po.gross)}</b></div>
+            <div class="row between sm"><span class="muted">کۆی بەشدارییەکان</span><b>${fmt.money(po.gross)}</b></div>
             <div class="row between sm"><span class="muted">کۆمیسیۆن</span><b class="neg">${fmt.group(po.commission)}</b></div>
             ${po.entries.map((e) => `<div class="row between sm"><span class="muted">${esc(e.note)} <span class="xs">(${fmt.ago(e.at)})</span></span><span class="row" style="gap:6px"><b class="${e.amount < 0 ? 'neg' : 'ok'}">${fmt.group(Math.abs(e.amount))}</b><button class="icon-btn plain" style="width:28px;height:28px" data-act="delLedger" data-arg="${e.id}" aria-label="سڕینەوە">${icon('x', 14, 'var(--muted)')}</button></span></div>`).join('')}
             ${po.bonus ? `<div class="row between sm"><span class="muted">پاداشتی مانگانە</span><b class="ok">${fmt.group(po.bonus)}</b></div>` : ''}
             <div class="hr"></div>
             <div class="row between"><b>بۆ شۆفێر</b><b class="brand">${fmt.money(po.net)}</b></div>
             ${(s.routes || []).filter((r) => r.driverId === d.id).length ? `<div class="h3" style="margin-top:8px">ڕۆتەکان (تەکسی هاوبەش)</div>
-            <div class="list">${(s.routes || []).filter((r) => r.driverId === d.id).sort((a, b) => a.time.localeCompare(b.time)).map((r) => `<div class="item"><div class="grow"><b class="sm">${esc(r.name)}</b><div class="xs muted">${r.dir === 'back' ? 'هاتنەوە' : 'چوون'}، ${fmt.clock(r.time)}، ${r.subIds.map((id) => (s.subscriptions.find((x) => x.id === id) || {}).riderNames).filter(Boolean).map(esc).join(' ← ')}</div></div>${ui.badge(`${r.subIds.length} بەژداری`, 'info')}</div>`).join('')}</div>` : ''}
+            <div class="list">${(s.routes || []).filter((r) => r.driverId === d.id).sort((a, b) => a.time.localeCompare(b.time)).map((r) => `<div class="item"><div class="grow"><b class="sm">${esc(r.name)}</b><div class="xs muted">${r.dir === 'back' ? 'هاتنەوە' : 'چوون'}، ${fmt.clock(r.time)}، ${r.subIds.map((id) => (s.subscriptions.find((x) => x.id === id) || {}).riderNames).filter(Boolean).map(esc).join(' ← ')}</div></div>${ui.badge(`${r.subIds.length} بەشداری`, 'info')}</div>`).join('')}</div>` : ''}
             <div class="h3" style="margin-top:8px">گەشتەکانی ئەمڕۆ (${trips.length})</div>
             <div class="list">${trips.map((t) => `<div class="item"><div class="grow"><b class="sm">${esc(t.title)}</b><div class="xs muted">${fmt.clock(t.time)}${t.originalDriverId === d.id ? '، دراوە بە جێگرەوە' : t.originalDriverId ? '، جێگرەوە' : ''}</div></div>${ui.badge(TRIP_ST[t.status][0], TRIP_ST[t.status][1])}</div>`).join('') || '<div class="item sm muted">هیچ</div>'}</div>
             <div class="h3" style="margin-top:8px">ڕاپۆرتەکان (${reps.length})</div>
@@ -611,7 +611,7 @@
     const w = window.open('', '_blank');
     if (!w) return TK.toast('ڕێگە بە کردنەوەی پەنجەرەی نوێ بدە');
     const html = `<!doctype html><html lang="ckb" dir="rtl"><head><meta charset="utf-8"><title>${esc(d.name)}، یەکسا</title>
-      <style>@font-face{font-family:"Noto Naskh Arabic";src:url("${base}shared/fonts/NotoNaskhArabic.woff") format("woff");font-weight:400 700}
+      <style>@font-face{font-family:"Noto Naskh Arabic";src:url("${base}shared/fonts/NotoNaskhArabic.woff2") format("woff2");font-weight:400 700}
       body{font-family:"Noto Naskh Arabic",Tahoma,sans-serif;color:#13254A;margin:0;padding:28px;font-size:14px}
       header{display:flex;align-items:center;gap:16px;border-bottom:3px solid #F5A623;padding-bottom:14px;margin-bottom:14px}
       header img.ph{width:110px;height:110px;object-fit:cover;border-radius:14px;border:1px solid #DCE3EE}
@@ -757,7 +757,7 @@
       return layout('passengers', 'سەرنشینەکان', `
         <div class="row wrap" style="gap:8px"><div class="sm muted grow">${s.accounts.length} ئەکاونت</div><input class="input" style="max-width:280px;min-height:42px" placeholder="گەڕان: ناو یان ژمارە" value="${esc(U.pq || '')}" data-input="pq"></div>
         ${list.length ? `<div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>ناو</th><th>ژمارە</th><th>شار</th><th>تۆمارکراو</th><th>هاوبەش</th><th>بەژداری</th><th>فاتورەی ئەم مانگە</th><th>دۆخ</th></tr></thead>
+          <thead><tr><th>ناو</th><th>ژمارە</th><th>شار</th><th>تۆمارکراو</th><th>هاوبەش</th><th>بەشداری</th><th>فاتورەی ئەم مانگە</th><th>دۆخ</th></tr></thead>
           <tbody>${list.map((a) => {
             const owner = ownerOf(s, a.phone);
             const ps = TK.pslice(s, owner) || {};
@@ -814,8 +814,8 @@
             </div>
             <div class="h3" style="margin-top:6px">ئەندامانی خێزان (${fam.members.length})</div>
             <div class="list">${fam.members.map((m) => `<div class="item">${ui.avatar(m.initial, m.kind === 'child' ? 'amber' : m.woman ? 'woman' : '', 36)}<div class="grow"><b class="sm">${esc(m.name)}</b><div class="xs muted">${esc(m.relation || '')}${m.age ? '، ' + m.age + ' ساڵ' : ''}</div></div></div>`).join('') || '<div class="item sm muted">هیچ</div>'}</div>
-            <div class="h3">بەژدارییەکان (${subs.length})</div>
-            <div class="list">${subs.map((x) => { const d = sel.driver(x.driverId) || {}; return `<div class="item tap" data-act="editSub" data-arg="${x.id}"><div class="grow"><b class="sm">${esc(x.riderNames || '')}</b><div class="xs muted">${esc(d.name || '')}، ${fmt.money(x.price)}</div></div>${x.status === 'paused' ? ui.badge('ڕاگیراو', 'note') : ui.badge('چالاک', 'ok')}</div>`; }).join('') || '<div class="item sm muted">هیچ بەژدارییەک نییە</div>'}</div>
+            <div class="h3">بەشدارییەکان (${subs.length})</div>
+            <div class="list">${subs.map((x) => { const d = sel.driver(x.driverId) || {}; return `<div class="item tap" data-act="editSub" data-arg="${x.id}"><div class="grow"><b class="sm">${esc(x.riderNames || '')}</b><div class="xs muted">${esc(d.name || '')}، ${fmt.money(x.price)}</div></div>${x.status === 'paused' ? ui.badge('ڕاگیراو', 'note') : ui.badge('چالاک', 'ok')}</div>`; }).join('') || '<div class="item sm muted">هیچ بەشدارییەک نییە</div>'}</div>
           </div>
           <div class="card col">
             <div class="row between"><div class="h3">فاتورەی ${esc(b.month || '')}</div>${b.paid ? ui.badge('دراوە', 'ok') : inv.total ? ui.badge('نەدراوە', 'note') : ''}</div>
@@ -911,7 +911,7 @@
   };
 
   /* =========================================================
-   * بەژداری و داواکاری
+   * بەشداری و داواکاری
    * ======================================================= */
   TK.route('subs', {
     guard,
@@ -919,7 +919,7 @@
       const s = S();
       const tab = U.stab || 'subs';
       const driverOpts = s.drivers.filter((d) => d.status === 'active').map((d) => [d.id, d.name]);
-      const subsHtml = !s.subscriptions.length ? ui.empty('calendar', 'هێشتا هیچ بەژدارییەک نییە', '') : `<div class="tbl-wrap"><table class="tbl">
+      const subsHtml = !s.subscriptions.length ? ui.empty('calendar', 'هێشتا هیچ بەشدارییەک نییە', '') : `<div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>سەرنشین</th><th>ڕێگا</th><th>کات</th><th>ڕۆژ</th><th>شۆفێر</th><th>نرخ</th><th>دۆخ</th><th></th></tr></thead>
         <tbody>${s.subscriptions.map((x) => `<tr>
           <td><b class="sm">${esc(x.riderNames || '')}</b><div class="xs muted">${esc(sel.peerName(x.owner || 'me'))}</div></td>
@@ -945,8 +945,8 @@
           <td><div class="row" style="gap:4px">${r.status === 'open' ? `<button class="btn sm danger" data-act="closeReq" data-arg="${r.id}">داخستن</button>` : ''}<button class="btn sm ghost" data-act="delReq" data-arg="${r.id}">${icon('x', 14)}</button></div></td>
         </tr>`).join('')}</tbody></table></div>`;
       U.driverOpts = driverOpts;
-      return layout('subs', 'بەژداری و داواکاری', `
-        ${ui.seg('stab', [{ v: 'subs', l: `بەژدارییەکان (${s.subscriptions.length})` }, { v: 'reqs', l: `داواکارییەکان (${s.requests.length})` }], tab)}
+      return layout('subs', 'بەشداری و داواکاری', `
+        ${ui.seg('stab', [{ v: 'subs', l: `بەشدارییەکان (${s.subscriptions.length})` }, { v: 'reqs', l: `داواکارییەکان (${s.requests.length})` }], tab)}
         ${tab === 'subs' ? subsHtml : reqHtml}`);
     },
   });
@@ -956,7 +956,7 @@
   };
   acts.editSub = (id) => {
     const x = sel.sub(id);
-    TK.sheet(() => `<div class="h2">دەستکاری بەژداری</div>
+    TK.sheet(() => `<div class="h2">دەستکاری بەشداری</div>
       <div class="sm muted">${esc(x.riderNames || '')}، ${esc(x.to)}، ${esc(sel.peerName(x.owner || 'me'))}</div>
       <div class="form-grid">
         ${input('s-price', 'نرخی مانگانە', x.price, { type: 'number', ltr: true })}
@@ -966,7 +966,7 @@
         ${select('s-status', 'دۆخ', x.status, [['active', 'چالاک'], ['paused', 'ڕاگیراو']])}
       </div>
       <button class="btn block" data-act="saveSub" data-arg="${id}">پاشەکەوت (هەردوولا ئاگادار دەکرێنەوە)</button>
-      <button class="btn danger block sm" data-act="endSub" data-arg="${id}">هەڵوەشاندنەوەی بەژداری</button>
+      <button class="btn danger block sm" data-act="endSub" data-arg="${id}">هەڵوەشاندنەوەی بەشداری</button>
       <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
   };
   acts.saveSub = (id) => {
@@ -998,15 +998,15 @@
       });
       const names = x.riderNames || '';
       const nd = s.drivers.find((d) => d.id === x.driverId);
-      pushN(s, { kind: oldDriver !== x.driverId ? 'swap' : 'info', title: oldDriver !== x.driverId ? 'شۆفێرەکەت گۆڕدرا' : 'بەژدارییەکەت نوێ کرایەوە', body: `${names}، ${nd ? nd.name : ''}، ${fmt.money(x.price)}` }, x.owner || 'me');
-      pushDN(s, { driverId: x.driverId, kind: 'info', title: 'گۆڕانکاری لە بەژدارییەک', body: `${names}، ${x.to}، ${fmt.schedule(x)}` });
-      if (oldDriver !== x.driverId) pushDN(s, { driverId: oldDriver, kind: 'info', title: 'بەژدارییەک لێت وەرگیرایەوە', body: `${names}، ${x.to}` });
+      pushN(s, { kind: oldDriver !== x.driverId ? 'swap' : 'info', title: oldDriver !== x.driverId ? 'شۆفێرەکەت گۆڕدرا' : 'بەشدارییەکەت نوێ کرایەوە', body: `${names}، ${nd ? nd.name : ''}، ${fmt.money(x.price)}` }, x.owner || 'me');
+      pushDN(s, { driverId: x.driverId, kind: 'info', title: 'گۆڕانکاری لە بەشدارییەک', body: `${names}، ${x.to}، ${fmt.schedule(x)}` });
+      if (oldDriver !== x.driverId) pushDN(s, { driverId: oldDriver, kind: 'info', title: 'بەشدارییەک لێت وەرگیرایەوە', body: `${names}، ${x.to}` });
     });
     TK.closeSheet();
     TK.toast('پاشەکەوت کرا');
   };
   acts.endSub = async (id) => {
-    if (!(await TK.ask('بەژدارییەکە هەڵدەوەشێتەوە.'))) return;
+    if (!(await TK.ask('بەشدارییەکە هەڵدەوەشێتەوە.'))) return;
     TK.update((s) => TK.endSubIn(s, id, 'cancel'));
     TK.closeSheet();
   };
@@ -1035,7 +1035,7 @@
       const trips = s.trips.slice().sort((a, b) => a.time.localeCompare(b.time));
       const swaps = s.swaps.slice().sort((a, b) => b.createdAt - a.createdAt);
       return layout('trips', 'گەشتەکانی ئەمڕۆ', `
-        ${!trips.length ? ui.empty('route', 'ئەمڕۆ هیچ گەشتێک نییە', 'گەشتەکان ڕۆژانە لە بەژدارییە چالاکەکانەوە دروست دەبن') : ''}
+        ${!trips.length ? ui.empty('route', 'ئەمڕۆ هیچ گەشتێک نییە', 'گەشتەکان ڕۆژانە لە بەشدارییە چالاکەکانەوە دروست دەبن') : ''}
         <div class="tbl-wrap" ${trips.length ? '' : 'hidden'}><table class="tbl">
           <thead><tr><th>کات</th><th>گەشت</th><th>شۆفێر</th><th>وێستگە</th><th>دۆخ</th><th></th></tr></thead>
           <tbody>${trips.map((t) => {
@@ -1279,7 +1279,7 @@
       }, { month: 0, balance: 0 });
       return layout('finance', 'دارایی', `
         <div class="kpis">
-          ${kpi(fmt.money(T.gross), 'کۆی بەژدارییەکانی مانگ', 'wallet')}
+          ${kpi(fmt.money(T.gross), 'کۆی بەشدارییەکانی مانگ', 'wallet')}
           ${kpi(fmt.money(T.net), 'بەشی شۆفێران', 'car')}
           ${kpi(fmt.money(PT.month), 'بەشی هاوبەشەکان (ئەم مانگە)', 'briefcase', { go: 'partners', sub: PT.balance ? `${fmt.money(PT.balance)} ماوە بۆ پێدان` : 'هەمووی دراوە' })}
           ${kpi(fmt.money(T.fee - PT.month), 'قازانجی پاکی تۆ', 'trophy', { cls: 'brand', sub: `کۆمیسیۆن ${fmt.money(T.fee)} کەم بەشی هاوبەشەکان` })}
@@ -1304,7 +1304,7 @@
         <div class="xs muted">«پارە درا» تۆمارەکانی ئەم مانگە دادەخات و لە مێژوو هەڵیان دەگرێت. ئەگەر شۆفێر قەرزدار بێت (بۆ نموونە بە هۆی کاش)، «قەرز وەرگیرا» دابگرە کاتێک پارەکەی دا.</div>
         <div class="h3">فاتورەی سەرنشینان، ${esc(s.billing.month || '')}</div>
         ${bills.length ? `<div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>سەرنشین</th><th>بەژداری</th><th>کۆ</th><th>داشکاندن و قەرەبوو</th><th>بۆ دان</th><th>شێواز</th><th></th></tr></thead>
+          <thead><tr><th>سەرنشین</th><th>بەشداری</th><th>کۆ</th><th>داشکاندن و قەرەبوو</th><th>بۆ دان</th><th>شێواز</th><th></th></tr></thead>
           <tbody>${bills.map(({ a, inv, b }) => `<tr>
             <td class="tap" data-go="passenger/${a.phone}"><b class="sm">${esc(a.name)}</b><div class="xs muted latin">${fmt.phone(a.phone)}</div></td>
             <td>${inv.lines.length}</td><td class="sm">${fmt.group(inv.sub)}</td>
@@ -1665,7 +1665,7 @@
     if (!w) return TK.toast('ڕێگە بە کردنەوەی پەنجەرەی نوێ بدە');
     const css = location.href.replace(/#.*$/, '').replace(/admin\/?(index\.html)?$/, '') + 'shared/';
     w.document.write(`<!doctype html><html lang="ckb" dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title>
-      <style>@font-face{font-family:"Noto Naskh Arabic";src:url("${css}fonts/NotoNaskhArabic.woff") format("woff");font-weight:400 700}
+      <style>@font-face{font-family:"Noto Naskh Arabic";src:url("${css}fonts/NotoNaskhArabic.woff2") format("woff2");font-weight:400 700}
       body{font-family:"Noto Naskh Arabic",Tahoma,sans-serif;color:#13254A;margin:0;padding:32px;background:#fff}
       .latin{direction:ltr;unicode-bidi:isolate;font-family:Arial,sans-serif}
       table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border-bottom:1px solid #DCE3EE;padding:8px;text-align:right}th{background:#F4F6FA}

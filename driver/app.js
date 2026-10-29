@@ -546,7 +546,7 @@
         <button class="fab-msg" data-go="inbox" aria-label="نامەکان">${icon('chat', 28, 'currentColor', 2.1)}${sel.unreadMsgsD() ? `<span class="nb">${sel.unreadMsgsD()}</span>` : ''}</button>`, 'today');
     },
   });
-  /** گەشتەکانی بەیانی (سبەینێ) بە پێی بەژداری و ڕۆتەکان، بێ ئەوەی هێشتا دروست کرابن */
+  /** گەشتەکانی بەیانی (سبەینێ) بە پێی بەشداری و ڕۆتەکان، بێ ئەوەی هێشتا دروست کرابن */
   function tomorrowPlan() {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -1290,7 +1290,7 @@
         <div class="card col tight">
           ${po.lines.map((l) => `<div class="row between sm"><span class="grow" style="min-width:0"><span class="ellipsis" style="display:block">${esc(l.riderNames)}</span>${l.note ? `<span class="xs muted">${esc(l.note)}، نرخی تەواو ${fmt.group(l.full)}</span>` : ''}</span><b>${fmt.group(l.amount)}</b></div>`).join('')}
           ${po.lines.length ? '<div class="hr"></div>' : ''}
-          <div class="row between"><span class="muted">کۆی بەژدارییەکان</span><b>${fmt.money(po.gross)}</b></div>
+          <div class="row between"><span class="muted">کۆی بەشدارییەکان</span><b>${fmt.money(po.gross)}</b></div>
           <div class="row between"><span class="muted">کۆمیسیۆنی یەکسا (${Math.round(c.commission * 100)}٪)</span><b class="neg">${fmt.money(po.commission)}</b></div>
           ${po.entries.map((x) => `<div class="row between"><span class="muted">${(LEDGER_LABEL[x.type] || ['', ''])[0]}، ${esc(x.note)}</span><b class="${x.amount < 0 ? 'neg' : 'ok'}">${fmt.money(Math.abs(x.amount))}</b></div>`).join('')}
           <div class="row between"><span class="muted">پاداشتی مانگانە</span><b class="${po.bonus ? 'ok' : 'muted'}">${po.bonus ? fmt.money(po.bonus) : 'هێشتا نا'}</b></div>
@@ -1298,7 +1298,7 @@
           <div class="xs muted"><span class="neg">سوور</span> = لێی دەبڕدرێت، <span class="ok">سەوز</span> = بۆت زیاد دەکرێت</div>
           <div class="row between"><b>بۆ تۆ</b><b class="brand">${fmt.money(po.net)}</b></div>
         </div>
-        <div class="xs muted">بڕی هەر سەرنشینێک بە پێی ئەو ڕۆژانەیە کە لەم مانگەدا بەژدارییەکەی چالاک بووە (ڕۆژە ڕاگیراوەکان حیساب ناکرێن).</div>
+        <div class="xs muted">بڕی هەر سەرنشینێک بە پێی ئەو ڕۆژانەیە کە لەم مانگەدا بەشدارییەکەی چالاک بووە (ڕۆژە ڕاگیراوەکان حیساب ناکرێن).</div>
         <div class="card row">${icon('wallet', 22, 'var(--brand)')}<div class="grow"><b>شێوازی وەرگرتنی موچە</b><div class="sm">${esc(TK.payName(sel.me().payMethod))}${sel.me().payAccount ? ` <span class="latin">${esc(sel.me().payAccount)}</span>` : ''}</div></div><button class="btn sm secondary" data-act="payForm">گۆڕین</button></div>
         <div class="card col">
           <div class="row">${icon('trophy', 22, 'var(--amber)')}<b class="grow">پاداشتی مانگانە</b><b class="brand">${fmt.group(c.bonusAmount)}</b></div>
