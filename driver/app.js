@@ -1270,10 +1270,20 @@
       const history = s.payouts.filter((p) => p.driverId === meId());
       return page(`
         ${ui.header('داهات', { back: 'more' })}
-        <div class="card navy big col">
-          <div style="opacity:.8">داهاتی ئەم مانگە (پاش کۆمیسیۆن)</div>
-          <div class="h1" style="font-size:2rem;color:var(--amber)">${fmt.money(po.net)}</div>
-          <div class="xs" style="opacity:.8">ڕۆژی موچە: ${payDay}، ${po.subs} سەرنشین</div>
+        <div class="wcard">
+          <div class="wc-top">
+            <div class="col tight">
+              <span class="wc-title"><i></i>داهاتی ئەم مانگە (پاش کۆمیسیۆن)</span>
+              <span class="wc-tag latin" data-raw>DRIVER WALLET</span>
+            </div>
+            <span class="wc-chip"></span>
+          </div>
+          <div class="wc-amount">${fmt.group(po.net)} <small>دینار</small></div>
+          <div class="wc-line"></div>
+          <div class="wc-foot">
+            <span class="wc-pill">${icon('calendar', 16, '#FBBF24')}ڕۆژی موچە: <b>${payDay}</b></span>
+            <span class="wc-pill">${icon('users', 16, '#93C5FD')}<b>${po.subs}</b> سەرنشین</span>
+          </div>
         </div>
         <div class="card col tight">
           ${po.lines.map((l) => `<div class="row between sm"><span class="grow" style="min-width:0"><span class="ellipsis" style="display:block">${esc(l.riderNames)}</span>${l.note ? `<span class="xs muted">${esc(l.note)}، نرخی تەواو ${fmt.group(l.full)}</span>` : ''}</span><b>${fmt.group(l.amount)}</b></div>`).join('')}

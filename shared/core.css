@@ -963,3 +963,47 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 .geo-line .link { font-size: .82rem; }
 .place-tools { display: flex; gap: 8px; margin-top: 8px; }
 .place-tools .btn { flex: 1; }
+
+
+/* کارتی داهاتی شۆفێر */
+.wcard {
+  position: relative; overflow: hidden; color: #fff;
+  padding: 20px; border-radius: 26px;
+  background: linear-gradient(225deg, #0A1931 0%, #11264B 35%, #19376D 70%, #0B172A 100%);
+  border: 1px solid rgba(255, 255, 255, .18);
+  box-shadow: 0 16px 32px rgba(10, 25, 49, .55);
+  display: flex; flex-direction: column; gap: 14px;
+}
+/* بازنەی ڕووناکی کەم لە پشتەوە بۆ جوانی */
+.wcard::before {
+  content: ''; position: absolute; width: 260px; height: 260px; border-radius: 50%;
+  left: -90px; bottom: -140px; background: radial-gradient(circle, rgba(124, 58, 237, .35), transparent 70%);
+  pointer-events: none;
+}
+.wcard::after {
+  content: ''; position: absolute; width: 200px; height: 200px; border-radius: 50%;
+  right: -70px; top: -90px; background: radial-gradient(circle, rgba(59, 130, 246, .3), transparent 70%);
+  pointer-events: none;
+}
+.wcard > * { position: relative; z-index: 1; }
+.wc-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.wc-title { color: rgba(255, 255, 255, .75); font-size: .85rem; display: flex; align-items: center; gap: 6px; }
+.wc-title i { width: 8px; height: 8px; border-radius: 50%; background: #FBBF24; box-shadow: 0 0 8px #FBBF24; }
+.wc-tag {
+  align-self: flex-start; font-size: .7rem; letter-spacing: 2px; font-weight: 700; color: #FDE68A;
+  padding: 3px 10px; border-radius: 8px; border: 1px solid rgba(253, 230, 138, .35); background: rgba(255, 255, 255, .06);
+}
+.wc-chip {
+  flex: none; width: 42px; height: 32px; border-radius: 7px;
+  background: linear-gradient(135deg, #FDE68A, #D97706);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35), 0 2px 6px rgba(0, 0, 0, .3);
+}
+.wc-amount { color: #FBBF24; font-size: 2.1rem; font-weight: 900; line-height: 1.1; }
+.wc-amount small { font-size: 1rem; font-weight: 700; opacity: .9; }
+.wc-line { height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .25), transparent); }
+.wc-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+.wc-pill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; color: rgba(255, 255, 255, .85);
+  padding: 7px 12px; border-radius: 12px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .1);
+}
+.wc-pill b { color: #fff; }
