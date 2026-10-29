@@ -1015,5 +1015,5 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 }
 .wc-pill b { color: #fff; }
 .wc-coins { margin-inline-start: auto; flex: none; display: inline-flex; align-items: center; }
-.wc-coins i { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #F7B733, #C77A0A); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
+.wc-coins i { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #F7B733, #C77A0A); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
 .wc-coins i + i { margin-inline-start: -12px; background: linear-gradient(135deg, #FDE68A, #E0B84F); opacity: .95; }
