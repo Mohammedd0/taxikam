@@ -216,12 +216,12 @@
     d.setDate(d.getDate() + 1);
     const out = [];
     sel.mySubs().filter((x) => x.status === 'active' && TK.dayApplies(x, d)).forEach((x) => ['go', 'back'].forEach((dir) => {
-      const base = TK.subTime(x, dir);
+      const base = TK.dayTime(x, dir, d);
       if (!base) return;
       let time = base;
-      const r = (S().routes || []).find((y) => y.dir === dir && y.subIds.includes(x.id));
+      const r = TK.inRouteOn(x, dir, d) ? (S().routes || []).find((y) => y.dir === dir && y.subIds.includes(x.id)) : null;
       if (r) {
-        const subs = r.subIds.map((id) => sel.sub(id)).filter((y) => y && y.status === 'active' && TK.dayApplies(y, d));
+        const subs = r.subIds.map((id) => sel.sub(id)).filter((y) => y && y.status === 'active' && TK.dayApplies(y, d) && TK.dayTime(y, dir, d) && TK.inRouteOn(y, dir, d));
         const st = TK.routeStops(r, subs).find((y) => y.kind === 'pickup' && y.subIds.includes(x.id));
         if (st) time = st.time;
       }
@@ -760,7 +760,7 @@
     TK.go('new');
   };
   /** ئایا هەموو زانیارییەکانی بەژداری پڕکراونەتەوە */
-  const draftReady = (dr) => !!(dr && dr.memberIds.length && dr.fromId && dr.toId && dr.days.some(Boolean));
+  const draftReady = (dr) => !!(dr && dr.memberIds.length && dr.fromId && dr.toId && schedOk(dr));
   /** بەژداری لەگەڵ شۆفێرێکی دیاریکراو: ئەگەر بەژدارییەک دەستی پێکردووە بەردەوام دەبێت */
   acts.subWith = (driverId) => {
     if (U.draft) U.draft.prefDriver = driverId;
@@ -783,7 +783,7 @@
       const rideType = dr.rideType === 'private' ? 'private' : hasChild && hasAdult ? 'family' : hasChild ? 'kids' : 'shared';
       return {
         names: fmt.names(g.map((m) => m.name)),
-        price: TK.priceFor({ fromId: dr.fromId, toId: dr.toId, fromGeo: dr.fromGeo, toGeo: dr.toGeo, days: dr.days, oneWay: dr.dir !== 'both', mode: dr.mode, rideType, riders: g.length, hasChild }),
+        price: TK.priceFor(Object.assign({ fromId: dr.fromId, toId: dr.toId, fromGeo: dr.fromGeo, toGeo: dr.toGeo, mode: dr.mode, rideType, riders: g.length, hasChild }, draftSched(dr))),
         hasChild, riders: g.length, rideType,
       };
     });
@@ -902,6 +902,64 @@
     }
     return html;
   }
+  /** کاتەکانی داواکاری: یان یەک کات بۆ هەموو ڕۆژەکان، یان کاتی جیاواز بۆ هەر ڕۆژێک */
+  function draftSched(dr) {
+    if (dr.perDay) {
+      const n = TK.normPerDay(dr.perDay);
+      if (!n.empty) return { perDay: n.perDay, days: n.days, go: n.go, back: n.back };
+    }
+    return { perDay: null, days: dr.days.slice(), go: dr.dir !== 'back' ? dr.go : null, back: dr.dir !== 'go' ? dr.backTime : null };
+  }
+  const schedOk = (dr) => (dr.perDay ? !TK.normPerDay(dr.perDay).empty : dr.days.some(Boolean));
+  /** خشتەی کاتی هەر ڕۆژێک. key: «d» بۆ داواکاری نوێ، «e» بۆ گۆڕانکاری بەژداری */
+  function pdTable(src, key) {
+    const rows = [0, 1, 2, 3, 4, 5, 6].filter((i) => src.days[i]);
+    if (!rows.length) return '<div class="xs muted">سەرەتا ڕۆژەکان هەڵبژێرە</div>';
+    const cell = (i, dir) => {
+      const e = src.perDay[i] || {};
+      const arg = `${key}|${dir}|${i}`;
+      return e[dir]
+        ? `<div class="pdcell">${ui.timeSelect(`pd-${key}-${dir}-${i}`, e[dir], `data-change="pdTime" data-arg="${arg}"`)}<button type="button" class="pdx" data-act="pdLeg" data-arg="${arg}" aria-label="لابردن">${icon('x', 14, 'currentColor', 2.4)}</button></div>`
+        : `<div class="pdcell"><button type="button" class="pdoff" data-act="pdLeg" data-arg="${arg}">${icon('plus', 14)}${dir === 'go' ? 'چوون' : 'هاتنەوە'}</button></div>`;
+    };
+    return `<div class="pdtable">
+      <div class="pdhead"><span></span><span>چوون</span><span>هاتنەوە</span></div>
+      ${rows.map((i) => `<div class="pdrow"><b>${fmt.WEEKDAYS[i]}</b>${cell(i, 'go')}${cell(i, 'back')}</div>`).join('')}
+      <div class="xs muted row" style="gap:4px">${icon('x', 12)}<span>واتە ئەو ڕۆژە ئەو بەشەی نییە، بۆ نموونە «بەیانی خۆم دەیبەم».</span></div>
+    </div>`;
+  }
+  const pdSrc = (key) => (key === 'e' ? U.edit : U.draft);
+  const pdRefresh = (key) => (key === 'e' ? TK.sheet.refresh() : TK.render());
+  /** کاتی بنەڕەتی بۆ ڕۆژێکی نوێ لە خشتەکەدا */
+  const pdDefault = (src, dir) => (dir === 'go' ? src.go || src.defGo || '07:30' : src.backTime || src.back || src.defBack || '14:00');
+  acts.pdToggle = (key) => {
+    const src = pdSrc(key);
+    if (!src) return;
+    if (src.perDay) {
+      src.perDay = null;
+    } else {
+      const both = key === 'e' ? { go: !!src.go, back: !!src.back } : { go: src.dir !== 'back', back: src.dir !== 'go' };
+      src.perDay = {};
+      src.days.forEach((on, i) => on && (src.perDay[i] = { go: both.go ? pdDefault(src, 'go') : null, back: both.back ? pdDefault(src, 'back') : null }));
+    }
+    pdRefresh(key);
+  };
+  acts.pdTime = (v, el) => {
+    const [key, dir, i] = el.getAttribute('data-arg').split('|');
+    const src = pdSrc(key);
+    if (!src || !src.perDay || !v) return;
+    src.perDay[i] = Object.assign({ go: null, back: null }, src.perDay[i], { [dir]: v });
+  };
+  acts.pdLeg = (arg) => {
+    const [key, dir, i] = arg.split('|');
+    const src = pdSrc(key);
+    if (!src || !src.perDay) return;
+    const e = Object.assign({ go: null, back: null }, src.perDay[i]);
+    if (!e[dir] && src.allow && !src.allow[dir]) return TK.toast(`ئەم بەژدارییە ${dir === 'go' ? 'چوونی' : 'هاتنەوەی'} تێدا نییە. بۆ زیادکردنی، داواکارییەکی نوێ بنێرە`);
+    e[dir] = e[dir] ? null : pdDefault(src, dir);
+    src.perDay[i] = e;
+    pdRefresh(key);
+  };
   function step2(dr) {
     const km = dr.fromId && dr.toId ? TK.distance(dr.fromId, dr.toId, dr.fromGeo, dr.toGeo) : 0;
     return `
@@ -913,12 +971,12 @@
         ${km ? `<div class="row sm muted">${icon('route', 16)}نزیکەی ${km.toFixed(1)} کیلۆمەتر، ${Math.round(km * 2.5 + 8)} خولەک</div>` : ''}
       </div>
       <div class="card col">
-        <div class="col tight"><div class="sm bold">جۆری هاتووچۆ</div>${ui.seg('dDir', [{ v: 'both', l: 'چوون و هاتنەوە' }, { v: 'go', l: 'تەنها چوون' }, { v: 'back', l: 'تەنها هاتنەوە' }], dr.dir)}</div>
+        ${dr.perDay ? '' : `<div class="col tight"><div class="sm bold">جۆری هاتووچۆ</div>${ui.seg('dDir', [{ v: 'both', l: 'چوون و هاتنەوە' }, { v: 'go', l: 'تەنها چوون' }, { v: 'back', l: 'تەنها هاتنەوە' }], dr.dir)}</div>
         <div class="${dr.dir === 'both' ? 'grid2' : 'col'}">
           ${dr.dir !== 'back' ? `<div class="field"><label for="go">کاتی چوون</label>${ui.timeSelect('go', dr.go, 'data-change="dTime" data-arg="go"')}</div>` : ''}
           ${dr.dir !== 'go' ? `<div class="field"><label for="backTime">کاتی هاتنەوە</label>${ui.timeSelect('backTime', dr.backTime, 'data-change="dTime" data-arg="backTime"')}</div>` : ''}
         </div>
-        ${dr.dir !== 'both' ? `<div class="xs muted">${dr.dir === 'go' ? 'تەنها لە ماڵەوە بۆ شوێنی مەبەست' : 'تەنها لە شوێنی مەبەستەوە بۆ ماڵەوە'}، نرخ کەمترە</div>` : ''}
+        ${dr.dir !== 'both' ? `<div class="xs muted">${dr.dir === 'go' ? 'تەنها لە ماڵەوە بۆ شوێنی مەبەست' : 'تەنها لە شوێنی مەبەستەوە بۆ ماڵەوە'}، نرخ کەمترە</div>` : ''}`}
         <div class="field"><label for="startDate">ڕۆژی دەستپێکردن</label>${ui.dateSelect('startDate', dr.startDate, 45, 'data-change="dTime" data-arg="startDate"')}</div>
         <div class="xs muted">مانگی یەکەم بە پێی ڕۆژە ماوەکان حیساب دەکرێت</div>
       </div>
@@ -927,8 +985,12 @@
         <div class="days">${fmt.WEEKDAY_SHORT.map((d, i) => `<button class="${dr.days[i] ? 'on' : ''}" data-act="dDay" data-arg="${i}" aria-label="${fmt.WEEKDAYS[i]}">${d}</button>`).join('')}</div>
         <div class="row wrap" style="gap:6px">${DAY_PRESETS.map(([k, l]) => `<button class="chip ${presetOn(dr.days, k) ? 'on' : ''}" data-act="dDays" data-arg="${k}">${l}</button>`).join('')}</div>
       </div>
-      <div class="row" style="gap:10px"><button class="btn secondary" data-act="dPrev">گەڕانەوە</button><button class="btn grow" data-act="dNext" ${dr.fromId && dr.toId && dr.days.some(Boolean) ? '' : 'disabled'}>بینینی نرخ</button></div>
-      ${!dr.toId ? `<div class="hint">${icon('help', 16)}شوێنی مەبەست هەڵبژێرە بۆ بینینی نرخ</div>` : !dr.fromId ? `<div class="hint">${icon('help', 16)}شوێنی سوار بوون هەڵبژێرە</div>` : !dr.days.some(Boolean) ? `<div class="hint">${icon('help', 16)}لانیکەم یەک ڕۆژی هەفتە هەڵبژێرە</div>` : ''}`;
+      <div class="card col">
+        <div class="row between" style="gap:10px"><div class="grow"><b class="sm">هەموو ڕۆژەکان هەمان کات نین</b><div class="xs muted">بۆ نموونە هەندێک ڕۆژ دەوامی بەیانی و هەندێک ڕۆژ نیوەڕۆ، یان هەندێک ڕۆژ تەنها چوون</div></div>${ui.toggle('pdToggle', !!dr.perDay, 'd')}</div>
+        ${dr.perDay ? pdTable(dr, 'd') : ''}
+      </div>
+      <div class="row" style="gap:10px"><button class="btn secondary" data-act="dPrev">گەڕانەوە</button><button class="btn grow" data-act="dNext" ${dr.fromId && dr.toId && schedOk(dr) ? '' : 'disabled'}>بینینی نرخ</button></div>
+      ${!dr.toId ? `<div class="hint">${icon('help', 16)}شوێنی مەبەست هەڵبژێرە بۆ بینینی نرخ</div>` : !dr.fromId ? `<div class="hint">${icon('help', 16)}شوێنی سوار بوون هەڵبژێرە</div>` : !schedOk(dr) ? `<div class="hint">${icon('help', 16)}لانیکەم یەک ڕۆژی هەفتە هەڵبژێرە${dr.perDay ? ' و چوون یان هاتنەوەی بۆ دیاری بکە' : ''}</div>` : ''}`;
   }
 
   // ڕۆژە ئامادەکراوەکان: هەفتەی کاری هەرێم یەکشەممە تا پێنجشەممەیە
@@ -956,7 +1018,7 @@
       </div>
       <div class="card col tight">
         <div class="row sm"><b class="grow">${esc(fmt.names(info.members.map((m) => m.name)))}</b>${q.length > 1 ? ui.badge(`${q.length} داواکاری`, 'info') : ''}</div>
-        ${ui.requestSummary({ from: TK.place(dr.fromId).name + (dr.fromNote ? '، ' + dr.fromNote : ''), to: TK.place(dr.toId).name + (dr.toNote ? '، ' + dr.toNote : ''), go: dr.dir !== 'back' ? dr.go : null, back: dr.dir !== 'go' ? dr.backTime : null, days: dr.days, startDate: dr.startDate })}
+        ${ui.requestSummary(Object.assign({ from: TK.place(dr.fromId).name + (dr.fromNote ? '، ' + dr.fromNote : ''), to: TK.place(dr.toId).name + (dr.toNote ? '، ' + dr.toNote : ''), startDate: dr.startDate }, draftSched(dr)))}
         <div style="margin-top:6px">${ui.requestTags({ hasChild: info.hasChild, rideType: q[0].rideType, womanOnly: dr.womanOnly, riders: dr.mode === 'one' ? info.members.length : 1 })}</div>
       </div>
       <div class="field"><label for="dnote">تێبینی بۆ شۆفێر (ئارەزوومەندانە)</label><textarea class="input" id="dnote" data-input="dNote" data-arg="note" placeholder="بۆ نموونە: کورسیی منداڵ پێویستە">${esc(dr.note)}</textarea></div>
@@ -1041,11 +1103,21 @@
       TK.render();
     },
     dDay(i) {
-      U.draft.days[+i] = !U.draft.days[+i];
+      const dr = U.draft;
+      dr.days[+i] = !dr.days[+i];
+      if (dr.perDay) {
+        if (dr.days[+i]) dr.perDay[i] = dr.perDay[i] || { go: dr.dir !== 'back' ? dr.go : null, back: dr.dir !== 'go' ? dr.backTime : null };
+        else delete dr.perDay[i];
+      }
       TK.render();
     },
     dDays(k) {
-      U.draft.days = presetDays(k);
+      const dr = U.draft;
+      dr.days = presetDays(k);
+      if (dr.perDay) {
+        Object.keys(dr.perDay).forEach((i) => !dr.days[+i] && delete dr.perDay[i]);
+        dr.days.forEach((on, i) => on && !dr.perDay[i] && (dr.perDay[i] = { go: dr.dir !== 'back' ? dr.go : null, back: dr.dir !== 'go' ? dr.backTime : null }));
+      }
       TK.render();
     },
     dNext() {
@@ -1422,13 +1494,13 @@
           <span class="ts-state ${paused ? 'off' : ''}"><i></i>${paused ? 'ڕاگیراوە' : 'چالاک'}</span>
         </div>
         <div class="ts-box">
-          <div class="ts-times">
-            ${sub.go ? `<div class="ts-t"><span class="ts-ti go">${icon('sun', 20, '#F5A623', 2)}</span><span><small>کاتی چوون</small><b>${fmt.clock(sub.go)}</b></span></div>` : ''}
+          ${TK.hasPerDay(sub) ? `<div class="ts-times"><div class="ts-t"><span class="ts-ti go">${icon('calendar', 20, '#F5A623', 2)}</span><span><small>کاتەکان</small><b>جیاواز بۆ هەر ڕۆژێک</b></span></div></div>` : `<div class="ts-times">
+            ${sub.go ? `<div class="ts-t"><span class="ts-ti go">${icon('sunrise', 20, '#F5A623', 2)}</span><span><small>کاتی چوون</small><b>${fmt.clock(sub.go)}</b></span></div>` : ''}
             ${sub.go && sub.back ? '<span class="ts-sep"></span>' : ''}
-            ${sub.back ? `<div class="ts-t"><span class="ts-ti back">${icon('route', 20, '#A5B4FC', 2)}</span><span><small>کاتی هاتنەوە</small><b>${fmt.clock(sub.back)}</b></span></div>` : ''}
-          </div>
+            ${sub.back ? `<div class="ts-t"><span class="ts-ti back">${icon('undo', 20, '#A5B4FC', 2)}</span><span><small>کاتی هاتنەوە</small><b>${fmt.clock(sub.back)}</b></span></div>` : ''}
+          </div>`}
           <details class="ts-more">
-            <summary><span class="row" style="gap:8px">${icon('calendar', 18, 'rgba(255,255,255,.7)')}<b>${fmt.days(sub.days)}</b></span><span class="ts-link">وردەکاری زیاتر ${icon('down', 16, 'currentColor', 2.4)}</span></summary>
+            <summary><span class="row" style="gap:8px">${icon('calendar', 18, 'currentColor')}<b>${fmt.days(sub.days)}</b></span><span class="ts-link">وردەکاری زیاتر ${icon('down', 16, 'currentColor', 2.4)}</span></summary>
             <div class="ts-detail">${ui.requestSummary(sub)}</div>
           </details>
         </div>
@@ -1439,15 +1511,15 @@
         <div class="ts-drv tap" data-go="driver/${d.id}">
           <div class="ts-dav ${d.woman ? 'w' : ''}">${src ? `<img src="${src}" alt="">` : esc((d.name || '?').slice(0, 1))}${d.status === 'active' ? `<span class="ts-ok">${icon('check', 11, '#fff', 3.2)}</span>` : ''}</div>
           <div class="grow" style="min-width:0">
-            <div class="row" style="gap:8px"><b class="ellipsis">${esc(d.name || '')}</b><span class="ts-rate">${icon('star', 13, 'var(--amber)', 1.5, 'var(--amber)')}${d.reviews ? d.rating : '٠.٠'}</span></div>
-            <div class="xs muted ellipsis">${esc([`${d.carMake || ''} ${d.carModel || ''}`.trim() || d.car, d.carColor].filter(Boolean).join(' · '))}</div>
+            <div class="row" style="gap:8px"><b class="ellipsis">${esc(d.name || '')}</b><span class="ts-rate">${icon('star', 13, 'var(--amber)', 1.5, 'var(--amber)')}${d.reviews ? Number(d.rating).toFixed(1) : '0.0'}</span></div>
+            <div class="ts-car"><span class="latin">${esc(`${d.carMake || ''} ${d.carModel || ''}`.trim() || d.car || '')}</span>${d.carColor ? `<i></i><span class="ts-dot"></span>${esc(d.carColor)}` : ''}</div>
           </div>
           <span class="mplate sm" data-raw><span class="mp-s">IRQ<br>KR</span><span class="mp-n latin">${esc(plate)}</span></span>
         </div>
-        <div class="ts-price"><span class="row" style="gap:10px"><span class="ts-pi">${icon('wallet', 18, '#D97706', 2)}</span>نرخی مانگانە</span><b>${fmt.group(sub.price)} <small>دینار</small></b></div>
+        <div class="ts-price"><span class="row" style="gap:10px"><span class="ts-pi">${icon('cash', 18, '#D97706', 2)}</span>نرخی مانگانە</span><b>${fmt.group(sub.price)} <small>دینار</small></b></div>
         <div class="ts-acts">
-          <button class="btn secondary" data-act="pauseSub" data-arg="${sub.id}">${icon(paused ? 'play' : 'clock', 18)}${paused ? 'دەستپێکردنەوە' : 'ڕاگرتنی کاتی'}</button>
-          <button class="btn secondary" data-act="editSub" data-arg="${sub.id}">${icon('edit', 18)}گۆڕانکاری</button>
+          <button class="btn secondary" data-act="pauseSub" data-arg="${sub.id}">${icon(paused ? 'play' : 'pause', 18)}${paused ? 'دەستپێکردنەوە' : 'ڕاگرتنی کاتی'}</button>
+          <button class="btn secondary" data-act="editSub" data-arg="${sub.id}">${icon('sliders', 18)}گۆڕانکاری</button>
           <button class="ts-chat" data-go="chat/${d.id}" aria-label="نامە">${icon('chat', 22, '#F5A623', 2.2)}</button>
         </div>
       </div>
@@ -1462,7 +1534,9 @@
   };
   acts.editSub = (id) => {
     const sub = sel.sub(id);
-    U.edit = { id, go: sub.go, back: sub.back || '', days: sub.days.slice() };
+    // تەنها ئەو بەشانەی لە نرخەکەدا هەن (چوون/هاتنەوە) دەتوانرێن زیاد بکرێن
+    const has = (dir) => (TK.hasPerDay(sub) ? Object.values(sub.perDay).some((x) => x && x[dir]) : !!sub[dir]);
+    U.edit = { id, go: sub.go, back: sub.back || '', days: sub.days.slice(), perDay: TK.hasPerDay(sub) ? JSON.parse(JSON.stringify(sub.perDay)) : null, defGo: sub.go || '07:30', defBack: sub.back || '14:00', allow: { go: has('go'), back: has('back') } };
     TK.sheet(() => {
       const e = U.edit;
       const x = sel.sub(e.id);
@@ -1470,11 +1544,13 @@
       const d = sel.driver(x.driverId);
       return `<div class="h2">گۆڕانکاری لە بەژداری</div>
         <div class="sm muted">${esc(fmt.names(sel.names(x.memberIds)))}، ${esc(d.name)}. هەر گۆڕانکارییەک بۆ شۆفێرەکە دەنێردرێت.</div>
-        <div class="grid2">
+        ${e.perDay ? '' : `<div class="grid2">
           <div class="field" style="${x.go ? '' : 'opacity:.45'}"><label for="e-go">کاتی چوون</label>${ui.timeSelect('e-go', e.go || '07:30', x.go ? '' : 'disabled')}</div>
           <div class="field" style="${x.back ? '' : 'opacity:.45'}"><label for="e-back">کاتی هاتنەوە</label>${ui.timeSelect('e-back', e.back || '14:00', x.back ? '' : 'disabled')}</div>
-        </div>
+        </div>`}
         <div class="days">${fmt.WEEKDAY_SHORT.map((w, i) => `<button class="${e.days[i] ? 'on' : ''}" data-act="eDay" data-arg="${i}" aria-label="${fmt.WEEKDAYS[i]}">${w}</button>`).join('')}</div>
+        <div class="row between" style="gap:10px"><div class="grow"><b class="sm">هەموو ڕۆژەکان هەمان کات نین</b><div class="xs muted">کاتی جیاواز بۆ هەر ڕۆژێک</div></div>${ui.toggle('pdToggle', !!e.perDay, 'e')}</div>
+        ${e.perDay ? pdTable(e, 'e') : ''}
         <button class="btn block" data-act="saveSub">پاشەکەوت و ناردن بۆ شۆفێر</button>
         <div class="grid2">
           <button class="btn secondary sm" data-go="chat/${d.id}" data-close-first>${icon('chat', 16)}نامە بۆ شۆفێر</button>
@@ -1489,7 +1565,12 @@
     const back = document.getElementById('e-back');
     if (go) U.edit.go = go.value || U.edit.go;
     if (back && back.value) U.edit.back = back.value;
-    U.edit.days[+i] = !U.edit.days[+i];
+    const e = U.edit;
+    e.days[+i] = !e.days[+i];
+    if (e.perDay) {
+      if (e.days[+i]) e.perDay[i] = e.perDay[i] || { go: e.go || null, back: e.back || null };
+      else delete e.perDay[i];
+    }
     TK.sheet.refresh();
   };
   acts.saveSub = () => {
@@ -1497,9 +1578,16 @@
     const goEl = document.getElementById('e-go');
     const backEl = document.getElementById('e-back');
     if (!e.days.some(Boolean)) return TK.toast('لانیکەم یەک ڕۆژ هەڵبژێرە');
-    const patch = { days: e.days.slice() };
-    if (goEl && !goEl.disabled && goEl.value) patch.go = goEl.value;
-    if (backEl && !backEl.disabled && backEl.value) patch.back = backEl.value;
+    let patch;
+    if (e.perDay) {
+      const n = TK.normPerDay(e.perDay);
+      if (n.empty) return TK.toast('لانیکەم یەک چوون یان هاتنەوە دیاری بکە');
+      patch = { perDay: n.perDay, days: n.days, go: n.go, back: n.back };
+    } else {
+      patch = { days: e.days.slice(), perDay: null };
+      if (goEl && !goEl.disabled && goEl.value) patch.go = goEl.value;
+      if (backEl && !backEl.disabled && backEl.value) patch.back = backEl.value;
+    }
     actions.updateSub(e.id, patch);
     TK.closeSheet();
     TK.toast('پاشەکەوت کرا و شۆفێرەکە ئاگادار کرایەوە');
@@ -1520,6 +1608,7 @@
       note: 'بۆ گۆڕینی شۆفێر', replacesSub: x.id,
       // هەمان شوێنی وردی بەژدارییە کۆنەکە (نەک شوێنی ماڵ)
       fromGeo: x.fromGeo || null, toGeo: x.toGeo || null,
+      perDay: TK.hasPerDay(x) ? JSON.parse(JSON.stringify(x.perDay)) : null,
     });
     TK.closeSheet();
     TK.go('new');
@@ -1796,6 +1885,7 @@
           <div class="item tap" data-act="showTerms"><div class="ico-box navy">${icon('doc', 20, 'var(--text)')}</div><b class="grow">مەرج و ڕێساکان</b>${icon('forward', 18, 'var(--muted)')}</div>
         </div>
         <button class="btn danger block" data-act="logout">${icon('logout', 18)}چوونەدەرەوە</button>
+        <button class="btn ghost block sm" style="color:var(--danger-text)" data-act="delAccount">${icon('x', 16)}سڕینەوەی هەژمار</button>
         <div class="center xs muted">تەکسیەکەم، وەشانی 1.0</div>`, 'profile');
     },
   });
@@ -1856,6 +1946,40 @@
     const n = Object.assign({}, S().settings.notify);
     n[k] = !n[k];
     actions.setSetting('notify', n);
+  };
+  /** سڕینەوەی هەژمار: ڕوونکردنەوە + وشەی نهێنی بۆ پشتڕاستکردنەوە */
+  acts.delAccount = () => {
+    U.delErr = '';
+    TK.sheet(() => {
+      const subs = sel.mySubs().length;
+      return `<div class="row top" style="gap:12px"><div class="ico-box danger">${icon('alert', 22, 'var(--danger-text)')}</div><div class="grow"><div class="h2">سڕینەوەی هەژمار</div><div class="sm muted">ئەمە ناگەڕێتەوە.</div></div></div>
+        <div class="card flat col tight sm" style="line-height:1.9">
+          <b>ئەمانە دەسڕێنەوە:</b>
+          <span>• ناو، ژمارەی مۆبایل و ئەندامانی خێزان</span>
+          <span>• شوێنەکانی سەر نەخشە، ئاگادارکردنەوەکان و مێژووی گەشتەکانت</span>
+          ${subs ? `<span>• ${subs} بەژداری هەڵدەوەشێتەوە و شۆفێرەکە ئاگادار دەکرێتەوە</span>` : ''}
+          <b style="margin-top:6px">ئەمانە بێ ناو دەمێننەوە:</b>
+          <span>• گەشتە کراوەکان و نامەکان، بۆ حیسابی شۆفێر و چارەسەرکردنی سکاڵا</span>
+        </div>
+        <div class="field"><label for="del-pass">وشەی نهێنی بۆ پشتڕاستکردنەوە</label><input class="input ltr latin" id="del-pass" type="password" autocomplete="current-password"></div>
+        ${U.delErr ? `<div class="err">${esc(U.delErr)}</div>` : ''}
+        <button class="btn block danger-solid" data-act="delAccountGo">سڕینەوەی هەمیشەیی</button>
+        <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`;
+    });
+  };
+  acts.delAccountGo = async (a, el) => {
+    const pass = (document.getElementById('del-pass') || {}).value || '';
+    if (!pass) {
+      U.delErr = 'وشەی نهێنی بنووسە';
+      return TK.sheet.refresh();
+    }
+    const done = TK.busyBtn(el);
+    const err = await actions.deleteMyAccount(pass);
+    done();
+    if (err) {
+      U.delErr = err;
+      return TK.sheet.refresh();
+    }
   };
   acts.logout = async () => {
     await actions.logout();

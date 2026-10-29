@@ -555,10 +555,10 @@
     ['go', 'back'].forEach((dir) => {
       const rs = myRoutes().filter((r) => r.dir === dir);
       rs.forEach((r) => {
-        const list = r.subIds.map(subById).filter((x) => x && subs.includes(x));
+        const list = r.subIds.map(subById).filter((x) => x && subs.includes(x) && TK.dayTime(x, dir, d) && TK.inRouteOn(x, dir, d));
         if (list.length) out.push({ time: r.time, title: r.name, people: list.reduce((n, x) => n + ppl(x), 0), stops: list.length, pooled: true, from: TK.subLeg(list[0], dir).from });
       });
-      subs.filter((x) => TK.subTime(x, dir) && !rs.some((r) => r.subIds.includes(x.id))).forEach((x) => out.push({ time: TK.subTime(x, dir), title: dir === 'back' ? `هاتنەوە، ${x.riderNames}` : `${x.riderNames}، ${x.to.split('، ')[0]}`, people: ppl(x), stops: 1, pooled: false, from: TK.subLeg(x, dir).from }));
+      subs.filter((x) => TK.dayTime(x, dir, d) && !(TK.inRouteOn(x, dir, d) && rs.some((r) => r.subIds.includes(x.id)))).forEach((x) => out.push({ time: TK.dayTime(x, dir, d), title: dir === 'back' ? `هاتنەوە، ${x.riderNames}` : `${x.riderNames}، ${x.to.split('، ')[0]}`, people: ppl(x), stops: 1, pooled: false, from: TK.subLeg(x, dir).from }));
     });
     return { date: d, list: out.sort((a, b) => a.time.localeCompare(b.time)) };
   }
@@ -1075,7 +1075,7 @@
     U.rtab = v;
     TK.render();
   };
-  const reqTimes = (r) => [r.go ? `چوون ${fmt.clock(r.go)}` : '', r.back ? `هاتنەوە ${fmt.clock(r.back)}` : ''].filter(Boolean).join('، ');
+  const reqTimes = (r) => (TK.hasPerDay(r) ? 'کاتی جیاواز بۆ هەر ڕۆژێک' : [r.go ? `چوون ${fmt.clock(r.go)}` : '', r.back ? `هاتنەوە ${fmt.clock(r.back)}` : ''].filter(Boolean).join('، '));
   function reqCard(r) {
     const me = sel.me();
     const direct = r.target === me.id;
@@ -1118,6 +1118,7 @@
             <div class="req-route big"><span>${esc(r.from)}</span>${icon('forward', 22, 'var(--brand)', 2.4)}<span>${esc(r.to)}</span></div>
             <div class="row sm">${icon('clock', 18, 'var(--muted)')}<b>${reqTimes(r)}</b></div>
             <div class="row sm">${icon('calendar', 18, 'var(--muted)')}<span>${fmt.days(r.days)}${r.startDate ? `، لە ${fmt.day(r.startDate)}ەوە` : ''}</span></div>
+            ${TK.hasPerDay(r) ? ui.perDayList(r) : ''}
             <div class="row sm">${icon('users', 18, 'var(--muted)')}<span>${r.riders} کەس</span></div>
             <div class="row sm">${icon('route', 18, 'var(--muted)')}<span>دووری نزیکەی ${r.km} کم${r.go && r.back ? `، ڕۆژانە ${Math.round(r.km * 2)} کم (چوون و هاتنەوە)` : ''}</span></div>
             ${ui.requestTags(r)}
@@ -1436,9 +1437,24 @@
           ${item('doc', 'مەرج و ڕێساکان', '', '', 'showTerms')}
         </div>
         <button class="btn danger block" data-act="logout">${icon('logout', 18)}چوونەدەرەوە</button>
+        ${sel.me() && sel.me().deleteRequestedAt
+          ? `<div class="card note col tight"><b class="sm">داوای سڕینەوەی هەژمارەکەت نێردرا</b><span class="xs">تیمی تەکسیەکەم دوای تەواوکردنی حیساب و موچەکەت هەژمارەکە دەسڕێتەوە.</span><button class="btn sm ghost" data-act="delReqCancel">هەڵوەشاندنەوەی داواکاری</button></div>`
+          : `<button class="btn ghost block sm" style="color:var(--danger-text)" data-act="delReq">${icon('x', 16)}سڕینەوەی هەژمار</button>`}
         <div class="center xs muted">تەکسیەکەم شۆفێر</div>`, 'more');
     },
   });
+  acts.delReq = async () => {
+    const po = TK.payout(S(), meId());
+    const subs = mySubs().length;
+    const msg = `داوای سڕینەوەی هەژمارەکەت بۆ تیمی تەکسیەکەم دەنێردرێت.${subs ? ` ${subs} سەرنشینت هەیە، پێش سڕینەوە دەبێت بگوازرێنەوە بۆ شۆفێرێکی تر.` : ''}${po.net ? ` حیسابی ئەم مانگەت (${fmt.money(Math.abs(po.net))}) سەرەتا تەواو دەکرێت.` : ''} دوای ئەوە بەڵگەنامە و زانیارییە کەسییەکانت دەسڕێنەوە.`;
+    if (!(await TK.ask(msg, { title: 'سڕینەوەی هەژمار', yes: 'ناردنی داواکاری' }))) return;
+    actions.requestDriverDeletion(true);
+    TK.toast('داواکارییەکەت نێردرا');
+  };
+  acts.delReqCancel = () => {
+    actions.requestDriverDeletion(false);
+    TK.toast('داواکارییەکە هەڵوەشێنرایەوە');
+  };
   TK.route('profile', {
     guard: authed,
     render() {

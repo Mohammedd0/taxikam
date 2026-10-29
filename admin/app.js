@@ -484,6 +484,7 @@
             </div>
             <div class="grid3"><div class="card stat flat"><b class="brand">★ ${d.reviews ? d.rating : '-'}</b><span class="xs muted">${d.reviews || 0} هەڵسەنگاندن</span></div><div class="card stat flat"><b>${d.trips || 0}</b><span class="xs muted">گەشت</span></div><div class="card stat flat"><b>${subs.length}</b><span class="xs muted">بەژداری</span></div></div>
             <div class="row between sm"><span class="muted">وەرگرتنی موچە</span><b>${PAY[d.payMethod] || '-'}${d.payAccount ? ` <span class="latin">${esc(d.payAccount)}</span>` : ''}</b></div>
+            ${d.deleteRequestedAt ? `<div class="card danger col tight"><b class="sm">${icon('alert', 16)} شۆفێر داوای سڕینەوەی هەژمارەکەی کردووە، ${fmt.ago(d.deleteRequestedAt)}</b><span class="xs">سەرەتا سەرنشینەکانی بگوازەرەوە بۆ شۆفێرێکی تر و موچەکەی تەواو بکە، پاشان «سڕینەوە» لە خوارەوە دابگرە.</span></div>` : ''}
             ${payChanged(d) ? `<div class="card note col tight"><div class="row">${icon('alert', 18, 'var(--brand)')}<b class="grow sm">شۆفێر شێوازی موچەی گۆڕیوە${d.payChangedAt ? `، ${fmt.ago(d.payChangedAt)}` : ''}</b></div>
               <div class="xs">پێشتر: ${esc(PAY[(d.payPrev || {}).method] || '-')}${(d.payPrev || {}).account ? ` <span class="latin">${esc(d.payPrev.account)}</span>` : ''}. ئێستا: ${esc(PAY[d.payMethod] || '-')}${d.payAccount ? ` <span class="latin">${esc(d.payAccount)}</span>` : ''}</div>
               <div class="xs muted">پێش ناردنی موچە، بە تەلەفۆن لەگەڵ شۆفێر پشتڕاستی بکەرەوە کە خۆی گۆڕیویەتی.</div>
@@ -691,11 +692,20 @@
   acts.deleteDriver = async (id) => {
     const s = S();
     if (s.subscriptions.some((x) => x.driverId === id) || id === s.driver.meId) return TK.toast('ئەم شۆفێرە سەرنشینی چالاکی هەیە. لە جیاتی سڕینەوە ڕایبگرە');
-    if (!(await TK.ask('شۆفێرەکە بە تەواوی دەسڕدرێتەوە.'))) return;
+    if (!(await TK.ask('شۆفێرەکە بە تەواوی دەسڕدرێتەوە: زانیارییەکانی، بەڵگەنامە و وێنەکانی.'))) return;
+    const d0 = sel.driver(id) || {};
+    // وێنە و بەڵگەنامەکانی شۆفێر
+    const imgs = ['photo', 'idFront', 'idBack', 'licFront', 'licBack', 'regPhoto', 'secPhoto', 'carFront', 'carBack', 'carLeft', 'carRight', 'carInside'].map((k) => d0[k]).concat(d0.showPhotos || []).filter((v) => v && !String(v).startsWith('data:'));
+    imgs.forEach((img) => Promise.resolve(window.TKFB.write({ op: 'delete', path: 'img/' + img })).catch(() => {}));
     TK.update((x) => {
       x.drivers = x.drivers.filter((d) => d.id !== id);
     });
     TK.go('drivers', true);
+    // هەژماری چوونەژوورەوە تەنها لە Firebase Console دەسڕدرێتەوە (بەبێ Cloud Functions)
+    TK.sheet(() => `<div class="h2">شۆفێرەکە سڕایەوە</div>
+      <div class="sm" style="line-height:1.9">بۆ تەواوکردن، هەژماری چوونەژوورەوەکەی لە Firebase بسڕەوە:<br>Firebase Console ← Authentication ← Users ← بگەڕێ بۆ:<br><b class="latin" data-raw>${esc(TK.emailOf(d0.phone || '', 'd'))}</b> ← Delete account</div>
+      <button class="btn block" data-act="copy" data-arg="${esc(TK.emailOf(d0.phone || '', 'd'))}">${icon('copy', 16)}کۆپیکردنی ئیمەیڵەکە</button>
+      <button class="btn ghost block" data-close>داخستن</button>`);
   };
   acts.ledgerForm = (id) => {
     TK.sheet(() => `<div class="h2">سزا، پاداشت یان ڕێکخستن</div>
@@ -951,8 +961,8 @@
       <div class="form-grid">
         ${input('s-price', 'نرخی مانگانە', x.price, { type: 'number', ltr: true })}
         ${select('s-driver', 'شۆفێر', x.driverId, S().drivers.map((d) => [d.id, d.name + (d.status !== 'active' ? ' (ناچالاک)' : '')]))}
-        ${input('s-go', 'کاتی چوون', x.go || '', { type: 'time', ltr: true })}
-        ${input('s-back', 'کاتی هاتنەوە', x.back || '', { type: 'time', ltr: true })}
+        ${TK.hasPerDay(x) ? `<div class="card flat col tight sm" style="grid-column:1/-1"><b>کاتی جیاواز بۆ هەر ڕۆژێک</b>${ui.perDayList(x)}<span class="xs muted">کاتەکان لە ئەپی سەرنشینەوە دەگۆڕدرێن.</span></div>` : `${input('s-go', 'کاتی چوون', x.go || '', { type: 'time', ltr: true })}
+        ${input('s-back', 'کاتی هاتنەوە', x.back || '', { type: 'time', ltr: true })}`}
         ${select('s-status', 'دۆخ', x.status, [['active', 'چالاک'], ['paused', 'ڕاگیراو']])}
       </div>
       <button class="btn block" data-act="saveSub" data-arg="${id}">پاشەکەوت (هەردوولا ئاگادار دەکرێنەوە)</button>
@@ -964,8 +974,11 @@
       const x = s.subscriptions.find((y) => y.id === id);
       const oldDriver = x.driverId;
       x.price = num('s-price') || x.price;
-      if (val('s-go')) x.go = val('s-go');
-      if (val('s-back')) x.back = val('s-back');
+      // کاتی جیاواز بۆ هەر ڕۆژێک: کاتەکان لە ئەپی سەرنشینەوە دەگۆڕدرێن
+      if (!TK.hasPerDay(x)) {
+        if (val('s-go')) x.go = val('s-go');
+        if (val('s-back')) x.back = val('s-back');
+      }
       if (val('s-status') !== x.status) {
         x.status = val('s-status');
         x.pauseLog = x.pauseLog || [];
@@ -975,8 +988,13 @@
       x.driverId = val('s-driver');
       s.trips.filter((t) => t.subId === id && t.status === 'scheduled').forEach((t) => {
         t.driverId = x.driverId;
-        if (t.dir === 'go' && x.go) t.time = x.go;
-        if (t.dir === 'back' && x.back) t.time = x.back;
+        if (t.runId) return;
+        const tm = TK.dayTime(x, t.dir);
+        if (tm && tm !== t.time) {
+          const shift = TK.toMin(tm) - TK.toMin(t.time);
+          t.time = tm;
+          (t.stops || []).forEach((st) => (st.time = fmt.addMin(st.time, shift)));
+        }
       });
       const names = x.riderNames || '';
       const nd = s.drivers.find((d) => d.id === x.driverId);
@@ -1403,6 +1421,12 @@
   /* =========================================================
    * نامەکان (بۆ پشکنینی ناکۆکییەکان)
    * ======================================================= */
+  /** بەڕێوەبەر دەقی ڕاستەقینەی نامە گەڕێنراوەکان دەبینێت (بۆ سکاڵا و سەلامەتی) */
+  const withUnsent = (list) => list.map((m) => {
+    if (!m.unsent) return m;
+    const u = (S().unsent || []).find((x) => x.msgId === m.id);
+    return Object.assign({}, m, { unsent: false, text: `[گەڕێنرایەوە ${fmt.clock(fmt.hhmm(m.unsentAt || m.at))}] ${u ? u.text : '(دەقەکە نەدۆزرایەوە)'}` });
+  });
   TK.route('chats', {
     guard,
     render() {
@@ -1419,7 +1443,7 @@
         <div class="xs muted">تەنها بۆ پشکنینی سکاڵا و ناکۆکییەکان. سەرنشین و شۆفێر ئەمە نابینن.</div>
         <div class="cols">
           <div class="list">${keys.map((k) => `<div class="item tap" data-act="pickChat" data-arg="${esc(k)}" style="${k === cur ? 'background:var(--note-bg)' : ''}"><div class="grow"><b class="sm">${esc(name(k))}</b><div class="xs muted ellipsis">${esc(map[k][map[k].length - 1].text || '')}</div></div><span class="xs muted">${map[k].length}</span></div>`).join('')}</div>
-          <div class="card">${cur ? `<div class="h3" style="margin-bottom:8px">${esc(name(cur))}</div>${ui.chat(map[cur], true)}` : 'هیچ نامەیەک نییە'}</div>
+          <div class="card">${cur ? `<div class="h3" style="margin-bottom:8px">${esc(name(cur))}</div>${ui.chat(withUnsent(map[cur]), true)}` : 'هیچ نامەیەک نییە'}</div>
         </div>`);
     },
   });

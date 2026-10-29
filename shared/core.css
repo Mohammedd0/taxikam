@@ -1078,21 +1078,21 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 .sf-ic { flex: none; width: 56px; height: 56px; border-radius: 18px; background: #13254A; display: flex; align-items: center; justify-content: center; }
 .sf-go { flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--chip); display: flex; align-items: center; justify-content: center; color: var(--muted); }
 
-/* بەشی سەرەوەی کارتی بەژداری: ڕووناک لە جیاتی تاریک */
-.ts-top { background: linear-gradient(160deg, #FFF7E6 0%, #FFFFFF 60%, #EEF4FF 100%); color: var(--text); }
-.ts-av { background: #FEF3C7; border-color: #FDE68A; color: #D97706; }
-.ts-place { color: var(--muted); }
-.ts-box { background: rgba(19, 37, 74, .04); border-color: var(--line); }
-.ts-t small { color: var(--muted); }
-.ts-sep { background: var(--line); }
-.ts-more { border-top-color: var(--line); }
-.ts-more summary svg { stroke: var(--muted); }
-.ts-link svg { stroke: currentColor; }
-.ts-detail { color: var(--text); }
-.ts-detail .muted { color: var(--muted); }
-.ts-state { color: #047857; background: rgba(16, 185, 129, .12); border-color: rgba(16, 185, 129, .3); }
-.ts-state i { background: #10B981; }
-.ts-link { color: #D97706; }
+/* بەشی سەرەوەی کارتی بەژداری: ڕووناک لە جیاتی تاریک (تەنها دۆخی ڕووناک) */
+:root:not([data-theme="dark"]) .ts-top { background: linear-gradient(160deg, #FFF7E6 0%, #FFFFFF 60%, #EEF4FF 100%); color: var(--text); }
+:root:not([data-theme="dark"]) .ts-av { background: #FEF3C7; border-color: #FDE68A; color: #D97706; }
+:root:not([data-theme="dark"]) .ts-place { color: var(--muted); }
+:root:not([data-theme="dark"]) .ts-box { background: rgba(19, 37, 74, .04); border-color: var(--line); }
+:root:not([data-theme="dark"]) .ts-t small { color: var(--muted); }
+:root:not([data-theme="dark"]) .ts-sep { background: var(--line); }
+:root:not([data-theme="dark"]) .ts-more { border-top-color: var(--line); }
+:root:not([data-theme="dark"]) .ts-more summary svg { stroke: var(--muted); }
+:root:not([data-theme="dark"]) .ts-link svg { stroke: currentColor; }
+:root:not([data-theme="dark"]) .ts-detail { color: var(--text); }
+:root:not([data-theme="dark"]) .ts-detail .muted { color: var(--muted); }
+:root:not([data-theme="dark"]) .ts-state { color: #047857; background: rgba(16, 185, 129, .12); border-color: rgba(16, 185, 129, .3); }
+:root:not([data-theme="dark"]) .ts-state i { background: #10B981; }
+:root:not([data-theme="dark"]) .ts-link { color: #D97706; }
 
 /* دۆخی تاریک: سەرەوەی کارتی بەژداری تاریک دەبێت */
 [data-theme="dark"] .ts-top { background: linear-gradient(160deg, #1B2A4A 0%, #14213D 60%, #1F3460 100%); color: #fff; }
@@ -1111,7 +1111,7 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 [data-theme="dark"] .ts-link { color: #FBBF24; }
 /* دوگمەکانی خوارەوە لە دۆخی تاریک کەمتر بریقەدار بن */
 [data-theme="dark"] .ts-acts .btn { background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); }
-[data-theme="dark"] .ts-chat, [data-theme="dark"] .sf-ic { background: rgba(245, 166, 35, .15); }
+[data-theme="dark"] .ts-chat, [data-theme="dark"] .sf-ic { background: rgba(245, 166, 35, .15); box-shadow: none; }
 [data-theme="dark"] .ts-cut::before, [data-theme="dark"] .ts-cut::after { background: var(--bg); }
 
 /* نرخی مانگانە لە دۆخی ڕووناک: لە زەردی کاڵەوە بەرەو سپی */
@@ -1122,3 +1122,27 @@ html.pas[data-theme="dark"] .tripcard .btn.sm { background: #1F2D4F; }
 }
 :root:not([data-theme="dark"]) .ts-pi { background: #FDE9B0; }
 :root:not([data-theme="dark"]) .ts-price b { color: #B45309; }
+
+/* وردەکارییەکانی کارتی بەژداری */
+.ts-car { display: flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; }
+.ts-car .latin { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; text-overflow: ellipsis; }
+.ts-car i { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); opacity: .6; flex: none; }
+.ts-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; }
+.section-title .cntp { background: #13254A; color: #fff; min-width: 30px; height: 30px; border-radius: 50%; padding: 0; }
+[data-theme="dark"] .section-title .cntp { background: rgba(255, 255, 255, .12); }
+/* خشتەی کاتی جیاواز بۆ هەر ڕۆژێک */
+.pdlist { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; }
+.pdl { display: grid; grid-template-columns: 5.5em 1fr 1fr; gap: 6px; align-items: center; }
+.pdl i { font-style: normal; }
+.pdtable { display: flex; flex-direction: column; gap: 8px; }
+.pdrow { display: grid; grid-template-columns: 4.8em 1fr 1fr; gap: 6px; align-items: center; }
+.pdrow > b { font-size: .85rem; }
+.pdcell { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.pdcell select.input { min-height: 40px; padding: 4px 6px; font-size: .82rem; flex: 1; min-width: 0; background-image: none; text-align: center; text-align-last: center; }
+.pdcell .pdx { flex: none; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: var(--chip); color: var(--muted); }
+.pdcell .pdoff { flex: 1; min-height: 40px; border-radius: 12px; border: 1.5px dashed var(--line); color: var(--muted); font-size: .8rem; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.pdhead { display: grid; grid-template-columns: 4.8em 1fr 1fr; gap: 6px; font-size: .75rem; color: var(--muted); font-weight: 700; }
+/* نامەی گەڕێنراوە */
+.bubble.unsent { font-style: italic; opacity: .7; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bubble.tap { cursor: pointer; }
+.bubble .undo-hint { opacity: .6; display: inline-flex; vertical-align: middle; }

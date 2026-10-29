@@ -70,6 +70,22 @@ try {
       await U.reauthenticateWithCredential(u, U.EmailAuthProvider.credential(u.email, oldPass));
       await U.updatePassword(u, newPass);
     },
+    /** چاوەڕێکردن تا هەموو نووسینەکان گەیشتنە سێرڤەر */
+    waitWrites() {
+      return F.waitForPendingWrites(db);
+    },
+    /** دووبارە پشتڕاستکردنەوەی وشەی نهێنی (پێش کارێکی هەستیار وەک سڕینەوەی هەژمار) */
+    async reauth(pass) {
+      const u = auth.currentUser;
+      if (!u) throw { code: 'auth/no-user' };
+      await U.reauthenticateWithCredential(u, U.EmailAuthProvider.credential(u.email, pass));
+    },
+    /** سڕینەوەی هەژماری چوونەژوورەوەی ئێستا (دوای reauth) */
+    async deleteUser() {
+      const u = auth.currentUser;
+      if (!u) throw { code: 'auth/no-user' };
+      await U.deleteUser(u);
+    },
     /** دروستکردنی هەژمار بۆ کەسێکی تر (بەڕێوەبەر شۆفێر زیاد دەکات) بێ ئەوەی خۆی بچێتە دەرەوە */
     async createUser(email, pass) {
       const app2 = A.initializeApp(CFG.config, 'tk-create-' + Date.now());

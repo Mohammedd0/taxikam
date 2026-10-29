@@ -97,6 +97,7 @@
     },
     /** کاتەکانی چوون و هاتنەوە: هەردووکیان، تەنها چوون، یان تەنها هاتنەوە */
     schedule(x) {
+      if (x.perDay && Object.keys(x.perDay).length) return 'کاتی جیاواز بۆ هەر ڕۆژێک';
       if (x.go && x.back) return `${fmt.time(x.go)}، هاتنەوە ${fmt.time(x.back)}`;
       if (x.go) return `${fmt.time(x.go)}، تەنها چوون`;
       if (x.back) return `تەنها هاتنەوە، ${fmt.time(x.back)}`;
@@ -236,6 +237,11 @@
     navigate: P('M3 11 22 2l-9 19-2-8z'),
     eyeOff: P('M10.7 5.1A10.7 10.7 0 0 1 22 12a10.8 10.8 0 0 1-1.5 2.5M14.1 14.2a3 3 0 0 1-4.2-4.2M17.5 17.5A10.8 10.8 0 0 1 2 12a10.8 10.8 0 0 1 4.5-5.1M2 2l20 20'),
     trophy: P('M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4'),
+    pause: '<circle cx="12" cy="12" r="9"/>' + P('M10 9v6M14 9v6'),
+    sliders: P('M4 7h10M18 7h2M4 17h4M12 17h8') + '<circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+    cash: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>' + P('M7 12h.01M17 12h.01'),
+    undo: P('M9 14 4 9l5-5') + P('M4 9h10a6 6 0 0 1 0 12h-3'),
+    sunrise: P('M12 3v3M5.6 7.6l1.4 1.4M18.4 7.6 17 9M3 15h2M19 15h2M7 15a5 5 0 0 1 10 0M3 19h18'),
   };
   TK.icon = function (name, size = 22, color = 'currentColor', sw = 1.9, fill = 'none') {
     return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${fill}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -390,12 +396,53 @@
    * - تەکسی تایبەت: +٤٠٪، گەشتی منداڵان: +١٠٪ (چاودێری)
    * - چەند کەس لە یەک تەکسی: کەسی دووەم بەدواوە ٧٠٪
    */
+  /* ---------- کاتی جیاواز بۆ هەر ڕۆژێک ----------
+   * perDay: { "0".."6": { go: "07:30"|null, back: "14:00"|null } } (ژمارەی ڕۆژ وەک fmt.WEEKDAYS: ٠ = شەممە)
+   * کاتێک هەیە، تەنها ئەو ڕۆژانەی تێیدان گەشتیان هەیە. go و back ـی بەژدارییەکە کاتی باوترینە (بۆ ڕۆت و نیشاندان). */
+  const hasPerDay = (x) => !!(x && x.perDay && Object.keys(x.perDay).length);
+  TK.hasPerDay = hasPerDay;
+  /** ڕێکخستنی perDay: ڕۆژە بەتاڵەکان لادەبرێن، days و کاتی باوتر دروست دەکرێنەوە */
+  TK.normPerDay = function (pd) {
+    const out = {};
+    const days = [false, false, false, false, false, false, false];
+    Object.keys(pd || {}).forEach((k) => {
+      const e = pd[k] || {};
+      const go = e.go || null;
+      const back = e.back || null;
+      if (!go && !back) return;
+      out[k] = { go, back };
+      days[+k] = true;
+    });
+    const mode = (arr) => {
+      const n = {};
+      arr.filter(Boolean).forEach((v) => (n[v] = (n[v] || 0) + 1));
+      return Object.keys(n).sort((a, b) => n[b] - n[a] || a.localeCompare(b))[0] || null;
+    };
+    const vals = Object.values(out);
+    return { perDay: out, days, go: mode(vals.map((e) => e.go)), back: mode(vals.map((e) => e.back)), empty: !vals.length };
+  };
+  /** ڕێژەی هەفتانە بەراورد بە «٥ ڕۆژ چوون و هاتنەوە» (بۆ نرخ و قەرەبوو) */
+  function weekFactor(d) {
+    const c = cfg();
+    if (hasPerDay(d)) {
+      const vals = Object.values(d.perDay);
+      const both = vals.filter((e) => e.go && e.back).length;
+      const one = vals.filter((e) => !!e.go !== !!e.back).length;
+      return Math.max(0.2, (both + one * c.oneWayFactor) / 5);
+    }
+    const dayCount = (d.days || []).filter(Boolean).length || 1;
+    const oneWay = d.oneWay != null ? d.oneWay : !(d.go && d.back);
+    return (dayCount / 5) * (oneWay ? c.oneWayFactor : 1);
+  }
+  /** ژمارەی گەشتەکانی هەفتەیەک (هەر چوون یان هاتنەوەیەک یەک گەشتە) */
+  TK.legsPerWeek = function (x) {
+    if (hasPerDay(x)) return Object.values(x.perDay).reduce((n, e) => n + (e.go ? 1 : 0) + (e.back ? 1 : 0), 0);
+    return (x.days || []).filter(Boolean).length * ((x.go ? 1 : 0) + (x.back ? 1 : 0));
+  };
   TK.priceFor = function (d) {
     const km = d.km != null ? d.km : TK.distance(d.fromId, d.toId, d.fromGeo, d.toGeo);
-    const dayCount = d.days.filter(Boolean).length || 1;
-    const oneWay = d.oneWay != null ? d.oneWay : !d.back;
     const c = cfg();
-    let per = (c.basePrice + km * c.perKm) * (dayCount / 5) * (oneWay ? c.oneWayFactor : 1);
+    let per = (c.basePrice + km * c.perKm) * weekFactor(d);
     if (d.rideType === 'private') per *= c.privateFactor;
     if (d.rideType === 'family') per *= c.familyFactor;
     if (d.hasChild) per *= c.kidsFactor;
@@ -468,6 +515,7 @@
       partners: [],
       partnerEarnings: [],
       partnerPays: [],
+      unsent: [],
     };
   }
   TK.createSeed = createSeed;
@@ -569,21 +617,22 @@
   const ARR = {
     requests: -1, subscriptions: 1, trips: 1, routes: 1, messages: 1, swaps: -1, dnotices: -1, adminNotices: -1,
     reports: -1, ledger: -1, payouts: -1, driverLog: -1, news: -1, broadcasts: -1, partners: 1, partnerEarnings: -1, partnerPays: -1,
+    unsent: -1, // دەقی ڕاستەقینەی نامە گەڕێنراوەکان (تەنها بەڕێوەبەر دەیبینێت)
   };
   // زانیاری تایبەتی شۆفێر کە تەنها خۆی و بەڕێوەبەر دەیبینن (بەڵگەنامە، ناونیشان، موچە)
   const SENS = new Set([
     'birth', 'idNo', 'idExpiry', 'idFront', 'idBack', 'licNo', 'licClass', 'licExpiry', 'licFront', 'licBack', 'regNo', 'regExpiry', 'regPhoto',
     'secPhoto', 'secDate', 'emergencyName', 'emergencyPhone', 'district', 'neighborhood', 'landmark', 'payMethod', 'payAccount',
     'docStatus', 'docReason', 'termsAt', 'terms', 'readNoticesAt', 'carFront', 'carBack', 'carLeft', 'carRight', 'carInside', 'addedByAdmin', 'gender',
-    'payChangedAt', 'payAckAt', 'payAckFor', 'payPrev',
+    'payChangedAt', 'payAckAt', 'payAckFor', 'payPrev', 'deleteRequestedAt',
   ]);
   // بەشی تایبەتی سەرنشین (pax/{uid})؛ ئاگادارکردنەوە و مێژوو کۆلێکشنی جیان
   const PAX_FIELDS = ['passenger', 'family', 'readNoticesAt', 'rewards', 'billing', 'tickets', 'seenNews', 'pins'];
   // هەر ڕۆڵێک دەتوانێت چی بنووسێت: rw = دروستکردن/گۆڕین/سڕینەوە، c = تەنها دروستکردن، u = تەنها گۆڕین
   const ALL_RW = Object.keys(ARR).concat(['meta', 'pax', 'accounts', 'drivers', 'dpub', 'pnotices', 'phistory']).reduce((o, k) => ((o[k] = 'rw'), o), {});
   const MODES = {
-    passenger: { pax: 'rw', accounts: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', pnotices: 'rw', phistory: 'rw', dnotices: 'c', adminNotices: 'c', reports: 'c', ledger: 'c', partnerEarnings: 'c', dpub: 'u' },
-    driver: { drivers: 'rw', dpub: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', dnotices: 'rw', driverLog: 'rw', pnotices: 'c', phistory: 'c', adminNotices: 'c', ledger: 'c' },
+    passenger: { pax: 'rw', accounts: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', pnotices: 'rw', phistory: 'rw', dnotices: 'c', adminNotices: 'c', reports: 'c', ledger: 'c', partnerEarnings: 'c', dpub: 'u', unsent: 'c' },
+    driver: { drivers: 'rw', dpub: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', dnotices: 'rw', driverLog: 'rw', pnotices: 'c', phistory: 'c', adminNotices: 'c', ledger: 'c', unsent: 'c' },
     admin: ALL_RW,
     home: {},
   };
@@ -908,6 +957,7 @@
   cloud.synced = synced;
   function cloudFlush() {
     if (!cloud.on || !cloud.ready || (!cloud.me && ROLE !== 'admin')) return;
+    if (cloud.deleting) return; // هەژمارەکە خەریکی سڕینەوەیە: هیچ شتێک دووبارە دروست ناکرێتەوە
     if (ROLE === 'home') return;
     stamp(state);
     const want = toDocs(canonical(state));
@@ -1425,9 +1475,23 @@
 
   /** ئایا بەژدارییەک ئەمڕۆ گەشتی هەیە */
   function dayApplies(sub, date = new Date()) {
-    if (!sub.days || !sub.days[(date.getDay() + 1) % 7]) return false;
+    const wd = (date.getDay() + 1) % 7;
+    if (hasPerDay(sub)) {
+      const e = sub.perDay[wd];
+      if (!e || (!e.go && !e.back)) return false;
+    } else if (!sub.days || !sub.days[wd]) return false;
     return !sub.startDate || sub.startDate <= TODAY(date);
   }
+  /** کاتی چوون یان هاتنەوەی ڕۆژێکی دیاریکراو (بنەڕەت: ئەمڕۆ). null = ئەو ڕۆژە ئەو بەشەی نییە */
+  function dayTime(sub, dir, date = new Date()) {
+    if (!sub) return null;
+    if (hasPerDay(sub)) {
+      const e = sub.perDay[(date.getDay() + 1) % 7];
+      return (e && (dir === 'back' ? e.back : e.go)) || null;
+    }
+    return (dir === 'back' ? sub.back : sub.go) || null;
+  }
+  TK.dayTime = (sub, dir, date) => dayTime(sub, dir, date);
   /* ---------- ڕۆت: چەند سەرنشین لە یەک تەکسیدا ----------
    * شۆفێر چەند بەژدارییەک دەخاتە یەک ڕۆتەوە (route). هەموو ڕۆژێک بۆ هەر ڕۆتێک یەک «گەشتی هاوبەش» (run) دروست دەبێت.
    * هەر سەرنشینێک هێشتا گەشتی تایبەتی خۆی هەیە (بۆ «نایەم»، هەڵسەنگاندن و مێژوو)، بەڵام هەموو گەشتەکانی یەک run
@@ -1552,7 +1616,7 @@
   }
   TK.routeStops = (route, subs) => runStops(state, route, subs);
   function mkTrip(s, sub, dir) {
-    const time = subTime(sub, dir);
+    const time = dayTime(sub, dir);
     return {
       id: `t_${sub.id}_${s.day}_${dir}`, day: s.day, dir, driverId: sub.driverId, subId: sub.id, reqId: sub.reqId || null, owner: sub.owner || 'me',
       title: dir === 'back' ? `هاتنەوە، ${sub.riderNames}` : `${sub.riderNames}، ${sub.to.split('، ')[0]}`,
@@ -1560,13 +1624,28 @@
       stops: soloStops(s, sub, dir, time),
     };
   }
-  const routedIn = (s, subId, dir) => (s.routes || []).find((r) => r.dir === dir && r.subIds.includes(subId));
+  /**
+   * ئایا بەژدارییەک لەو ڕۆژەدا لەگەڵ ڕۆتەکەی دەڕوات. بەژداری ئاسایی هەمیشە بەڵێ.
+   * کاتی جیاواز بۆ هەر ڕۆژێک: تەنها ئەگەر کاتی ئەو ڕۆژە نزیک بێت لە کاتی ئاسایی (ئەوەی ڕۆتەکەی بۆ دروست کراوە)
+   */
+  function inRouteOn(sub, dir, date = new Date()) {
+    if (!sub || !hasPerDay(sub)) return true;
+    const tm = dayTime(sub, dir, date);
+    const base = subTime(sub, dir);
+    return !!tm && !!base && Math.abs(toMin(tm) - toMin(base)) <= cfg().poolWindowMin;
+  }
+  TK.inRouteOn = (sub, dir, date) => inRouteOn(sub, dir, date);
+  /** ڕۆتێک کە ئەمڕۆ ئەم بەشدارییە دەگرێتەوە */
+  const routedIn = (s, subId, dir) => {
+    const sub = s.subscriptions.find((x) => x.id === subId);
+    return (s.routes || []).find((r) => r.dir === dir && r.subIds.includes(subId) && inRouteOn(sub, dir));
+  };
   TK.dayApplies = (sub, date) => dayApplies(sub, date);
   /** دروستکردنی گەشتەکانی ئەمڕۆی بەژدارییەک (چوون و هاتنەوە). ئەگەر لە ڕۆتێکدایە، syncRun دروستی دەکات */
   function genTrips(s, sub) {
     if (sub.status === 'ended' || !dayApplies(sub)) return;
     ['go', 'back'].forEach((dir) => {
-      if (!subTime(sub, dir) || routedIn(s, sub.id, dir)) return;
+      if (!dayTime(sub, dir) || routedIn(s, sub.id, dir)) return;
       if (s.trips.some((t) => t.subId === sub.id && t.day === s.day && t.dir === dir)) return;
       s.trips.push(mkTrip(s, sub, dir));
     });
@@ -1577,11 +1656,17 @@
     delete t.runId;
     delete t.routeId;
     delete t.runTitle;
-    if (sub && subTime(sub, t.dir)) {
-      t.time = subTime(sub, t.dir);
+    // ئەمڕۆ ئەم بەشەی نییە (کاتی جیاواز بۆ هەر ڕۆژێک): گەشتەکە لادەبرێت
+    if (t.status === 'scheduled' && (!sub || !dayApplies(sub) || !dayTime(sub, t.dir))) t._drop = true;
+    if (sub && dayTime(sub, t.dir)) {
+      t.time = dayTime(sub, t.dir);
       t.stops = soloStops(s, sub, t.dir, t.time);
     }
   }
+  /** لابردنی ئەو گەشتانەی detachTrip نیشانەی کردوون */
+  const dropLegless = (s) => {
+    if (s.trips.some((t) => t._drop)) s.trips = s.trips.filter((t) => !t._drop);
+  };
   const runStarted = (trips) => trips.some((t) => t.status === 'active' || t.status === 'done' || t.status === 'absent');
   /** گەشتەکانی ئەمڕۆی ڕۆتێک ڕێک دەخاتەوە (تەنها پێش دەستپێکردن) */
   function syncRun(s, route) {
@@ -1591,7 +1676,8 @@
     if (runStarted(inRun())) return;
     const subs = route.subIds
       .map((id) => s.subscriptions.find((x) => x.id === id))
-      .filter((x) => x && x.status === 'active' && x.driverId === route.driverId && dayApplies(x) && subTime(x, route.dir));
+      // کاتی جیاواز بۆ هەر ڕۆژێک: ئەو ڕۆژەی کاتەکەی زۆر جیاوازە لە کاتی ئاسایی، بە تەنها دەڕوات
+      .filter((x) => x && x.status === 'active' && x.driverId === route.driverId && dayApplies(x) && dayTime(x, route.dir) && inRouteOn(x, route.dir));
     subs.forEach((x) => {
       let t = s.trips.find((y) => y.subId === x.id && y.day === s.day && y.dir === route.dir);
       if (t && t.status !== 'scheduled' && t.status !== 'skipped') return; // پێشتر بە تاک دەستی پێکردووە
@@ -1600,6 +1686,7 @@
       t.routeId = route.id;
     });
     inRun().filter((t) => !subs.some((x) => x.id === t.subId)).forEach((t) => detachTrip(s, t));
+    dropLegless(s);
     const live = inRun().filter((t) => t.status === 'scheduled');
     const stops = runStops(s, route, subs.filter((x) => live.some((t) => t.subId === x.id)));
     inRun().forEach((t) => {
@@ -2001,6 +2088,75 @@
       if (String(newPass || '').length < 6) return 'وشەی نهێنی نوێ دەبێت لانیکەم ٦ پیت بێت';
       return changePass(oldPass, newPass);
     },
+    /**
+     * سەرنشین هەژمارەکەی خۆی دەسڕێتەوە:
+     * بەژدارییەکان هەڵدەوەشێنەوە (شۆفێر ئاگادار دەکرێتەوە)، زانیاری کەسی (ناو، ژمارە، خێزان، شوێنەکان، ئاگادارکردنەوە و مێژوو) دەسڕێتەوە،
+     * داواکارییە کۆنەکان بێناو دەکرێن، پاشان هەژماری چوونەژوورەوە دەسڕدرێتەوە.
+     * گەشت و نامە کۆنەکان (بێ ژمارە و بێ ناوی تەواو) بۆ حیسابی شۆفێر و سکاڵا دەمێننەوە.
+     */
+    async deleteMyAccount(pass) {
+      const nc = needCloud();
+      if (nc) return nc;
+      if (ROLE !== 'passenger' || !cloud.me) return 'نەکرا';
+      const me = cloud.me;
+      const acc = state.accounts.find((a) => a.uid === me);
+      if (acc && acc.blocked) return 'ئەم هەژمارە ڕاگیراوە. بۆ سڕینەوە پەیوەندی بە پشتگیری تەکسیەکەم بکە';
+      if (state.trips.some((t) => (t.owner || 'me') === 'me' && t.status === 'active')) return 'گەشتێکت ئێستا لە ڕێگەیە. دوای تەواوبوونی هەوڵ بدەرەوە';
+      try {
+        await window.TKFB.reauth(String(pass || ''));
+      } catch (e) {
+        return authErr(e);
+      }
+      const name = state.passenger.name;
+      const errBefore = cloud.lastWriteError;
+      update((s) => {
+        s.subscriptions.filter((x) => (x.owner || 'me') === 'me').map((x) => x.id).forEach((id) => endSub(s, id, 'deleted'));
+        // ناوەکان لە گەشتە کۆنەکانی خۆی
+        s.trips.filter((t) => (t.owner || 'me') === 'me').forEach((t) => {
+          t.title = 'گەشتی بەکارهێنەری سڕاوە';
+          (t.stops || []).forEach((st) => {
+            (st.parts || []).forEach((p) => {
+              if ((p.owner || 'me') !== 'me') return;
+              p.riders = 'سڕاوە';
+              p.people = (p.people || []).map((x) => Object.assign({}, x, { n: '' }));
+            });
+            if (st.parts) mergeParts(st);
+          });
+        });
+        s.requests.filter((r) => r.owner === 'me').forEach((r) => {
+          if (r.status === 'open') {
+            r.status = 'closed';
+            r.closedReason = 'cancel';
+            (r.offers || []).forEach((o) => o.status === 'pending' && (o.status = 'lost'));
+          }
+          r.ownerName = 'بەکارهێنەری سڕاوە';
+          r.riderNames = 'سڕاوە';
+          r.note = '';
+        });
+        s.notices = [];
+        s.history = [];
+        anotice(s, { kind: 'info', title: 'سەرنشینێک هەژمارەکەی سڕییەوە', body: `${name || ''}. ئەگەر ڕاپۆرت یان تۆماری هاوبەشی هەبێت، لە پانێڵ بیانسڕەوە` });
+      });
+      // چاوەڕێ دەکرێت تا هەموو گۆڕانکارییەکان بە دڵنیایی گەیشتنە سێرڤەر (بێ ئەوە سڕینەوە ناتەواو دەبێت)
+      const FAIL = 'سڕینەوە تەواو نەبوو. ئینتەرنێت بپشکنە و دووبارە هەوڵ بدەرەوە';
+      const ok = await Promise.race([
+        Promise.resolve(cloud.pending).then(() => (window.TKFB.waitWrites ? window.TKFB.waitWrites() : null)).then(() => true, () => false),
+        new Promise((r) => setTimeout(() => r(false), 30000)),
+      ]);
+      if (!ok || cloud.lastWriteError !== errBefore) return FAIL;
+      // پرۆفایلەکان بە دەست دەسڕدرێنەوە (cloudFlush هەرگیز پرۆفایلی خۆت ناسڕێتەوە)
+      cloud.deleting = true;
+      try {
+        for (const path of ['pax/' + me, 'accounts/' + me]) await window.TKFB.write({ op: 'delete', path });
+        await window.TKFB.deleteUser();
+      } catch (e) {
+        cloud.deleting = false;
+        console.warn('سڕینەوەی هەژمار', e && e.code);
+        return FAIL;
+      }
+      await clearDevice();
+      return null;
+    },
 
     addMember(name, kind, woman, age) {
       update((s) => {
@@ -2040,8 +2196,10 @@
           const fromGeo = TK.isGeo(draft.fromGeo) ? draft.fromGeo : null;
           const toGeo = TK.isGeo(draft.toGeo) ? draft.toGeo : null;
           const km = Math.round(TK.distance(draft.fromId, draft.toId, fromGeo, toGeo) * 10) / 10;
+          const pd = draft.perDay ? TK.normPerDay(draft.perDay) : null;
+          const sched = pd && !pd.empty ? { perDay: pd.perDay, days: pd.days, go: pd.go, back: pd.back } : { perDay: null, days: draft.days.slice(), go: draft.dir !== 'back' ? draft.go : null, back: draft.dir !== 'go' ? draft.backTime : null };
           const base = {
-            fromId: draft.fromId, toId: draft.toId, days: draft.days, oneWay: draft.dir !== 'both',
+            fromId: draft.fromId, toId: draft.toId, days: sched.days, go: sched.go, back: sched.back, perDay: sched.perDay,
             mode: draft.mode, rideType, riders: g.length, hasChild, km,
           };
           const r = {
@@ -2051,7 +2209,7 @@
             from: from.name + (draft.fromNote ? `، ${draft.fromNote}` : ''),
             to: to.name + (draft.toNote ? `، ${draft.toNote}` : ''),
             km,
-            go: draft.dir !== 'back' ? draft.go : null, back: draft.dir !== 'go' ? draft.backTime : null, days: draft.days.slice(),
+            go: sched.go, back: sched.back, days: sched.days, perDay: sched.perDay,
             replacesSub: draft.replacesSub || null,
             startDate: draft.startDate || null,
             mode: draft.mode, rideType, womanOnly: draft.womanOnly, note: draft.note || '',
@@ -2112,7 +2270,7 @@
         const d = s.drivers.find((x) => x.id === driverId);
         const sub = {
           id: 'sub' + uid(), reqId, owner: r.owner, memberIds: r.memberIds, riderNames: r.riderNames, hasChild: r.hasChild, driverId, from: r.from, to: r.to, go: r.go, back: r.back, km: r.km,
-          days: r.days, mode: r.mode, riders: r.riders, rideType: r.rideType, womanOnly: r.womanOnly, note: r.note || '', price: offer.price, status: 'active', startDate: r.startDate || null, pauseLog: [], createdAt: Date.now(),
+          days: r.days, perDay: r.perDay || null, mode: r.mode, riders: r.riders, rideType: r.rideType, womanOnly: r.womanOnly, note: r.note || '', price: offer.price, status: 'active', startDate: r.startDate || null, pauseLog: [], createdAt: Date.now(),
           ownerName: r.ownerName || '',
         };
         // شوێنی ورد تەنها دوای هەڵبژاردن دەدرێت بە شۆفێر (بەژداری تەنها خۆی و شۆفێرەکەی دەیبینن)
@@ -2137,11 +2295,41 @@
     sendMessage(driverId, peer, text, fromDriver) {
       update((s) => {
         const now = Date.now();
-        s.messages.push({ id: uid(), driverId, peer, fromDriver, text, at: now, readP: !fromDriver, readD: fromDriver });
+        const msgId = uid();
+        const nid = uid();
+        // nid: ئاگادارکردنەوەکەی وەرگر، بۆ ئەوەی ئەگەر نامەکە گەڕێنرایەوە دەقەکەی لەویش بسڕدرێتەوە
+        s.messages.push({ id: msgId, driverId, peer, fromDriver, text, at: now, readP: !fromDriver, readD: fromDriver, nid });
         const d = s.drivers.find((x) => x.id === driverId);
-        if (fromDriver) notice(s, { kind: 'chat', title: `نامە لە ${d ? d.name : 'شۆفێر'}`, body: text, link: `chat/${driverId}` }, peer);
-        else dnotice(s, driverId, { kind: 'chat', title: `نامە لە ${sel.peerName(peer)}`, body: text, link: `chat/${encodeURIComponent(peer)}` });
+        if (fromDriver) notice(s, { id: nid, kind: 'chat', title: `نامە لە ${d ? d.name : 'شۆفێر'}`, body: text, link: `chat/${driverId}`, msgId }, peer);
+        else dnotice(s, driverId, { id: nid, kind: 'chat', title: `نامە لە ${sel.peerName(peer)}`, body: text, link: `chat/${encodeURIComponent(peer)}`, msgId });
       });
+    },
+    /**
+     * گەڕاندنەوەی نامە تەنها تا ٥ خولەک دوای ناردن. لای هەردوولا «ئەم نامەیە گەڕێنرایەوە» دەردەکەوێت.
+     * دەقی ڕاستەقینە تەنها بۆ بەڕێوەبەر هەڵدەگیرێت (بۆ سکاڵا و سەلامەتی).
+     */
+    unsendMessage(id) {
+      const m = state.messages.find((x) => x.id === id);
+      if (!m || m.system || m.unsent || m.voice) return 'ئەم نامەیە ناگەڕێنرێتەوە';
+      if (!TK.canUnsend(m)) return 'تەنها تا ٥ خولەک دوای ناردن دەتوانیت نامە بگەڕێنیتەوە';
+      update((s) => {
+        const x = s.messages.find((y) => y.id === id);
+        if (!x || x.unsent) return;
+        const now = Date.now();
+        s.unsent = s.unsent || [];
+        s.unsent.unshift({ id: 'u' + uid(), msgId: x.id, text: x.text, sentAt: x.at, at: now, driverId: x.driverId, peer: x.peer === 'me' ? cloud.me : x.peer, fromDriver: !!x.fromDriver, by: cloud.me });
+        x.text = '';
+        x.unsent = true;
+        x.unsentAt = now;
+      });
+      // دەقی نامەکە لە ئاگادارکردنەوەی وەرگریش دەسڕدرێتەوە (دوای ئەوەی نامەکە گەڕێنرایەوە)
+      if (m.nid && window.TKFB) {
+        const path = (m.fromDriver ? 'pnotices/' : 'dnotices/') + m.nid;
+        Promise.resolve(cloud.pending)
+          .then(() => window.TKFB.write({ op: 'update', path, data: { body: 'ئەم نامەیە گەڕێنرایەوە' } }))
+          .catch((e) => console.warn('ئاگادارکردنەوەی نامە', e && e.code));
+      }
+      return null;
     },
     markThreadRead(driverId, peer, asDriver) {
       const need = state.messages.some((m) => m.driverId === driverId && m.peer === peer && (asDriver ? !m.fromDriver && !m.readD : m.fromDriver && !m.readP));
@@ -2248,20 +2436,18 @@
         const sub = s.subscriptions.find((x) => x.id === id);
         if (!sub) return;
         Object.assign(sub, patch);
-        s.trips.filter((t) => t.subId === id).forEach((t) => {
-          const isBack = t.dir === 'back';
-          const time = patch.go && !isBack ? patch.go : patch.back && isBack ? patch.back : null;
-          if (time && t.status === 'scheduled' && !t.runId) {
-            const shift = (+time.slice(0, 2) * 60 + +time.slice(3)) - (+t.time.slice(0, 2) * 60 + +t.time.slice(3));
+        // گەشتەکانی ئەمڕۆ کە هێشتا دەستیان پێنەکردووە بە کاتی نوێ ڕێک دەخرێنەوە
+        const today = (t) => t.subId === id && t.status === 'scheduled' && (!t.day || t.day === s.day);
+        s.trips = s.trips.filter((t) => !(today(t) && (!dayApplies(sub) || !dayTime(sub, t.dir))));
+        s.trips.filter((t) => today(t) && !t.runId).forEach((t) => {
+          const time = dayTime(sub, t.dir);
+          if (time && time !== t.time) {
+            const shift = toMin(time) - toMin(t.time);
             t.time = time;
             t.stops.forEach((x) => (x.time = fmt.addMin(x.time, shift)));
           }
         });
-        if (patch.days) {
-          // ئەگەر ئەمڕۆ لابرا یان زیاد کرا
-          if (!dayApplies(sub)) s.trips = s.trips.filter((t) => t.subId !== id || t.status !== 'scheduled');
-          else genTrips(s, sub);
-        }
+        if (!dayApplies(sub)) s.trips = s.trips.filter((t) => !today(t));
         // ئەگەر کاتی نوێ لەگەڵ ڕۆتەکەی ناگونجێت، لە ڕۆتەکە دەردەچێت و شۆفێر ئاگادار دەکرێتەوە
         (s.routes || []).filter((r) => r.subIds.includes(id)).forEach((r) => {
           const tm = subTime(sub, r.dir);
@@ -2320,7 +2506,7 @@
         if (!t || t.status !== 'scheduled') return;
         const c = cfg();
         const sub = s.subscriptions.find((x) => x.id === t.subId);
-        const perTrip = sub ? sub.price / Math.max(1, sub.days.filter(Boolean).length * 4.3 * (sub.go && sub.back ? 2 : 1)) : 0;
+        const perTrip = sub ? sub.price / Math.max(1, TK.legsPerWeek(sub) * 4.3) : 0;
         const credit = Math.max(c.noShowCreditMin, Math.round(perTrip / 500) * 500);
         t.status = 'noshow';
         const adj = { id: 'a' + uid(), amount: credit, note: `قەرەبوو: شۆفێر نەهات، ${t.title}`, at: Date.now() };
@@ -2499,6 +2685,21 @@
     async adminChangePassword(oldPass, newPass) {
       if (String(newPass || '').length < 8) return 'وشەی نهێنی نوێ لانیکەم ٨ پیت بێت';
       return changePass(oldPass, newPass);
+    },
+    /** شۆفێر داوای سڕینەوەی هەژمارەکەی دەکات؛ بەڕێوەبەر دوای تەواوکردنی حیساب دەیسڕێتەوە */
+    requestDriverDeletion(on) {
+      update((s) => {
+        const d = s.drivers.find((x) => x.id === s.driver.meId);
+        if (!d) return;
+        if (on) {
+          d.deleteRequestedAt = Date.now();
+          d.online = false;
+          anotice(s, { kind: 'driver', red: true, title: `${d.name} داوای سڕینەوەی هەژمارەکەی کرد`, body: 'دوای تەواوکردنی حیساب و موچە، لە لاپەڕەی شۆفێر بیسڕەوە', link: `driver/${d.id}` });
+        } else {
+          delete d.deleteRequestedAt;
+          anotice(s, { kind: 'driver', title: `${d.name} داوای سڕینەوەی هەڵوەشاندەوە`, body: '', link: `driver/${d.id}` });
+        }
+      });
     },
     setMyDriver(patch) {
       update((s) => {
@@ -2832,6 +3033,7 @@
         const route = s.routes.find((x) => x.id === id);
         s.routes = s.routes.filter((x) => x.id !== id);
         s.trips.filter((t) => t.routeId === id && (t.status === 'scheduled' || t.status === 'skipped')).forEach((t) => detachTrip(s, t));
+        dropLegless(s);
         route.subIds.forEach((sid) => {
           const x = s.subscriptions.find((y) => y.id === sid);
           if (x) notice(s, { kind: 'info', title: 'گۆڕانکاری لە گەشتەکەت', body: `${x.riderNames} ئیتر بە تەنها دەچن، کاتی سوارکردن ${fmt.clock(subTime(x, route.dir))}`, link: 'trips' }, x.owner);
@@ -2900,8 +3102,8 @@
     const d = s.drivers.find((x) => x.id === sub.driverId);
     if (d) d.freeSeats += sub.mode === 'one' ? sub.memberIds.length : 1;
     const names = sub.riderNames;
-    const who = sel.peerName(sub.owner || 'me');
-    const reason = why === 'change' ? 'شۆفێری گۆڕی' : why === 'admin' ? 'بەژدارییەکەی لەلایەن بەڕێوەبەرەوە هەڵوەشێنرایەوە' : 'بەژدارییەکەی هەڵوەشاندەوە';
+    const who = why === 'deleted' ? 'سەرنشینێک' : sel.peerName(sub.owner || 'me');
+    const reason = why === 'change' ? 'شۆفێری گۆڕی' : why === 'admin' ? 'بەژدارییەکەی لەلایەن بەڕێوەبەرەوە هەڵوەشێنرایەوە' : why === 'deleted' ? 'هەژمارەکەی سڕییەوە' : 'بەژدارییەکەی هەڵوەشاندەوە';
     s.messages.push({ id: uid(), driverId: sub.driverId, peer: sub.owner || 'me', fromDriver: false, system: true, text: `${who} ${reason} (${names}، ${sub.to})`, at: Date.now(), readP: true, readD: false });
     dnotice(s, sub.driverId, { kind: 'info', title: `${who} ${reason}`, body: `${names}، ${sub.to}، گەشتەکانی داهاتوو لابران` });
     notice(s, { kind: 'info', title: why === 'change' ? 'شۆفێر گۆڕا' : 'بەژدارییەکە هەڵوەشێنرایەوە', body: `${names}، ${d ? d.name : ''} ئاگادار کرایەوە. گەشتە کراوەکان لە «گەشتەکانم» دەمێننەوە` }, sub.owner);
@@ -3841,6 +4043,17 @@
     document.querySelectorAll('[data-live-left]').forEach((el) => {
       el.textContent = fmt.n(fmt.left(Number(el.getAttribute('data-live-left'))));
     });
+    // بانەری نامەیەک کە دواتر گەڕێنرایەوە
+    const ib = document.getElementById('inbanner');
+    const mid = ib && ib.getAttribute('data-msg');
+    if (mid) {
+      const m = state.messages.find((x) => x.id === mid);
+      const body = ib.querySelector('.sm');
+      if (m && m.unsent && body) {
+        body.textContent = 'ئەم نامەیە گەڕێنرایەوە';
+        ib.setAttribute('data-msg', '');
+      }
+    }
     runHooks('live');
   }
   TK.live = () => live();
@@ -3901,7 +4114,8 @@
     }
     const [ic] = ui.noticeIcon(n.kind);
     el.setAttribute('data-link', n.link || '');
-    el.innerHTML = `<div class="ico-box">${TK.icon(ic, 20, 'var(--brand)')}</div><div class="grow"><b>${esc(n.title)}</b><div class="sm muted ellipsis">${esc(n.body || '')}</div></div>`;
+    el.setAttribute('data-msg', n.msgId || '');
+    el.innerHTML = `<div class="ico-box">${TK.icon(ic, 20, 'var(--brand)')}</div><div class="grow"><b>${esc(n.title)}</b><div class="sm muted ellipsis">${esc(noticeBody(n) || '')}</div></div>`;
     localizeDigits(el);
     el.classList.add('show');
     clearTimeout(bannerTimer);
@@ -3916,7 +4130,7 @@
   }
   function systemNotify(n) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const opts = { body: fmt.n(n.body || ''), icon: 'icon-192.png', badge: 'icon-192.png', tag: n.id, data: { link: n.link || '' } };
+    const opts = { body: fmt.n(noticeBody(n) || ''), icon: 'icon-192.png', badge: 'icon-192.png', tag: n.id, data: { link: n.link || '' } };
     const fallback = () => {
       try {
         const x = new Notification(fmt.n(n.title), opts);
@@ -4079,6 +4293,15 @@
   /* =========================================================
    * ١١. پێکهاتە هاوبەشەکان (HTML)
    * ======================================================= */
+  /** دەقی ئاگادارکردنەوە: ئەگەر نامەکە گەڕێنرابێتەوە، دەقەکەی پیشان نادرێت */
+  const noticeBody = (n) => {
+    if (n && n.msgId) {
+      const m = state.messages.find((x) => x.id === n.msgId);
+      if (m && m.unsent) return 'ئەم نامەیە گەڕێنرایەوە';
+    }
+    return n ? n.body : '';
+  };
+  TK.noticeBody = noticeBody;
   const ui = {
     icon: TK.icon,
     avatar(initial, tone = '', size = 44) {
@@ -4279,12 +4502,15 @@
           lastDay = day;
           if (m.system) return `${sep}<div class="sys-msg">${esc(m.text)}</div>`;
           const mine = m.fromDriver === asDriver;
+          if (m.unsent) return `${sep}<div class="bubble ${mine ? 'me' : 'them'} unsent">${TK.icon('x', 14)}${mine ? 'نامەکەت گەڕاندەوە' : 'ئەم نامەیە گەڕێنرایەوە'}<div class="time">${fmt.clock(fmt.hhmm(m.at))}</div></div>`;
           const body = m.voice
             ? `<div class="voice">${TK.icon('play', 16, 'currentColor', 2, 'currentColor')}<span class="wave"></span><span class="xs">0:0${m.voice}</span></div>`
             : esc(m.text);
           const read = asDriver ? m.readP : m.readD;
           const tick = mine ? `<span class="ticks ${read ? 'read' : ''}">${read ? '✓✓' : '✓'}</span>` : '';
-          return `${sep}<div class="bubble ${mine ? 'me' : 'them'}">${body}<div class="time">${fmt.clock(fmt.hhmm(m.at))} ${tick}</div></div>`;
+          // نامەی خۆت تا ٥ خولەک: دەستلێدان ← گەڕاندنەوە
+          const undo = TK.canUnsend(m) ? ` tap" data-act="msgMenu" data-arg="${esc(m.id)}` : '';
+          return `${sep}<div class="bubble ${mine ? 'me' : 'them'}${undo}">${body}<div class="time">${fmt.clock(fmt.hhmm(m.at))} ${tick}${undo ? ` <span class="undo-hint">${TK.icon('undo', 12)}</span>` : ''}</div></div>`;
         })
         .join('')}</div>`;
     },
@@ -4299,7 +4525,7 @@
           const replied = !mine;
           const read = asDriver ? last.readP : last.readD;
           const status = last.system ? '' : mine ? (read ? '<span class="badge info">بینیویەتی</span>' : '<span class="badge">چاوەڕێی وەڵام</span>') : replied && t.unread ? '' : '<span class="badge ok">وەڵامی دایەوە</span>';
-          const preview = last.voice ? 'نامەی دەنگی' : last.text;
+          const preview = last.unsent ? 'نامەیەک گەڕێنرایەوە' : last.voice ? 'نامەی دەنگی' : last.text;
           return `<div class="item tap" data-go="${esc(h.link)}">
             <div style="position:relative">${h.avatar}${h.online ? '<span class="online-dot"></span>' : ''}</div>
             <div class="grow" style="min-width:0">
@@ -4326,18 +4552,26 @@
           const [ic, tone] = ui.noticeIcon(n.kind);
           return `<div class="item ${n.link ? 'tap' : ''}" ${n.link ? `data-go="${esc(n.link)}"` : ''}>
             <div class="ico-box ${tone}">${TK.icon(ic, 20, 'var(--brand)')}</div>
-            <div class="grow"><div class="bold" style="font-size:.95rem">${esc(n.title)}</div><div class="sm muted">${esc(n.body)}</div></div>
+            <div class="grow"><div class="bold" style="font-size:.95rem">${esc(n.title)}</div><div class="sm muted">${esc(noticeBody(n))}</div></div>
             <div class="col tight" style="align-items:flex-end"><span class="xs muted" style="white-space:nowrap">${fmt.ago(n.at)}</span>${n.at > readAt ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--amber)"></span>' : ''}</div>
           </div>`;
         })
         .join('')}</div>`;
     },
+    /** خشتەی کاتەکانی هەر ڕۆژێک (کاتێک کاتەکان جیاوازن) */
+    perDayList(x) {
+      const rows = [0, 1, 2, 3, 4, 5, 6].filter((i) => x.perDay[i] && (x.perDay[i].go || x.perDay[i].back));
+      return `<div class="pdlist">${rows.map((i) => {
+        const e = x.perDay[i];
+        return `<div class="pdl"><b>${fmt.WEEKDAYS[i]}</b><span>${e.go ? `چوون ${fmt.clock(e.go)}` : '<i class="muted">بێ چوون</i>'}</span><span>${e.back ? `هاتنەوە ${fmt.clock(e.back)}` : '<i class="muted">بێ هاتنەوە</i>'}</span></div>`;
+      }).join('')}</div>`;
+    },
     requestSummary(r) {
       return `<div class="col tight">
         <div class="row sm">${TK.icon('pin', 16, 'var(--success)')}<span class="grow">${esc(r.from)}</span></div>
         <div class="row sm">${TK.icon('pin', 16, 'var(--amber)')}<span class="grow">${esc(r.to)}</span></div>
-        <div class="row sm muted">${TK.icon('clock', 16)}<span>${fmt.schedule(r)}</span></div>
-        <div class="row sm muted">${TK.icon('calendar', 16)}<span>${fmt.days(r.days)}</span></div>
+        ${hasPerDay(r) ? ui.perDayList(r) : `<div class="row sm muted">${TK.icon('clock', 16)}<span>${fmt.schedule(r)}</span></div>
+        <div class="row sm muted">${TK.icon('calendar', 16)}<span>${fmt.days(r.days)}</span></div>`}
         ${r.startDate ? `<div class="row sm muted">${TK.icon('flag', 16)}<span>دەستپێکردن: ${fmt.day(r.startDate)}</span></div>` : ''}
       </div>`;
     },
@@ -4421,6 +4655,15 @@
 
   /* ---------- کردارە هاوبەشەکان (ڕێکخستن) ---------- */
   Object.assign(app.acts, {
+    /** گەڕاندنەوەی نامەی خۆت (تا ٥ خولەک) */
+    msgMenu: async (id) => {
+      const m = state.messages.find((x) => x.id === id);
+      if (!TK.canUnsend(m)) return;
+      const left = Math.max(1, Math.ceil((TK.UNSEND_MS - (Date.now() - m.at)) / 60000));
+      if (!(await TK.ask(`«${String(m.text).slice(0, 80)}» دەگەڕێنرێتەوە و لای کەسەکەی تر «ئەم نامەیە گەڕێنرایەوە» دەردەکەوێت. (${left} خولەکی ماوە)`, { title: 'گەڕاندنەوەی نامە', yes: 'گەڕاندنەوە', icon: 'undo' }))) return;
+      const err = actions.unsendMessage(id);
+      TK.toast(err || 'نامەکە گەڕێنرایەوە');
+    },
     setTheme: (v) => actions.setSetting('theme', v),
     setScale: (v) => actions.setSetting(TK.scaleKey || 'textScale', v),
     setDigits: (v) => actions.setSetting('digits', v),
@@ -4462,6 +4705,13 @@
       <button class="btn block" data-close>تێگەیشتم</button>`);
   };
 
+  /** ئایا ئەم نامەیە هی ئەم بەکارهێنەرەیە و هێشتا لە ٥ خولەکەکەدایە */
+  TK.UNSEND_MS = 5 * 60000;
+  TK.canUnsend = function (m) {
+    if (!m || m.system || m.unsent || m.voice) return false;
+    const mine = ROLE === 'driver' ? m.fromDriver && m.driverId === state.driver.meId : ROLE === 'passenger' ? !m.fromDriver && (m.peer || 'me') === 'me' : false;
+    return mine && Date.now() - m.at < TK.UNSEND_MS;
+  };
   /** شاردنەوەی ژمارەی تەلەفۆن لە چاتدا (بۆ ئەوەی پەیوەندی لەناو ئەپ بمێنێتەوە) */
   TK.maskPhones = function (text) {
     const re = /(\+?[0-9٠-٩][0-9٠-٩\s-]{6,}[0-9٠-٩])/g;

@@ -37,9 +37,17 @@ service cloud.firestore {
     match /adminNotices/{id} { allow read, update, delete: if isAdmin(); allow create: if signedIn(); }
 
     // ---------- ئاگادارکردنەوە و مێژوو (کەسانی تر بۆ خاوەنەکەی دەینووسن) ----------
-    match /pnotices/{id} { allow read, update, delete: if isAdmin() || inR(); allow create: if signedIn(); }
+    // ناردەری نامەیەکی گەڕێنراوە دەتوانێت دەقەکەی لە ئاگادارکردنەوەی وەرگر بسڕێتەوە
+    function unsentNotice() {
+      return signedIn() && resource.data.get('msgId', null) != null && changed().hasOnly(['body']) && request.resource.data.body == 'ئەم نامەیە گەڕێنرایەوە'
+        && get(/databases/$(database)/documents/messages/$(resource.data.msgId)).data.unsent == true
+        && (get(/databases/$(database)/documents/messages/$(resource.data.msgId)).data.fromDriver == true
+            ? get(/databases/$(database)/documents/messages/$(resource.data.msgId)).data.driverId == uid()
+            : get(/databases/$(database)/documents/messages/$(resource.data.msgId)).data.peer == uid());
+    }
+    match /pnotices/{id} { allow read, delete: if isAdmin() || inR(); allow update: if isAdmin() || inR() || unsentNotice(); allow create: if signedIn(); }
     match /phistory/{id} { allow read, update, delete: if isAdmin() || inR(); allow create: if signedIn(); }
-    match /dnotices/{id} { allow read, update, delete: if isAdmin() || inR(); allow create: if signedIn(); }
+    match /dnotices/{id} { allow read, delete: if isAdmin() || inR(); allow update: if isAdmin() || inR() || unsentNotice(); allow create: if signedIn(); }
     match /ledger/{id} { allow read: if isAdmin() || inR(); allow create: if signedIn(); allow update, delete: if isAdmin(); }
     // «resource == null»: ئامێرەکە پێش دروستکردن دەپشکنێت ئایا هەیە (transaction)، بەڵگەنامەی نەبوو هیچ ئاشکرا ناکات
     match /driverLog/{id} { allow read: if resource == null || isAdmin() || inR(); allow update, delete: if isAdmin() || inR(); allow create: if isAdmin() || inNewR(); }
@@ -50,7 +58,8 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && uid() == id);
       allow create: if isAdmin() || (isPax() && uid() == id && !('blocked' in request.resource.data));
       allow update: if isAdmin() || (signedIn() && uid() == id && !changed().hasAny(['blocked']));
-      allow delete: if isAdmin();
+      // سەرنشین دەتوانێت هەژمارەکەی خۆی بسڕێتەوە، مەگەر ڕاگیرابێت
+      allow delete: if isAdmin() || (signedIn() && uid() == id && resource.data.get('blocked', false) != true);
     }
     match /pax/{id} { allow read, write: if isAdmin() || (signedIn() && uid() == id); }
     // بەشی تایبەتی شۆفێر (بەڵگەنامە، ناونیشان، موچە)
@@ -113,8 +122,22 @@ service cloud.firestore {
       allow create: if isAdmin() || inNewR();
     }
     match /messages/{id} {
-      allow read, update, delete: if isAdmin() || inR();
+      // ناردەری نامەکە
+      function sender() { return resource.data.fromDriver == true ? resource.data.driverId == uid() : resource.data.peer == uid(); }
+      allow read: if isAdmin() || inR();
+      // نامەکان بەڵگەن: تەنها بەڕێوەبەر دەیانسڕێتەوە
+      allow delete: if isAdmin();
       allow create: if isAdmin() || inNewR();
+      // دەقی نامە ناگۆڕدرێت؛ تەنها ناردەر دەتوانێت تا ٥ خولەک بیگەڕێنێتەوە (١ خولەک زیاتر بۆ جیاوازی کاتژمێر)
+      allow update: if isAdmin() || (inR() && (
+        !changed().hasAny(['text', 'unsent', 'unsentAt', 'at', 'fromDriver', 'driverId', 'peer'])
+        || (sender() && resource.data.get('system', false) != true && changed().hasOnly(['text', 'unsent', 'unsentAt']) && request.resource.data.unsent == true
+            && request.resource.data.text == '' && request.time.toMillis() < resource.data.at + 360000)));
+    }
+    // دەقی ڕاستەقینەی نامە گەڕێنراوەکان: تەنها بەڕێوەبەر دەیخوێنێتەوە
+    match /unsent/{id} {
+      allow read, update, delete: if isAdmin();
+      allow create: if signedIn() && request.resource.data.by == uid();
     }
   }
 }
