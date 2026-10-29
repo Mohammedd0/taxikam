@@ -3633,7 +3633,7 @@
     root.dataset.scale = st[TK.scaleKey || 'textScale'] || 'md';
     root.dataset.map = st.mapStyle;
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#181C24' : '#F6F7FA');
+    if (meta) meta.setAttribute('content', dark ? '#16181D' : '#FFFFFF');
   }
   if (mq && mq.addEventListener) mq.addEventListener('change', applyTheme);
   TK.applyTheme = applyTheme;

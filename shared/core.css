@@ -1438,3 +1438,73 @@ html.pas[data-theme="dark"] .list .ico-box, html.pas[data-theme="dark"] .ico-box
 .ds-price b { font-size: 1.25rem; font-weight: 900; }
 .ds-price b small { font-size: .8rem; }
 :root[data-theme="dark"] .ds-price { background: rgba(255, 255, 255, .08); color: #F2F4F7; box-shadow: none; }
+
+/* =========================================================
+ * یەکسا v36: باکگراوندی سادەی سپی، کارتی ڕوون، دوگمەی #1C1C1E (بێ گرادیەنت)
+ * لە دۆخی تاریک: باکگراوندی گرافیت و دوگمەی ڕووناک
+ * ======================================================= */
+:root, html.drv, html.pas {
+  --navy: #1C1C1E;
+  --act: #1C1C1E;
+  --act-grad: #1C1C1E;
+  --act-text: #FFFFFF;
+  --act-shadow: 0 6px 16px rgba(28, 28, 30, .16);
+  --silver: #F2F2F4;
+  --silver-line: #E6E6EA;
+  --silver-text: #1C1C1E;
+  --bg: #FFFFFF;
+  --card: #F7F8FA;
+  --glass: #F7F8FA;
+  --glass-line: #EEF0F3;
+  --line: #E6E8EC;
+  --chip: #F2F3F5;
+  --text: #101828;
+  --muted: #475467;
+  --brand: #1C1C1E;
+  --nav: rgba(255, 255, 255, .94);
+  --app-bg: #FFFFFF;
+}
+:root[data-theme="dark"], html.drv[data-theme="dark"], html.pas[data-theme="dark"] {
+  --navy: #2A2D33;
+  --act: #F2F2F7;
+  --act-grad: #F2F2F7;
+  --act-text: #1C1C1E;
+  --act-shadow: 0 6px 16px rgba(0, 0, 0, .3);
+  --silver: rgba(255, 255, 255, .08);
+  --silver-line: rgba(255, 255, 255, .06);
+  --silver-text: #E4E7EC;
+  --bg: #16181D;
+  --card: #1F2228;
+  --glass: #1F2228;
+  --glass-line: #2C3038;
+  --line: #2C3038;
+  --chip: #262A31;
+  --text: #E4E7EC;
+  --muted: #9AA3B2;
+  --brand: #E4E7EC;
+  --nav: rgba(31, 34, 40, .94);
+  --app-bg: #16181D;
+}
+@media (min-width: 520px) {
+  body { background: #EEF0F3; }
+  :root[data-theme="dark"] body { background: #0E0F12; }
+}
+/* کارت: ڕەنگی ڕوون، بێ سێبەری قورس */
+.card, .list, .dsub, .tsub, .sfind, html.pas .tripcard { box-shadow: none; }
+.dsub::before { display: none; }
+.bubble.them { background: var(--chip); border-color: transparent; }
+.icon-btn { box-shadow: none; border: 1px solid var(--glass-line); }
+.seg { background: var(--chip); }
+.seg button.on { background: #FFFFFF; color: var(--text); box-shadow: 0 1px 4px rgba(16, 24, 40, .1); }
+:root[data-theme="dark"] .seg { background: rgba(255, 255, 255, .06); }
+:root[data-theme="dark"] .seg button.on { background: #33373F; color: #F2F2F7; box-shadow: none; }
+.btn, .bigact, html.drv .bigact, html.drv .bigact.go { box-shadow: var(--act-shadow); }
+.btn.secondary, .btn.ghost, .btn.outline, .btn.danger, .ts-acts .btn { box-shadow: none; }
+@keyframes actGlow { 50% { box-shadow: 0 10px 26px rgba(28, 28, 30, .32); } }
+@keyframes actGlowD { 50% { box-shadow: 0 8px 26px rgba(242, 242, 247, .16); } }
+.bottom-nav { box-shadow: 0 6px 24px rgba(16, 24, 40, .1), 0 0 0 1px var(--glass-line); }
+.splash { background: #1C1C1E; }
+.input { background: var(--bg); }
+.card .input, .sheet .input { background: var(--bg); }
+.ds-drv { background: var(--bg); border-color: var(--glass-line); }
+.ts-chat, .sf-ic { box-shadow: none; }
