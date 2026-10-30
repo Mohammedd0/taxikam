@@ -22,6 +22,8 @@
     refMax: 10000, // زۆرترین داشکاندن کاتێک بە ٪ بێت
     pointsPerRating: 20, // خاڵ بۆ هەر هەڵسەنگاندنێک
     rewards: null, // لیستی پاداشتەکان (null = بنەڕەت)
+    faq: null, // پرسیارە باوەکان (null = بنەڕەت)
+    contacts: [], // ژمارەکانی پەیوەندی بە یەکسا: { id, phone, label, aud: p|d|all }
     offerRange: 0.15, // شۆفێر دەتوانێت تا ١٥٪ کەمتر یان زیاتر نرخ پێشنیار بکات
     requestHours: 48, // داواکاری دوای ٤٨ کاتژمێر دادەخرێت
     basePrice: 50000, // نرخی بنەڕەتی مانگانە
@@ -140,6 +142,21 @@
       if (h < 24) return `${h} کاتژمێر لەمەوبەر`;
       if (h < 48) return 'دوێنێ';
       return `${Math.floor(h / 24)} ڕۆژ لەمەوبەر`;
+    },
+    /** کاتی ئاگادارکردنەوە: ئێستا، ٥ خولەک، ٣ کاتژمێر، دوێنێ ٩:١٥ بەیانی، ٣ ڕۆژ، یان بەروار */
+    noticeWhen(at) {
+      const d = new Date(at);
+      const mins = Math.floor((Date.now() - at) / 60000);
+      const day0 = new Date();
+      day0.setHours(0, 0, 0, 0);
+      const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      if (mins < 1) return 'ئێستا';
+      if (mins < 60) return `${mins} خولەک لەمەوبەر`;
+      if (at >= day0.getTime()) return `${Math.floor(mins / 60)} کاتژمێر لەمەوبەر`;
+      if (at >= day0.getTime() - 864e5) return `دوێنێ، ${fmt.clock(hm)}`;
+      const days = Math.ceil((day0.getTime() - at) / 864e5);
+      if (days < 7) return `${days} ڕۆژ لەمەوبەر`;
+      return fmt.date(at);
     },
     left(until) {
       const mins = Math.max(0, Math.floor((until - Date.now()) / 60000));
@@ -688,7 +705,7 @@
     'birth', 'idNo', 'idExpiry', 'idFront', 'idBack', 'licNo', 'licClass', 'licExpiry', 'licFront', 'licBack', 'regNo', 'regExpiry', 'regPhoto',
     'secPhoto', 'secDate', 'emergencyName', 'emergencyPhone', 'district', 'neighborhood', 'landmark', 'payMethod', 'payAccount',
     'docStatus', 'docReason', 'termsAt', 'terms', 'readNoticesAt', 'carFront', 'carBack', 'carLeft', 'carRight', 'carInside', 'addedByAdmin', 'gender',
-    'payChangedAt', 'payAckAt', 'payAckFor', 'payPrev', 'deleteRequestedAt',
+    'payChangedAt', 'payAckAt', 'payAckFor', 'payPrev', 'deleteRequestedAt', 'tickets',
   ]);
   // بەشی تایبەتی سەرنشین (pax/{uid})؛ ئاگادارکردنەوە و مێژوو کۆلێکشنی جیان
   const PAX_FIELDS = ['passenger', 'family', 'readNoticesAt', 'rewards', 'billing', 'tickets', 'seenNews', 'pins'];
@@ -2542,7 +2559,7 @@
       update((s) => {
         const t = { id: 1000 + Math.floor(Math.random() * 9000), subject, status: 'open', at: Date.now(), by: s.passenger.name, phone: s.passenger.phone };
         s.tickets.unshift(t);
-        anotice(s, { kind: 'ticket', title: `داواکاری پشتگیری لە ${s.passenger.name}`, body: subject, link: 'reports' });
+        anotice(s, { kind: 'ticket', title: `سکاڵا لە ${s.passenger.name}`, body: subject, link: 'reports' });
       });
     },
     /** ڕاگرتن / دەستپێکردنەوەی بەشداری. شۆفێر ئاگادار دەکرێتەوە */
@@ -2818,6 +2835,23 @@
     async adminChangePassword(oldPass, newPass) {
       if (String(newPass || '').length < 8) return 'وشەی نهێنی نوێ لانیکەم ٨ پیت بێت';
       return changePass(oldPass, newPass);
+    },
+    /** سکاڵای شۆفێر بۆ تیمی یەکسا (لە بەشی تایبەتی شۆفێردا هەڵدەگیرێت، تەنها خۆی و بەڕێوەبەر دەیبینن) */
+    driverTicket(subject) {
+      update((s) => {
+        const d = s.drivers.find((x) => x.id === s.driver.meId);
+        if (!d) return;
+        const t = { id: 1000 + Math.floor(Math.random() * 9000), subject, status: 'open', at: Date.now() };
+        d.tickets = [t].concat(d.tickets || []).slice(0, 50);
+        anotice(s, { kind: 'ticket', title: `سکاڵا لە شۆفێر ${d.name}`, body: subject, link: 'reports' });
+      });
+    },
+    /** شۆفێر وەڵامەکانی بینی */
+    driverTicketsSeen() {
+      update((s) => {
+        const d = s.drivers.find((x) => x.id === s.driver.meId);
+        if (d && d.tickets) d.tickets.forEach((t) => { if (t.reply) t.seen = true; });
+      });
     },
     /** شۆفێر داوای سڕینەوەی هەژمارەکەی دەکات؛ بەڕێوەبەر دوای تەواوکردنی حیساب دەیسڕێتەوە */
     requestDriverDeletion(on) {
@@ -3224,6 +3258,16 @@
   TK.ledgerAdd = ledger;
   TK.noticeAdd = (s, n, owner) => notice(s, n, owner);
   TK.dnoticeAdd = (s, n) => dnotice(s, n.driverId, n);
+  /** بەشی ئاگادارکردنەوەی شۆفێر بۆ دوگمەکانی سەرەوە: pay پارە، req داواکاری، acct هەژمار، trip گەشت (ئاگادارکردنەوە کۆنەکانیش دەگرێتەوە) */
+  TK.dnoticeCat = (n) => {
+    const l = String(n.link || '');
+    const t = String(n.title || '');
+    if (n.kind === 'pay' || n.kind === 'self' || l.startsWith('earnings') || /سزا|پاداشت|موچە|کۆمیسیۆن|قەرز|حیساب/.test(t)) return 'pay';
+    if (n.kind === 'offer' || l.startsWith('request')) return 'req';
+    if (l.startsWith('profile') || l.startsWith('support') || /بەڵگەنامە|هەژمار|سکاڵا|پشتڕاست/.test(t)) return 'acct';
+    if (n.kind === 'swap' || /^(trip|routes|today|riders)/.test(l) || /بەشداری|گەشت|سەرنشین|جێگرەوە/.test(t)) return 'trip';
+    return '';
+  };
   TK.endSubIn = (s, id, why) => endSub(s, id, why);
   /** کۆتاییهێنان بە بەشداری: گەشتە نەکراوەکان لادەبرێن، مێژوو دەمێنێتەوە */
   function endSub(s, id, why) {
@@ -3362,6 +3406,30 @@
     { id: 'rw3', title: 'هەفتەیەکی بەخۆڕایی', cost: 2500, kind: 'days', amount: 7, repeat: true, on: true },
   ];
   TK.REWARDS_DEFAULT = REWARDS_DEFAULT;
+
+  /* ---------- پرسیارە باوەکان (بەڕێوەبەر دیارییان دەکات). aud: p سەرنشین، d شۆفێر، all هەردووکیان ---------- */
+  const FAQ_DEFAULT = [
+    { id: 'fq1', aud: 'p', on: true, q: 'ئەگەر شۆفێرەکەم نەهات چی دەبێت؟', a: 'شۆفێرێکی جێگرەوە بە هەمان کات و نرخ دێت و پێشوەختە ئاگادار دەکرێیتەوە. ئەگەر دواکەوتن هەبوو، قەرەبووی ڕۆژەکە بۆ فاتورەی داهاتوو زیاد دەکرێت.' },
+    { id: 'fq2', aud: 'p', on: true, q: 'چۆن نرخ دیاری دەکرێت؟', a: 'ئەپەکە بە پێی دووری ڕێگا، ژمارەی ڕۆژەکان و ژمارەی سەرنشینەکان نرخێک پێشنیار دەکات. شۆفێرەکان دەتوانن تا {offerRange} کەمتر یان زیاتر نرخ بنێرن و تۆ هەڵدەبژێریت.' },
+    { id: 'fq3', aud: 'p', on: true, q: 'دەتوانم بەشدارییەکەم ڕابگرم؟', a: 'بەڵێ، لە بەشی بەشداری «ڕاگرتنی کاتی» دابگرە. بۆ ئەو ڕۆژانەی ڕاگیراوە پارە نادەیت.' },
+    { id: 'fq4', aud: 'p', on: true, q: 'چۆن پەیوەندی بە شۆفێرەکەمەوە بکەم؟', a: 'لە ناو ئەپ نامەی بۆ بنێرە، یان لە پەڕەی شۆفێرەکە پەیوەندی تەلەفۆنی پێوە بکە. ژمارەی مۆبایلی تۆ لای شۆفێر هەمیشە شاراوەیە.' },
+  ];
+  TK.FAQ_DEFAULT = FAQ_DEFAULT;
+  /** ژمارەکانی پەیوەندی کە بەڕێوەبەر دایناون (سەرنشین p، شۆفێر d) */
+  TK.contactsFor = (aud) => (Array.isArray(cfg().contacts) ? cfg().contacts : []).filter((x) => x.phone && (x.aud === aud || !x.aud || x.aud === 'all'));
+  /** پەنجەرەی «پەیوەندی»: لیستی ژمارەکان، هەر یەکەیان پەیوەندی تەلەفۆنی ڕاستەوخۆ */
+  TK.contactSheet = (aud) => TK.sheet(() => {
+    const l = TK.contactsFor(aud);
+    return `<div class="h2 center">پەیوەندی بە یەکسا</div>
+      ${l.length ? `<div class="list contact-list">${l.map((x) => `<a class="item tap" href="tel:+964${esc(x.phone)}"><div class="grow"><b class="latin" dir="ltr" style="display:block;text-align:right">${fmt.phone(x.phone)}</b>${x.label ? `<div class="xs muted">${esc(x.label)}</div>` : ''}</div><span class="ico-box ok">${TK.icon('phone', 20, 'var(--ok-text)')}</span></a>`).join('')}</div>`
+        : '<div class="sm muted center">هێشتا هیچ ژمارەیەک دانەنراوە</div>'}
+      <button class="btn ghost block" data-close>داخستن</button>`;
+  });
+  TK.faqAll = () => (Array.isArray(cfg().faq) ? cfg().faq : FAQ_DEFAULT);
+  /** پرسیارە چالاکەکانی سەرنشین (p) یان شۆفێر (d) */
+  TK.faqList = (aud) => TK.faqAll().filter((x) => x.on !== false && (x.aud === aud || x.aud === 'all'));
+  /** {offerRange} لە وەڵامدا دەبێتە ڕێژەی ئێستای ڕێکخستن (بۆ نموونە ١٥٪) */
+  TK.faqText = (t) => String(t || '').replace(/\{offerRange\}/g, `${fmt.n(Math.round((cfg().offerRange || 0) * 100))}٪`);
   TK.rewardsList = () => {
     const l = cfg().rewards;
     return Array.isArray(l) ? l : REWARDS_DEFAULT;
@@ -4794,6 +4862,10 @@
     dAvatar(d, size = 44) {
       return ui.personAv(d && d.photo, size);
     },
+    /** لیستی پرسیارە باوەکان (کردنەوە و داخستن) */
+    faq(list) {
+      return `<div class="list">${list.map((x) => `<details class="item faq" style="display:block"><summary class="bold">${esc(x.q)}${TK.icon('down', 18, 'currentColor', 2.2)}</summary><div class="sm muted" style="margin-top:6px;white-space:pre-line">${esc(TK.faqText(x.a))}</div></details>`).join('')}</div>`;
+    },
     badge(label, tone = '') {
       return `<span class="badge ${tone}">${esc(label)}</span>`;
     },
@@ -5025,18 +5097,27 @@
         }[kind] || ['bell', 'navy']
       );
     },
+    /** لیستی ئاگادارکردنەوەکان وەک فەیسبووک: «نوێ» (نەخوێندراوە)، «ئەمڕۆ»، «دوێنێ»، «پێشتر»، و کاتی کورت (٥ خولەک، ٣ کاتژمێر) */
     noticeList(list, readAt) {
       if (!list.length) return ui.empty('bell', 'هیچ ئاگادارکردنەوەیەک نییە', 'کاتێک شتێکی نوێ ڕوو بدات لێرە دەردەکەوێت');
-      return `<div class="list">${list
-        .map((n) => {
-          const [ic, tone] = ui.noticeIcon(n.kind);
-          return `<div class="item ${n.link ? 'tap' : ''}" ${n.link ? `data-go="${esc(n.link)}"` : ''}>
+      const day0 = new Date();
+      day0.setHours(0, 0, 0, 0);
+      const today = day0.getTime();
+      const yest = today - 864e5;
+      const groups = [['نوێ', []], ['ئەمڕۆ', []], ['دوێنێ', []], ['پێشتر', []]];
+      list.slice().sort((a, b) => (b.at || 0) - (a.at || 0)).forEach((n) => {
+        const g = n.at > readAt ? 0 : n.at >= today ? 1 : n.at >= yest ? 2 : 3;
+        groups[g][1].push(n);
+      });
+      const row = (n, fresh) => {
+        const [ic, tone] = ui.noticeIcon(n.kind);
+        return `<div class="item nt-row ${fresh ? 'nt-new' : ''} ${n.link ? 'tap' : ''}" ${n.link ? `data-go="${esc(n.link)}"` : ''}>
             <div class="ico-box ${tone}">${TK.icon(ic, 20, 'var(--brand)')}</div>
-            <div class="grow"><div class="bold" style="font-size:.95rem">${esc(n.title)}</div><div class="sm muted">${esc(noticeBody(n))}</div></div>
-            <div class="col tight" style="align-items:flex-end"><span class="xs muted" style="white-space:nowrap">${fmt.ago(n.at)}</span>${n.at > readAt ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--amber)"></span>' : ''}</div>
+            <div class="grow"><div class="bold" style="font-size:.95rem">${esc(n.title)}</div><div class="sm muted">${esc(noticeBody(n))}</div><div class="xs nt-when">${fmt.noticeWhen(n.at)}</div></div>
+            ${fresh ? '<span class="nt-dot" aria-label="نوێ"></span>' : ''}
           </div>`;
-        })
-        .join('')}</div>`;
+      };
+      return groups.filter((g) => g[1].length).map(([t, l], gi) => `<div class="nt-h">${t}</div><div class="list">${l.map((n) => row(n, t === 'نوێ')).join('')}</div>`).join('');
     },
     /** خشتەی کاتەکانی هەر ڕۆژێک (کاتێک کاتەکان جیاوازن) */
     perDayList(x) {

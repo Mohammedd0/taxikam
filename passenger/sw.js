@@ -1,5 +1,5 @@
 // کارکردن بێ ئینتەرنێت: سەرەتا لە تۆڕ، ئەگەر نەبوو لە بیرگە
-const CACHE = 'taxikam-passenger-v42';
+const CACHE = 'taxikam-passenger-v43';
 const FILES = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', '../shared/core.css', '../shared/core.js', '../shared/maps.js', '../shared/firebase-config.js', '../shared/cloud.js', '../shared/logo.png', '../shared/fonts/NotoNaskhArabic.woff2'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));

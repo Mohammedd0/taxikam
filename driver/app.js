@@ -1361,23 +1361,24 @@
   /* =========================================================
    * هەواڵ و ئاگادارکردنەوە
    * ======================================================= */
-  TK.route('news', {
+  // ئۆفەرەکانی شۆفێر (ڕێکلام لێرە دەرناکەوێت)
+  TK.route('offers', {
     guard: authed,
     render() {
-      const list = sel.newsFor('driver');
+      const list = sel.newsFor('driver').filter((n) => sel.newsKind(n) === 'offer');
       return page(`
-        ${ui.header('هەواڵ', { back: 'more' })}
-        ${list.length ? list.map((n) => `<div class="card news-card tap" data-go="news/${n.id}">${ui.newsThumb(n, 72)}<div class="grow col tight"><span>${ui.badge(n.tag, 'note')}</span><b style="font-size:.95rem">${esc(n.title)}</b><span class="xs muted">${esc(n.sub)}</span></div></div>`).join('') : ui.empty('news', 'هیچ هەواڵێک نییە', '')}`, 'more');
+        ${ui.header('ئۆفەرەکان', { back: 'more' })}
+        ${list.length ? list.map((n) => `<div class="card news-card tap" data-go="news/${n.id}">${ui.newsThumb(n, 72)}<div class="grow col tight"><span>${ui.badge(n.tag, 'note')}</span><b style="font-size:.95rem">${esc(n.title)}</b><span class="xs muted">${esc(n.sub)}</span></div></div>`).join('') : ui.empty('tag', 'ئێستا هیچ ئۆفەرێک نییە', 'کاتێک ئۆفەرێکی نوێ هات لێرە دەیبینیت')}`, 'more');
     },
   });
   TK.route('news/:id', {
     guard: authed,
     render({ id }) {
       const n = S().news.find((x) => x.id === id);
-      if (!n) return page(ui.header('هەواڵ', { back: 'news' }));
+      if (!n) return page(ui.header('ئۆفەرەکان', { back: 'offers' }));
       const src = n.image ? TK.img(n.image) : '';
       return page(`
-        ${ui.header(n.tag, { back: 'news' })}
+        ${ui.header(n.tag, { back: 'offers' })}
         ${src ? `<div class="news-photo"><img src="${src}" alt=""></div><div class="h2">${esc(n.title)}</div>` : `<div class="news-hero th-${n.theme}">
           <div style="position:absolute;left:14px;top:14px;opacity:.9">${n.big ? `<span class="big" style="font-size:3.6rem;font-weight:700;display:block;text-align:center">${ui.bigHtml(n.big)}</span>` : icon(n.icon, 84, 'currentColor', 1.3)}</div>
           <div class="h2">${esc(n.title)}</div><div class="sm" style="opacity:.9">${esc(n.sub)}</div>
@@ -1385,11 +1386,20 @@
         <div style="font-size:1.02rem;line-height:1.9">${esc(n.body)}</div>`, 'more');
     },
   });
+  acts.ntab = (k) => {
+    U.ntab = k;
+    TK.render();
+  };
   TK.route('notices', {
     guard: authed,
     render() {
       if (U.readAt == null) U.readAt = (sel.me() || {}).readNoticesAt || 0;
-      return page(`${ui.header('ئاگادارکردنەوەکان', { back: 'today' })}${ui.noticeList(sel.myDNotices(), U.readAt)}`, 'more');
+      const tab = U.ntab || 'all';
+      const all = sel.myDNotices();
+      const list = tab === 'all' ? all : all.filter((n) => TK.dnoticeCat(n) === tab);
+      return page(`${ui.header('ئاگادارکردنەوەکان', { back: 'today' })}
+        <div class="tabs">${[['all', 'هەمووی'], ['trip', 'گەشت'], ['req', 'داواکاری'], ['pay', 'پارە'], ['acct', 'هەژمار']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-act="ntab" data-arg="${k}">${l}</button>`).join('')}</div>
+        ${ui.noticeList(list, U.readAt)}`, 'more');
     },
     after() {
       if (sel.dUnread()) setTimeout(() => actions.markDNoticesRead(), 400);
@@ -1421,7 +1431,7 @@
       <div class="pc-stats">
         <div><b>${me.reviews ? `${icon('star', 16, 'var(--amber)', 1.5, 'var(--amber)')} ${me.rating}` : '-'}</b><span>هەڵسەنگاندن</span></div>
         <div><b>${me.trips || 0}</b><span>گەشت</span></div>
-        <div><b>${ar == null ? '-' : `٪${ar}`}</b><span>قبووڵکردن</span></div>
+        <div><b>${ar == null ? 'نوێ' : `٪${ar}`}</b><span>قبووڵکردن</span></div>
       </div>
     </button>`;
   }
@@ -1435,24 +1445,25 @@
         <div class="h1">زیاتر</div>
         ${profileCard(me)}
         ${me.status === 'active' ? onlineCard(me) : verifyBar(me)}
+        <div class="plabel">کار</div>
         <div class="list">
           ${item('chat', 'نامەکان', 'inbox', msgs ? ui.badge(msgs, 'amber') : '')}
           ${item('bell', 'ئاگادارکردنەوەکان', 'notices', nts ? ui.badge(nts, 'amber') : '')}
-          ${item('users', 'سەرنشینەکانم', 'riders', `<span class="cntp">${sel.myClients().length}</span>`)}
+          ${item('users', 'سەرنشینەکانم', 'riders', sel.myClients().length ? `<span class="cntp">${sel.myClients().length}</span>` : '')}
           ${item('clock', 'گەشتە کۆنەکانم', 'history')}
           ${item('wallet', 'داهات', 'earnings', `<span class="sm brand bold">${fmt.money(TK.payout(S(), meId()).net)}</span>`)}
-          ${item('news', 'هەواڵ', 'news')}
+          ${item('tag', 'ئۆفەرەکان', 'offers')}
         </div>
+        <div class="plabel">هەژمار و یارمەتی</div>
         <div class="list">
-          ${item('doc', 'پرۆفایل و بەڵگەنامەکان', 'profile')}
+          ${item('user', 'پرۆفایل و بەڵگەنامەکان', 'profile')}
           ${item('settings', 'ڕێکخستنەکان', 'settings')}
-          ${item('help', 'فێرکاری ئەپ', '', '', 'showIntro')}
+          ${item('flag', 'یارمەتی و سکاڵاکان', 'support', (me.tickets || []).some((t) => t.reply && !t.seen) ? ui.badge('وەڵام', 'amber') : '')}
+          ${item('phone', 'پەیوەندی', '', '', 'contactUs')}
+          ${item('play', 'فێرکاری ئەپ', '', '', 'showIntro')}
           ${item('doc', 'مەرج و ڕێساکان', '', '', 'showTerms')}
         </div>
         <button class="btn secondary block" data-act="logout">${icon('logout', 18)}چوونەدەرەوە</button>
-        ${sel.me() && sel.me().deleteRequestedAt
-          ? `<div class="card note col tight"><b class="sm">داوای سڕینەوەی هەژمارەکەت نێردرا</b><span class="xs">تیمی یەکسا دوای تەواوکردنی حیساب و موچەکەت هەژمارەکە دەسڕێتەوە.</span><button class="btn sm ghost" data-act="delReqCancel">هەڵوەشاندنەوەی داواکاری</button></div>`
-          : `<button class="btn danger block sm" data-act="delReq">${icon('x', 16)}سڕینەوەی هەژمار</button>`}
         <div class="center xs muted">یەکسا شۆفێر</div>`, 'more');
     },
   });
@@ -1510,9 +1521,49 @@
           const can = st === 'rejected' || warn;
           return `<div class="item ${can ? 'tap' : ''}" ${can ? `data-act="editDocs" data-arg="${g.key}"` : ''}><div class="ico-box ${st === 'ok' && !warn ? 'ok' : st === 'rejected' || warn ? 'danger' : ''}">${icon(g.icon, 20, st === 'ok' && !warn ? 'var(--ok-text)' : st === 'rejected' || warn ? 'var(--danger-text)' : 'var(--brand)')}</div>
             <div class="grow"><b class="sm">${g.label}</b>${st === 'rejected' && me.docReason[g.key] ? `<div class="xs" style="color:var(--danger-text)">${esc(me.docReason[g.key])}</div>` : exp ? `<div class="xs muted">بەسەرچوون: ${fmt.day(exp.date)}</div>` : ''}</div>${tag}${can ? icon('forward', 18, 'var(--muted)') : ''}</div>`;
-        }).join('')}</div>`, 'more');
+        }).join('')}</div>
+        <div class="pe-danger">${me.deleteRequestedAt
+          ? `<div class="card note col tight" style="width:100%"><b class="sm">داوای سڕینەوەی هەژمارەکەت نێردرا</b><span class="xs">تیمی یەکسا دوای تەواوکردنی حیساب و موچەکەت هەژمارەکە دەسڕێتەوە.</span><button class="btn sm ghost" data-act="delReqCancel">هەڵوەشاندنەوەی داواکاری</button></div>`
+          : `<button class="pe-del" data-act="delReq">${icon('trash', 17)}سڕینەوەی هەژمار</button>`}</div>`, 'more');
     },
   });
+  /* یارمەتی و سکاڵاکان: فریاکەوتن، پرسیارە باوەکان، سکاڵا بۆ تیمی یەکسا (پارە، سزا، سەرنشین، ئەپ) */
+  TK.route('support', {
+    guard: authed,
+    render() {
+      const me = sel.me() || {};
+      const list = TK.faqList('d');
+      const tks = me.tickets || [];
+      const st = { open: ['کراوە', 'note'], progress: ['لە کاردایە', 'info'], resolved: ['چارەسەر کرا', 'ok'] };
+      return page(`
+        ${ui.header('یارمەتی و سکاڵاکان', { back: 'more' })}
+        <div class="card danger col"><div><b>فریاکەوتن</b><div class="sm">لە کاتی مەترسیدا</div></div><div class="grid2"><a class="btn sm danger-solid" href="tel:104">${icon('phone', 16)}پۆلیس ١٠٤</a><a class="btn sm danger-solid" href="tel:122">${icon('phone', 16)}فریاگوزاری ١٢٢</a></div></div>
+        ${list.length ? `<div class="h3">پرسیارە باوەکان</div>${ui.faq(list)}` : ''}
+        <div class="section-title"><div class="h3">سکاڵاکان</div><button class="link" data-act="newTicket">نوێ</button></div>
+        ${tks.length ? `<div class="list">${tks.map((t) => `<div class="item"><div class="grow"><div class="row" style="gap:6px"><b class="sm">#${t.id}</b>${ui.badge((st[t.status] || st.open)[0], (st[t.status] || st.open)[1])}</div><div class="sm">${esc(t.subject)}</div>${t.reply ? `<div class="xs muted">وەڵام: ${esc(t.reply)}</div>` : ''}</div></div>`).join('')}</div>` : '<div class="sm muted">هیچ سکاڵایەک نییە</div>'}`);
+    },
+    after() {
+      if ((sel.me() && sel.me().tickets || []).some((t) => t.reply && !t.seen)) setTimeout(() => actions.driverTicketsSeen(), 300);
+    },
+  });
+  acts.contactUs = () => TK.contactSheet('d');
+  acts.newTicket = () => {
+    TK.sheet(() => `
+      <div class="h2">سکاڵای نوێ</div>
+      <div class="chips">${['پارە و موچە', 'سزا', 'سەرنشین', 'ئەپەکە', 'شتی تر'].map((x) => `<button class="chip" data-act="ticketPreset" data-arg="${x}">${x}</button>`).join('')}</div>
+      <div class="field"><label for="tsub">کێشەکە بنووسە</label><textarea class="input" id="tsub" placeholder="بە کورتی..."></textarea></div>
+      <button class="btn block" data-act="saveTicket">ناردن</button><button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+  };
+  acts.ticketPreset = (x) => {
+    document.getElementById('tsub').value = x;
+  };
+  acts.saveTicket = () => {
+    const v = document.getElementById('tsub').value.trim();
+    if (v.length < 3) return TK.toast('کێشەکە بنووسە');
+    actions.driverTicket(v);
+    TK.closeSheet();
+    TK.toast('سکاڵاکەت نێردرا');
+  };
   TK.route('settings', {
     guard: authed,
     render() {

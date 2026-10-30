@@ -1893,3 +1893,17 @@ html.kb-open .screen.auth { justify-content: flex-start; }
 .screen.no-nav:has(> .empty) { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 .screen > .empty { margin-top: auto; }
 .screen:has(> .empty) > :last-child { margin-bottom: auto; }
+/* پەڕەی بەتاڵ: وێنەکە کەمێک دوور لە نووسین، دوگمەکە کەمێک دوور لە ڕوونکردنەوە */
+.empty .empty-art { margin-bottom: 14px; }
+.empty > .muted + .btn { margin-top: 12px; }
+/* پەنجەرەی «پەیوەندی»: ژمارەکان بە دوگمەی پەیوەندی سەوز */
+.contact-list .item { text-decoration: none; color: inherit; }
+.contact-list b { font-size: 1.05rem; letter-spacing: .3px; }
+
+/* ---------- ئاگادارکردنەوەکان وەک فەیسبووک: بەش بە پێی ڕۆژ، نوێکان ڕەنگیان هەیە ---------- */
+.nt-h { font-weight: 800; font-size: 1rem; margin: 6px 4px -6px; }
+.nt-row { align-items: flex-start; }
+.nt-when { color: var(--muted); margin-top: 3px; }
+.nt-new { background: var(--info-bg); }
+.nt-new .nt-when { color: var(--info-text); font-weight: 700; }
+.nt-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--info-text); align-self: center; }
