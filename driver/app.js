@@ -27,7 +27,7 @@
       active
     );
   }
-  const page = (body, active) => `<div class="screen ${active ? '' : 'no-nav'}">${body}</div>${active ? nav(active) : ''}`;
+  const page = (body, active, cls = '') => `<div class="screen ${active ? '' : 'no-nav'} ${cls}">${body}</div>${active ? nav(active) : ''}`;
   const authed = () => (S().driver.meId && sel.me() ? null : 'login');
 
   /* =========================================================
@@ -75,7 +75,7 @@
     },
     emergency: (r) => `
       ${fld('r-ename', 'ناوی کەسێکی نزیک بۆ فریاکەوتن', r.emergencyName, { ph: 'بۆ نموونە: برا، هاوسەر' })}
-      <div class="field"><label for="r-ephone">ژمارەی ئەو کەسە</label><div class="input-wrap"><span class="prefix latin">+964</span><input class="input ltr latin" id="r-ephone" inputmode="tel" value="${esc(r.emergencyPhone || '')}" placeholder="7XX XXX XXXX"></div></div>`,
+      <div class="field"><label for="r-ephone">ژمارەی ئەو کەسە</label><div class="input-wrap"><span class="prefix latin">+964</span><input class="input ltr latin" id="r-ephone" inputmode="tel" value="${esc(r.emergencyPhone || '')}" placeholder="750 123 4567"></div></div>`,
     id: (r) => `
       ${fld('r-idno', 'ژمارەی سەر کارتی نیشتمانی', r.idNo, { ltr: true, mode: 'numeric', max: 20 })}
       ${dateF('r-idexp', 'بەرواری بەسەرچوونی کارت', r.idExpiry, thisYear, thisYear + 15)}
@@ -168,7 +168,7 @@
       let body = '';
       if (st === 1) {
         body = `${SECTION.personal(r)}
-          <div class="field"><label for="r-phone">ژمارەی مۆبایل</label><div class="input-wrap"><span class="prefix latin">+964</span><input class="input ltr latin" id="r-phone" inputmode="tel" value="${esc(r.phone || '')}" placeholder="7XX XXX XXXX"></div></div>
+          <div class="field"><label for="r-phone">ژمارەی مۆبایل</label><div class="input-wrap"><span class="prefix latin">+964</span><input class="input ltr latin" id="r-phone" inputmode="tel" value="${esc(r.phone || '')}" placeholder="750 123 4567"></div></div>
           <div class="grid2">${fld('r-pass', 'وشەی نهێنی', r.pass, { ltr: true, type: 'password', ph: 'لانیکەم ٦ پیت' })}${fld('r-pass2', 'دووبارەکردنەوە', r.pass2, { ltr: true, type: 'password' })}</div>`;
       } else if (st === 2) body = SECTION.address(r) + SECTION.emergency(r);
       else if (st === 3) body = `<div class="h3">کارتی نیشتمانی</div>${SECTION.id(r)}<div class="hr"></div><div class="h3">مۆڵەتی شۆفێری</div>${SECTION.license(r)}`;
@@ -276,20 +276,20 @@
     guard: () => (S().driver.meId ? 'today' : null),
     render() {
       return page(`
-        <div class="col center" style="align-items:center;gap:8px;padding-top:20px">
+        <div class="col center auth-head">
           ${TK.logo('big')}
           <div class="h1">چوونەژوورەوەی شۆفێر</div>
         </div>
         <form class="col" data-submit="driverDoLogin" style="gap:12px">
           <div class="field"><label for="dlp">ژمارەی مۆبایل</label>
-            <div class="input-wrap"><span class="prefix latin">+964</span><input class="input ltr latin" id="dlp" name="phone" inputmode="tel" autocomplete="tel" placeholder="7XX XXX XXXX"></div></div>
+            <div class="input-wrap"><span class="prefix latin">+964</span><input class="input ltr latin" id="dlp" name="phone" inputmode="tel" autocomplete="tel" placeholder="750 123 4567"></div></div>
           <div class="field"><label for="dlw">وشەی نهێنی</label>
             <div class="pass-wrap"><input class="input ltr latin" id="dlw" name="pass" type="${U.showPass ? 'text' : 'password'}" autocomplete="current-password"><button type="button" class="eye" data-act="togglePass" aria-label="پیشاندانی وشەی نهێنی">${icon(U.showPass ? 'eyeOff' : 'eye', 20)}</button></div></div>
           ${U.dLoginErr ? `<div class="err">${esc(U.dLoginErr)}</div>` : ''}
           <button class="btn block lg" type="submit">چوونەژوورەوە</button>
           <div class="row" style="justify-content:flex-end"><button type="button" class="link" data-act="dForgot">وشەی نهێنیت لەبیر چووە؟</button></div>
         </form>
-        <div class="center sm">هێشتا تۆمارت نەکردووە؟ <button class="link" data-go="register">ببە بە شۆفێر</button></div>`);
+        <div class="center sm">هێشتا تۆمارت نەکردووە؟ <button class="link" data-go="register">ببە بە شۆفێر</button></div>`, null, 'auth');
     },
   });
   acts.togglePass = () => {
@@ -540,7 +540,7 @@
         </div>
         ${me.status !== 'active' ? verifyBar(me) : onlineCard(me)}
         ${expiryCards(me)}
-        ${sel.openSwapsForMe().map(swapCard).join('')}
+        ${me.online ? sel.openSwapsForMe().map(swapCard).join('') : ''}
         ${open.length && me.online ? `<button class="card note row tap" data-go="requests" style="text-align:right"><div class="ico-box" style="background:var(--amber)">${icon('megaphone', 22, '#0B1733')}</div><div class="grow"><b>${open.length} داواکاری نوێ</b><div class="sm muted">سەرنشینی نوێ وەربگرە</div></div>${icon('forward', 20)}</button>` : ''}
         ${me.status === 'active' && (hero || runs.length) ? `<div class="daylabel">${icon('calendar', 16, 'var(--muted)')}<span>ئەمڕۆ، ${fmt.today()}</span></div>` : ''}
         ${hero ? heroCard(hero) : me.status === 'active' ? (runs.length ? `<div class="card ok row">${icon('check', 24, 'currentColor', 2.6)}<div class="grow"><b>هەموو گەشتەکانی ئەمڕۆ تەواو بوون</b><div class="xs">دەستخۆش</div></div></div>` : '') + tomorrowSection(!runs.length && !mySubs().length) : ''}
@@ -582,7 +582,18 @@
     const rej = TK.DOC_GROUPS.filter((g) => me.docStatus && me.docStatus[g.key] === 'rejected');
     const title = me.status === 'suspended' ? 'هەژمارەکەت ڕاگیراوە' : 'هێشتا هەژمارەکەت پشتڕاست نەکراوەتەوە';
     const sub = me.status === 'suspended' ? 'ناتوانیت داواکاری وەربگریت. پەیوەندی بە تیمی یەکسا بکە.' : rej.length ? `${rej.length} بەڵگەنامە ڕەتکرایەوە. لە پرۆفایل نوێیان بکەرەوە.` : 'تیمی یەکسا بەڵگەنامەکانت دەپشکنێت. دوای پشتڕاستکردنەوە دەتوانیت کار بکەیت.';
-    return `<div class="verify-bar tap" data-go="profile">${icon('lock', 24, '#fff', 2)}<div class="grow"><b>${title}</b><div>${sub}</div></div></div>`;
+    const bar = `<div class="verify-bar tap" data-go="profile">${icon('lock', 24, '#fff', 2)}<div class="grow"><b>${title}</b><div>${sub}</div></div></div>`;
+    if (me.status === 'suspended') return bar;
+    // شۆفێری نوێ: چی ڕوودەدات و چی بکات
+    const step = (n, t, d, done) => `<div class="row top vstep ${done ? 'done' : ''}"><span class="vs-n">${done ? icon('check', 14, 'currentColor', 3) : fmt.n(n)}</span><div class="grow"><b>${t}</b><div class="sm muted">${d}</div></div></div>`;
+    return `${bar}
+      <div class="card col vsteps">
+        <div class="h3">دواتر چی ڕوودەدات؟</div>
+        ${step(1, 'زانیارییەکانت نێردران', 'وێنە و بەڵگەنامەکانت گەیشتنە تیمی یەکسا.', true)}
+        ${step(2, rej.length ? 'بەڵگەنامەکان نوێ بکەرەوە' : 'تیمی یەکسا دەیانپشکنێت', rej.length ? 'هەندێک بەڵگەنامە ڕەتکرایەوە. لە پرۆفایل وێنەی نوێیان بنێرە.' : 'پێویست ناکات هیچ بکەیت. ئەگەر شتێک کەم بوو، ئاگادار دەکرێیتەوە.', false)}
+        ${step(3, 'دەست بە کار دەکەیت', 'کاتێک پشتڕاست کرایەوە، ئاگادارییەکت بۆ دێت و داواکارییەکانی سەرنشین دەبینیت.', false)}
+        <button class="btn secondary block" data-go="profile">${icon('user', 18)}پرۆفایل و بەڵگەنامەکانم</button>
+      </div>`;
   }
   /** ئاگاداری بەسەرچوونی بەڵگەنامە */
   function expiryCards(me) {
@@ -1187,8 +1198,8 @@
       </div>
       <div class="composer">
         <div class="quick">${QUICK.map((q) => `<button data-act="quickChat" data-arg="${q}">${q}</button>`).join('')}</div>
-        <form class="row" data-submit="sendMsg" style="gap:8px">
-          <input class="input" id="msg" name="text" placeholder="نامە بنووسە..." autocomplete="off" enterkeyhint="send" style="min-height:46px">
+        <form class="row chat-form" data-submit="sendMsg" style="gap:8px">
+          <textarea class="input chat-in" id="msg" name="text" rows="1" placeholder="نامە بنووسە..." autocomplete="off" enterkeyhint="enter"></textarea>
           <button class="btn" style="min-height:46px;padding:0 14px" aria-label="ناردن">${icon('send', 20)}</button>
         </form>
       </div>`;
@@ -1203,7 +1214,7 @@
       actions.markThreadRead(meId(), peer, true);
     },
     after({ peer }) {
-      window.scrollTo(0, document.body.scrollHeight);
+      TK.chatEnd();
       setTimeout(() => actions.markThreadRead(meId(), peer, true), 300);
     },
   });
@@ -1212,7 +1223,10 @@
     if (!t) return;
     actions.sendMessage(meId(), TK.app.current.params.peer, t, true);
     const el = document.getElementById('msg');
-    if (el) el.value = '';
+    if (el) {
+      el.value = '';
+      TK.fitChat(el);
+    }
     setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 30);
   }
   acts.sendMsg = (f) => sendText(f.text || '');
@@ -1659,6 +1673,7 @@
 
   TK.start({
     home: 'today',
+    intro: true,
     sw: 'sw.js',
     start: 'today',
     watchKey: (s) => s.driver.meId,

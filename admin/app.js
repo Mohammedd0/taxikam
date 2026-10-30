@@ -328,7 +328,7 @@
             ${input('n-name', 'ناوی سیانی *', f.name || '', { full: true })}
             ${select('n-gender', 'ڕەگەز *', f.gender, [['m', 'نێر'], ['f', 'مێ']])}
             ${date('n-birth', 'ڕۆژی لەدایکبوون *', f.birth, 1940, y - 18)}
-            ${input('n-phone', 'ژمارەی مۆبایل *', f.phone || '', { ltr: true, ph: '750 123 4567' })}
+            ${input('n-phone', 'ژمارەی مۆبایل *', f.phone || '', { ltr: true, ph: '750 123 4567', attrs: 'inputmode="tel"' })}
             ${input('n-pass', 'وشەی نهێنی (بیدە بە شۆفێر) *', f.pass || '', { ltr: true, ph: 'لانیکەم ٦ پیت' })}
             ${select('n-city', 'شار *', f.city, TK.cities().map((c) => [c.id, c.name]))}
             ${select('n-district', 'قەزا', f.district || '', [['', 'هەڵبژێرە']].concat((city ? city.districts : []).map((d) => [d, d])))}
