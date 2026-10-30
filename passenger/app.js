@@ -712,8 +712,7 @@
         <div class="topbar"><div class="h1">نامەکان</div><div class="row" style="gap:8px">${sel.unreadMsgsP() ? ui.badge(`${sel.unreadMsgsP()} نەخوێندراوە`, 'amber') : ''}${TK.helpBtn('inbox')}</div></div>
         ${ui.threads(threads, false, (t) => {
           const d = sel.driver(t.driverId);
-          const sub = sel.mySubs().find((x) => x.driverId === t.driverId);
-          return { name: d.name, sub: sub ? `${fmt.names(sel.names(sub.memberIds))}، ${sub.to}` : d.car, link: `chat/${d.id}`, avatar: ui.dAvatar(d, 48), online: d.id !== s.driver.meId || s.driver.online };
+          return { name: d.name, link: `chat/${d.id}`, avatar: ui.dAvatar(d, 54), online: d.id !== s.driver.meId || s.driver.online };
         })}
         ${subDrivers.length ? `<div class="section-title"><div class="h3">شۆفێرەکانت</div></div>
           <div class="list">${subDrivers.map((id) => {
@@ -734,7 +733,7 @@
       if (!d) return page(ui.header('نامە', { back: 'inbox' }) + ui.empty('chat', 'شۆفێرەکە نەدۆزرایەوە', ''));
       const QUICK = ['باشە، سوپاس', 'ئامادەین', '٥ خولەک چاوەڕێ بکە', 'ئەمڕۆ نایەین', 'لە بەردەم دەرگاین'];
       return `<div class="screen" style="padding-bottom:150px">
-        ${ui.header(d.name, { back: 'inbox', sub: d.car, cls: 'chathead', avatar: TK.img(d.photo) ? `<img class="avatar" src="${TK.img(d.photo)}" alt="" style="width:42px;height:42px;object-fit:cover">` : ui.avatar(String(d.name || '؟').slice(0, 1), 'navy', 42), right: `<a class="icon-btn" href="tel:0${esc(d.phone)}" aria-label="پەیوەندی">${icon('phone', 20)}</a>` })}
+        ${ui.header(d.name, { back: 'inbox', sub: d.car, cls: 'chathead', avatar: ui.dAvatar(d, 42), right: `<a class="icon-btn" href="tel:0${esc(d.phone)}" aria-label="پەیوەندی">${icon('phone', 20)}</a>` })}
         <div class="card col tight">
           <div class="row between"><span class="sm">ژمارەی شۆفێر</span><a class="latin bold" href="tel:0${esc(d.phone)}" dir="ltr">${fmt.phone(d.phone)}</a></div>
           <div class="row between"><span class="sm">ژمارەکەت بۆ شۆفێر شاراوەیە</span>${icon('lock', 16, 'var(--muted)')}</div>
@@ -774,12 +773,6 @@
   }
   acts.sendMsg = (f) => sendText(f.text || '');
   acts.quickMsg = (q) => sendText(q);
-  acts.toggleShare = () => {
-    const v = !S().passenger.sharePhone;
-    actions.setSharePhone(v);
-    TK.toast(v ? 'ژمارەکەت بۆ شۆفێرەکانت دیار دەبێت' : 'ژمارەکەت شاردرایەوە');
-  };
-
   /* =========================================================
    * بەشداری نوێ (٣ هەنگاو)
    * ======================================================= */
@@ -1352,7 +1345,7 @@
         <div class="card col tight"><div class="row sm">${icon('pin', 16)}<span>ناوچەکانی کار: ${esc(d.area)}</span></div><div class="row sm">${icon('seat', 16)}<span>${d.seats || 4} کورسی بۆ سەرنشین</span></div></div>
         ${(d.tags || []).length ? `<div class="h3">سەرنشینەکان چی دەڵێن</div>
         <div class="chips">${d.tags.map((t) => `<span class="chip">${esc(t.label)}، <b>${t.count}</b></span>`).join('')}</div>` : ''}
-        ${d.review ? `<div class="card col tight"><div class="row">${ui.avatar(d.review.by.slice(0, 1), 'woman', 32)}<b class="grow sm">${esc(d.review.by)}</b><span class="xs muted">${esc(d.review.ago)}</span></div><div class="sm">«${esc(d.review.text)}»</div></div>` : ''}
+        ${d.review ? `<div class="card col tight"><div class="row">${ui.personAv(null, 32)}<b class="grow sm">${esc(d.review.by)}</b><span class="xs muted">${esc(d.review.ago)}</span></div><div class="sm">«${esc(d.review.text)}»</div></div>` : ''}
         ${profileActions(d)}
         ${carPhotos(d)}`);
     },
@@ -1797,6 +1790,24 @@
     TK.closeSheet();
     TK.toast(`پارەدان سەرکەوتوو بوو${pts ? `، ${pts} خاڵ زیاد کرا` : ''}`);
   };
+  /** وێنەی پرۆفایل: بچووک دەکرێتەوە و تەنها شۆفێرەکانی خۆی دەیبینن */
+  acts.pickMyPhoto = async (val, el) => {
+    const f = el.files && el.files[0];
+    if (!f) return;
+    TK.toast('وێنەکە ئامادە دەکرێت...');
+    try {
+      const id = await TK.saveImage(await TK.compressImage(f));
+      if (!id) return TK.toast('جێگای پاشەکەوت پڕە. وێنەیەکی بچووکتر هەڵبژێرە');
+      actions.setMyPhoto(id);
+      TK.toast('وێنەکەت دانرا');
+    } catch (e) {
+      TK.toast('ئەم وێنەیە ناخوێندرێتەوە. وێنەیەکی تر هەڵبژێرە');
+    }
+  };
+  acts.removeMyPhoto = async () => {
+    if (!(await TK.ask('وێنەی پرۆفایلەکەت لادەبرێت؟'))) return;
+    actions.setMyPhoto(null);
+  };
   acts.receipt = () => {
     const s = S();
     const h = s.billing.history[0];
@@ -1935,10 +1946,11 @@
       return page(`
         <div class="h1">پرۆفایل</div>
         <div class="card row">
-          ${ui.avatar(p.name.slice(0, 1), 'navy', 60)}
+          <label class="me-photo" aria-label="وێنەی پرۆفایل">${ui.personAv(p.photo, 64)}<span class="me-cam">${icon('camera', 15, 'currentColor', 2.2)}</span><input type="file" accept="image/*" data-change="pickMyPhoto" style="display:none"></label>
           <div class="grow"><div class="h3">${esc(p.name)}</div><div class="sm muted latin" style="text-align:right">+964 ${esc(p.phone)}</div><div class="xs muted">${icon('home', 12)} ${esc(home.name || '')}</div></div>
           <button class="icon-btn" data-act="editProfile" aria-label="دەستکاری">${icon('edit', 18)}</button>
         </div>
+        <div class="xs muted me-photo-note">${icon('lock', 13, 'currentColor', 2)}${p.photo ? 'وێنەکەت تەنها شۆفێرەکەت دەیبینێت.' : 'وێنەیەک دابنێ (ئارەزوومەندانە) بۆ ئەوەی شۆفێرەکەت بتناسێتەوە. تەنها ئەو دەیبینێت.'}${p.photo ? ' <button class="link xs" data-act="removeMyPhoto">لابردن</button>' : ''}</div>
         <div class="plabel">هەژمارەکەم</div>
         <div class="list">
           ${item('wallet', 'پارەدان و فاتورە', 'billing', !s.billing.paid && invoice().total ? ui.badge('ئامادەیە', 'note') : '')}

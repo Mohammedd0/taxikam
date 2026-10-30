@@ -39,6 +39,7 @@
   --silver: #F2F2F4;
   --silver-line: #E6E6EA;
   --silver-text: #1C1C1E;
+  --person-line: #6B7280; /* وێنەی بنەڕەتی کەس (هێڵ) */
   /* ڕەنگی واتادار: سەوز = تەواو، سوور = مەترسی، پرتەقاڵی = ئەستێرە و ژمارە، مۆر = ئافرەت */
   --amber: #F5A623;
   --success: #22C55E;
@@ -90,6 +91,7 @@
   --silver: rgba(255, 255, 255, .08);
   --silver-line: rgba(255, 255, 255, .06);
   --silver-text: #E4E7EC;
+  --person-line: #9AA3B2;
   /* ڕەنگی واتادار: سەوز = تەواو، سوور = مەترسی، پرتەقاڵی = ئەستێرە و ژمارە، مۆر = ئافرەت */
   --danger: #E8857D;
   --ok-bg: #1D3A2D;
@@ -698,20 +700,6 @@ select.input {
 .ticks { font-size: .7rem; letter-spacing: -2px; margin-right: 4px; opacity: .6; }
 .ticks.read { color: #1D4ED8; opacity: 1; }
 :root[data-theme="dark"] .ticks.read { color: #0B1733; }
-.unread-pill {
-  min-width: 22px;
-  height: 22px;
-  border-radius: 11px;
-  background: var(--amber);
-  color: var(--ink);
-  font-size: .74rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
-  flex-shrink: 0;
-}
 .online-dot { position: absolute; bottom: 1px; left: 1px; width: 12px; height: 12px; border-radius: 50%; background: var(--success); border: 2px solid var(--card); }
 .phone-line { display: flex; align-items: center; gap: 8px; background: var(--chip); border-radius: 12px; padding: 6px 10px; font-size: .9rem; }
 
@@ -854,7 +842,6 @@ div.latin { text-align: right; }
 .callbtn.no > svg { background: #8A94A8; }
 .callbtn.yes > svg { background: var(--success); padding: 26px; box-shadow: 0 10px 26px rgba(34, 197, 94, .45); }
 .callbtn[disabled] { opacity: .45; pointer-events: none; }
-.intro-ic { width: 140px; height: 140px; border-radius: 40px; background: var(--note-bg); display: flex; align-items: center; justify-content: center; }
 .intro .dots { display: flex; gap: 6px; }
 .intro .dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--line); }
 .intro .dots i.on { width: 24px; }
@@ -1798,3 +1785,38 @@ body { font-family: "Noto Naskh Arabic", Inter, system-ui, -apple-system, "Segoe
 .note-line svg { flex: none; }
 .item.off { opacity: .55; }
 .com-ex { background: var(--silver); border-radius: 14px; padding: 12px 14px; gap: 6px; }
+
+/* =========================================================
+ * ڕووکاری یەکسا، بەشی ٥: لیستی نامەکان، وێنەی بنەڕەت، وێنەی سەرنشین، ناساندن
+ * ======================================================= */
+/* وێنەی بنەڕەتی کەس: هێڵکاری لەسەر زیوی (کاتێک وێنەی خۆی دانەنابێت) */
+.pav { display: inline-flex; flex: none; border-radius: 50%; overflow: hidden; background: var(--silver); border: 1px solid var(--silver-line); }
+.pav svg { width: 100%; height: 100%; display: block; }
+.pav svg * { fill: none; stroke: var(--person-line); stroke-width: 5; stroke-linecap: round; }
+
+/* لیستی نامەکان: وەک واتسئاپ، بێ کارت */
+.chats { display: flex; flex-direction: column; margin: 0 -4px; }
+.chat-row { display: flex; align-items: center; gap: 12px; padding: 8px 4px; }
+.cr-av { position: relative; flex: none; }
+.cr-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 4px 0 12px; border-bottom: 1px solid var(--line); }
+.chat-row:last-child .cr-mid { border-bottom: 0; }
+.cr-1, .cr-2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cr-1 b { font-size: 1rem; font-weight: 700; }
+.cr-t { flex: none; font-size: .78rem; color: var(--muted); }
+.cr-2 > span:first-child { font-size: .9rem; color: var(--muted); }
+.chat-row.un .cr-1 b { font-weight: 800; }
+.chat-row.un .cr-2 > span:first-child, .chat-row.un .cr-t { color: var(--text); font-weight: 700; }
+.cr-n { flex: none; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--act); color: var(--act-text); font-size: .75rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.chat-row .online-dot { border-color: var(--bg); }
+
+/* وێنەی پرۆفایلی سەرنشین: کامێرایەکی بچووک لەسەری */
+.me-photo { position: relative; flex: none; cursor: pointer; }
+.me-cam { position: absolute; bottom: -2px; left: -2px; width: 26px; height: 26px; border-radius: 50%; background: var(--act); color: var(--act-text); display: flex; align-items: center; justify-content: center; border: 2px solid var(--card); }
+.me-photo-note { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: -6px; }
+
+/* ناساندنی سەرەتای شۆفێر: وێنەی کاڵ لە سەرەوە */
+.intro-art { max-width: 250px; }
+
+/* جزدانی شۆفێر: نووسینی کوردی (بێ بۆشایی نێوان پیتەکان) */
+.wc-tag { letter-spacing: 0; font-size: .78rem; }
+

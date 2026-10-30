@@ -5,8 +5,6 @@
   background: #1C1C1E; color: #fff; padding: 18px 12px; display: flex; flex-direction: column; gap: 4px;
 }
 :root[data-theme="dark"] .side { background: #12161D; border-left: 1px solid var(--line); }
-.side .brandmark { padding: 4px 8px 16px; }
-.side .brandmark .name { font-size: 1.1rem; }
 .side a {
   display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
   color: #C9D3E6; font-weight: 700; font-size: .95rem; position: relative;
@@ -74,7 +72,7 @@
   .adm { grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-content: start;}
   .side { position: sticky; top: 0; z-index: 20; height: auto; flex-direction: row; overflow-x: auto; padding: 8px; gap: 4px; scrollbar-width: none; align-items: center;}
   .side::-webkit-scrollbar { display: none; }
-  .side .brandmark, .side .foot { display: none; }
+  .side .foot { display: none; }
   .side a { white-space: nowrap; padding: 8px 12px; font-size: .84rem; }
   .main { padding: 16px; }
   .form-grid, .sheet .form-grid { grid-template-columns: 1fr; }

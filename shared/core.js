@@ -162,12 +162,6 @@
       if (isRange) return `${WEEKDAYS[on[0]]} تا ${WEEKDAYS[on[on.length - 1]]}`;
       return on.map((i) => WEEKDAYS[i]).join('، ');
     },
-    greeting() {
-      const h = new Date().getHours();
-      if (h < 12) return 'بەیانیت باش';
-      if (h < 17) return 'ڕۆژت باش';
-      return 'ئێوارەت باش';
-    },
   };
   TK.fmt = fmt;
 
@@ -468,7 +462,6 @@
   /* =========================================================
    * ٤. زانیاری سەرەتایی (بەتاڵ)
    * ======================================================= */
-  const ALL_DAYS = (n) => [0, 1, 2, 3, 4, 5, 6].map((i) => (n === 5 ? i >= 1 && i <= 5 : i < n));
 
   const MONTH_KEY = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const TODAY = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -479,7 +472,7 @@
   function emptyPassenger(name = '', phone = '') {
     const first = name.split(' ')[0] || '';
     return {
-      passenger: { onboarded: true, loggedIn: false, name, phone, homeId: '', city: 'erbil', sharePhone: false },
+      passenger: { onboarded: true, loggedIn: false, name, phone, homeId: '', city: 'erbil', photo: null },
       family: { members: name ? [{ id: 'm' + uid(), name: first, initial: name.slice(0, 1), kind: 'adult', relation: 'خاوەن ئەکاونت' }] : [], guardians: name ? [{ name: `${first} (تۆ)`, initial: name.slice(0, 1) }] : [] },
       notices: [],
       readNoticesAt: 0,
@@ -1423,7 +1416,7 @@
     myClients() {
       const me = state.driver.meId;
       return state.subscriptions.filter((x) => x.driverId === me).map((x) => ({
-        id: x.id, family: true, name: x.riderNames || fmt.names(sel.names(x.memberIds)), role: sel.peerName(x.owner || 'me'),
+        id: x.id, family: true, name: x.riderNames || fmt.names(sel.names(x.memberIds)), role: sel.peerName(x.owner || 'me'), photo: x.ownerPhoto || null,
         child: !!x.hasChild, from: x.from, to: x.to, go: x.go, back: x.back, days: x.days, price: x.price, paused: x.status === 'paused', peer: x.owner || 'me',
       })).sort((a, b) => String(a.go || a.back).localeCompare(String(b.go || b.back)));
     },
@@ -1455,6 +1448,16 @@
       return (v && v.passenger && v.passenger.name) || ownerName(state, peer) || 'سەرنشین';
     },
     /** ژمارەی سەرنشین هەرگیز بۆ شۆفێر نانێردرێت. تەنها بەڕێوەبەر دەیبینێت */
+    /** وێنەی سەرنشینێک بۆ شۆفێرەکەی (لە بەشدارییەکەوە) یان بۆ بەڕێوەبەر */
+    peerPhoto(peer) {
+      if (!peer) return null;
+      if (ROLE === 'admin') {
+        const v = state.vault[peer];
+        return (v && v.passenger && v.passenger.photo) || null;
+      }
+      const x = state.subscriptions.find((y) => (y.owner || 'me') === peer && y.ownerPhoto && (ROLE !== 'driver' || y.driverId === state.driver.meId));
+      return x ? x.ownerPhoto : null;
+    },
     peerPhone(peer) {
       if (ROLE !== 'admin') return '';
       const a = state.accounts.find((x) => x.uid === peer);
@@ -2355,6 +2358,9 @@
           days: r.days, perDay: r.perDay || null, mode: r.mode, riders: r.riders, rideType: r.rideType, womanOnly: r.womanOnly, note: r.note || '', price: offer.price, status: 'active', startDate: r.startDate || null, pauseLog: [], createdAt: Date.now(),
           ownerName: r.ownerName || '',
         };
+        // وێنەی سەرنشین تەنها لە بەشدارییەکەدایە، کە تەنها خۆی و شۆفێرەکەی دەیبینن
+        const ownerPhoto = ((pslice(s, r.owner) || {}).passenger || {}).photo;
+        if (ownerPhoto) sub.ownerPhoto = ownerPhoto;
         // شوێنی ورد تەنها دوای هەڵبژاردن دەدرێت بە شۆفێر (بەشداری تەنها خۆی و شۆفێرەکەی دەیبینن)
         const pin = (pslice(s, r.owner) || {}).pins || {};
         const pg = pin[r.id] || {};
@@ -2431,10 +2437,17 @@
         });
       });
     },
-    setSharePhone(v) {
+    /** وێنەی پرۆفایلی سەرنشین (ئارەزوومەندانە). لە بەشدارییەکانیشی دادەنرێت بۆ ئەوەی شۆفێرەکەی بیبینێت */
+    setMyPhoto(id) {
+      const old = state.passenger.photo;
       update((s) => {
-        s.passenger.sharePhone = v;
+        s.passenger.photo = id || null;
+        s.subscriptions.filter((x) => (x.owner || 'me') === 'me').forEach((x) => {
+          if (id) x.ownerPhoto = id;
+          else delete x.ownerPhoto;
+        });
       });
+      if (old && old !== id) TK.removeImage(old);
     },
     rateDriver(tripId, stars, tags) {
       update((s) => {
@@ -3702,8 +3715,11 @@
           continue;
         }
         try {
-          await window.TKFB.write({ op: 'set', path: 'img/' + id, data: { d, o: cloud.me, pub: pubWant.has(id), at: Date.now() } });
+          const pub = pubWant.has(id);
+          await window.TKFB.write({ op: 'set', path: 'img/' + id, data: { d, o: cloud.me, pub, at: Date.now() } });
           imgQueue.delete(id);
+          // ئەگەر لە کاتی بارکردندا بوو بە گشتی (بۆ نموونە وێنەی سەرنشین بۆ شۆفێرەکەی)
+          if (!pub && pubWant.has(id)) await window.TKFB.write({ op: 'update', path: 'img/' + id, data: { pub: true } });
           if (pubWant.has(id)) pubDone.add(id);
         } catch (e) {
           console.warn('وێنە بار نەکرا', id, e && e.code);
@@ -3719,8 +3735,13 @@
   TK.imgPump = imgPump;
   /** وێنەکانی ناو تۆمارە گشتییەکان (ڕووخسار و ئۆتۆمبێلی شۆفێر، هەواڵ) سەرنشینەکان دەیبینن */
   function markPublicImages(want) {
-    if (ROLE !== 'driver' && ROLE !== 'admin') return;
+    if (ROLE !== 'driver' && ROLE !== 'admin' && ROLE !== 'passenger') return;
     const ids = [];
+    // وێنەی سەرنشین: ناسنامەکەی تەنها لە بەشدارییەکانیدایە (تەنها شۆفێرەکەی دەیبینێت)
+    if (ROLE === 'passenger' && cloud.me) {
+      const px = want.get('pax/' + cloud.me);
+      if (px && px.passenger && px.passenger.photo) ids.push(px.passenger.photo);
+    }
     want.forEach((d, path) => {
       if (path.startsWith('dpub/') && (ROLE === 'admin' || path === 'dpub/' + cloud.me)) {
         if (d.photo) ids.push(d.photo);
@@ -4568,12 +4589,15 @@
     avatar(initial, tone = '', size = 44) {
       return `<span class="avatar ${tone}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.4)}px">${esc(initial)}</span>`;
     },
-    /** وێنەی شۆفێر (ئەگەر هەبێت) یان پیتی یەکەمی ناوەکەی */
-    dAvatar(d, size = 44) {
-      if (!d) return ui.avatar('?', '', size);
-      const src = d.photo ? TK.img(d.photo) : '';
+    /** وێنەی کەسێک: وێنەکەی خۆی، یان وێنەی بنەڕەت (کەسی هێڵکاری لەسەر زیوی) */
+    personAv(imgId, size = 44) {
+      const src = imgId ? TK.img(imgId) : '';
       if (src) return `<img class="avatar" src="${src}" alt="" style="width:${size}px;height:${size}px;object-fit:cover">`;
-      return ui.avatar(d.initial || (d.name || '?').slice(0, 1), d.woman ? 'woman' : '', size);
+      return `<span class="pav" style="width:${size}px;height:${size}px" aria-hidden="true"><svg viewBox="0 0 100 100"><circle cx="50" cy="39" r="15"/><path d="M22 84c3-15 14-23 28-23s25 8 28 23"/></svg></span>`;
+    },
+    /** وێنەی شۆفێر (ئەگەر هەبێت) یان وێنەی بنەڕەت */
+    dAvatar(d, size = 44) {
+      return ui.personAv(d && d.photo, size);
     },
     badge(label, tone = '') {
       return `<span class="badge ${tone}">${esc(label)}</span>`;
@@ -4603,6 +4627,11 @@
     },
     toggle(act, on, arg = '') {
       return `<button type="button" class="toggle ${on ? 'on' : ''}" data-act="${act}" data-arg="${esc(arg)}" role="switch" aria-checked="${on}"></button>`;
+    },
+    /** وێنەی کاڵی هاوشێوەی پەڕە بەتاڵەکان (بۆ ناساندنی سەرەتا) */
+    art(key, cls = '') {
+      const art = EMPTY_ART[EMPTY_ALIAS[key] || key];
+      return art ? `<svg class="empty-art ${cls}" viewBox="0 0 220 180" aria-hidden="true">${EMPTY_BG}${art}</svg>` : '';
     },
     empty(icon, title, text, btn) {
       const art = EMPTY_ART[EMPTY_ALIAS[icon] || icon];
@@ -4774,23 +4803,20 @@
         .join('')}</div>`;
     },
     /** لیستی گفتوگۆکان */
+    /** لیستی نامەکان (وەک واتسئاپ): وێنە، ناو و کات، یەک دێڕ لە دوایین نامە، نەخوێندراوە ئەستوورە */
     threads(list, asDriver, mkHead) {
-      if (!list.length) return ui.empty('chat', 'هێشتا نامەت نییە', asDriver ? 'کاتێک سەرنشینێک نامەت بۆ بنێرێت لێرە دەردەکەوێت' : 'کاتێک شۆفێرێکت هەبوو، لێرە ڕاستەوخۆ قسەی لەگەڵ دەکەیت');
-      return `<div class="list">${list
+      if (!list.length) return ui.empty('chat', 'هێشتا نامەت نییە', asDriver ? 'کاتێک سەرنشینێک نامەت بۆ بنێرێت لێرە دەردەکەوێت' : 'کاتێک شۆفێرێکت هەبوو، لێرە ڕاستەوخۆ نامەی بۆ دەنێریت');
+      return `<div class="chats">${list
         .map((t) => {
           const h = mkHead(t);
           const last = t.last;
-          const mine = last.fromDriver === asDriver;
-          const replied = !mine;
-          const read = asDriver ? last.readP : last.readD;
-          const status = last.system ? '' : mine ? (read ? '<span class="badge info">بینیویەتی</span>' : '<span class="badge">چاوەڕێی وەڵام</span>') : replied && t.unread ? '' : '<span class="badge ok">وەڵامی دایەوە</span>';
+          const mine = !last.system && last.fromDriver === asDriver;
           const preview = last.unsent ? 'نامەیەک گەڕێنرایەوە' : last.voice ? 'نامەی دەنگی' : last.text;
-          return `<div class="item tap" data-go="${esc(h.link)}">
-            <div style="position:relative">${h.avatar}${h.online ? '<span class="online-dot"></span>' : ''}</div>
-            <div class="grow" style="min-width:0">
-              <div class="row between"><b class="ellipsis">${esc(h.name)}</b><span class="xs muted" style="white-space:nowrap">${fmt.ago(last.at)}</span></div>
-              ${h.sub ? `<div class="xs muted ellipsis">${esc(h.sub)}</div>` : ''}
-              <div class="row between" style="gap:6px"><span class="sm ellipsis ${t.unread ? 'bold' : 'muted'}">${mine ? 'تۆ: ' : ''}${esc(preview)}</span>${t.unread ? `<span class="unread-pill">${t.unread}</span>` : status}</div>
+          return `<div class="chat-row tap ${t.unread ? 'un' : ''}" data-go="${esc(h.link)}">
+            <div class="cr-av">${h.avatar}${h.online ? '<span class="online-dot"></span>' : ''}</div>
+            <div class="cr-mid">
+              <div class="cr-1"><b class="ellipsis">${esc(h.name)}</b><span class="cr-t">${fmt.ago(last.at)}</span></div>
+              <div class="cr-2"><span class="ellipsis">${mine ? 'تۆ: ' : ''}${esc(preview)}</span>${t.unread ? `<span class="cr-n">${t.unread}</span>` : ''}</div>
             </div>
           </div>`;
         })

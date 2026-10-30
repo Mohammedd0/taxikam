@@ -803,7 +803,7 @@
       return layout('passengers', esc(a.name), `
         <div class="cols">
           <div class="card col">
-            <div class="row">${ui.avatar(a.name.slice(0, 1), '', 56)}<div class="grow"><div class="h2">${esc(a.name)}</div><div class="latin sm">${fmt.phone(a.phone)}</div></div>${a.blocked ? ui.badge('ڕاگیراو', 'danger') : ui.badge('چالاک', 'ok')}</div>
+            <div class="row">${ui.personAv(sel.peerPhoto(a.uid), 56)}<div class="grow"><div class="h2">${esc(a.name)}</div><div class="latin sm">${fmt.phone(a.phone)}</div></div>${a.blocked ? ui.badge('ڕاگیراو', 'danger') : ui.badge('چالاک', 'ok')}</div>
             <div class="row between sm"><span class="muted">شار</span><b>${esc((TK.city(p.city) || {}).name || '-')}</b></div>
             <div class="row between sm"><span class="muted">ماڵ</span><b>${p.homeId && TK.place(p.homeId) ? esc(TK.place(p.homeId).name) : '-'}</b></div>
             <div class="row between sm"><span class="muted">تۆمارکراو</span><b>${a.createdAt ? fmt.date(a.createdAt) : '-'}</b></div>

@@ -484,7 +484,7 @@
     const lbl = idx === 0 ? 'یەکەم وێستگە' : `وێستگەی ${idx + 1}`;
     return `<div class="card hero2">
       <div class="h2top tap" data-go="trip/${rv.id}">
-        <div class="hav">${rv.pooled ? icon('users', 26, '#fff', 2) : esc(name.slice(0, 1))}</div>
+        ${rv.pooled ? `<div class="hav">${icon('users', 26, '#fff', 2)}</div>` : ui.personAv(sel.peerPhoto(((rv.stops[0].parts || [])[0] || {}).owner || rv.lead.owner), 52)}
         <div class="grow"><div class="hname">${esc(name)}</div><div class="hsub">${esc(sub)}</div></div>
         <div class="htm"><small>${rv.status === 'active' ? 'کاتی ئەم وێستگەیە' : 'کاتی سوارکردن'}</small><div><b>${fmt.clockBare(rv.status === 'active' ? st.time : rv.time)}</b> ${fmt.period(rv.status === 'active' ? st.time : rv.time)}</div></div>
       </div>
@@ -1010,19 +1010,15 @@
       const groups = [['بەیانی', (c) => (c.go || c.back) < '12:00'], ['نیوەڕۆ و ئێوارە', (c) => (c.go || c.back) >= '12:00']];
       const total = list.filter((c) => !c.paused).reduce((n, c) => n + (c.price || 0), 0);
       const card = (c) => {
-        const phone = sel.peerPhone(c.peer) || null;
         const inRoutes = myRoutes().filter((r) => r.subIds.includes(c.id));
         return `<div class="card col" style="${c.paused ? 'opacity:.6' : ''}">
-          <div class="row">${ui.avatar(c.name.slice(0, 1), c.child ? 'amber' : 'navy', 46)}
-            <div class="grow"><div class="row wrap" style="gap:6px"><b>${esc(c.name)}</b>${c.child ? ui.badge('منداڵ', 'note') : ''}${c.paused ? ui.badge('ڕاگیراوە', 'danger') : ''}</div><div class="xs muted">${esc(c.role || '')}</div></div>
-            <b class="brand sm">${fmt.group(c.price || 0)}</b></div>
+          <div class="row">${ui.personAv(c.photo, 46)}
+            <div class="grow"><div class="row wrap" style="gap:6px"><b>${esc(c.name)}</b>${c.child ? ui.badge('منداڵ', 'note') : ''}${c.paused ? ui.badge('ڕاگیراوە', 'danger') : ''}</div>${c.role && c.role !== c.name ? `<div class="xs muted">${esc(c.role)}</div>` : ''}</div>
+            <b class="brand sm">${fmt.money(c.price || 0)}</b></div>
           ${ui.requestSummary(c)}
           ${TK.subNote(c.id) ? `<div class="sm quote">${icon('doc', 14, 'var(--brand)')} ${esc(TK.subNote(c.id))}</div>` : ''}
           ${inRoutes.length ? `<div class="row wrap" style="gap:6px">${inRoutes.map((r) => ui.badge(r.name, 'info')).join('')}</div>` : ''}
-          <div class="row" style="gap:8px">
-            <button class="btn sm secondary grow" data-go="chat/${encodeURIComponent(c.peer)}">${icon('chat', 16)}نامە</button>
-            ${phone ? `<a class="btn sm secondary grow" href="tel:0${esc(phone)}">${icon('phone', 16)}<span class="latin">${fmt.phone(phone)}</span></a>` : `<span class="btn sm ghost grow" style="pointer-events:none">${icon('lock', 16)}ژمارە شاراوەیە</span>`}
-          </div>
+          <button class="btn sm secondary block" data-go="chat/${encodeURIComponent(c.peer)}">${icon('chat', 16)}نامە</button>
         </div>`;
       };
       return page(`
@@ -1081,13 +1077,14 @@
     const me = sel.me();
     const direct = r.target === me.id;
     return `<button class="card col tap req" data-go="req/${r.id}" style="text-align:right">
-      <div class="row">${ui.avatar(r.ownerName.slice(0, 1), r.hasChild ? 'amber' : 'navy', 44)}
+      <div class="row">${ui.personAv(null, 44)}
         <div class="grow"><b>${esc(r.ownerName)}</b><div class="xs muted">${esc(r.riderNames)}، ${fmt.ago(r.createdAt)}</div></div>
         ${direct ? ui.badge('ڕاستەوخۆ بۆ تۆ', 'amber') : ''}</div>
       <div class="req-route"><span>${esc(r.from.split('، ')[0])}</span>${icon('forward', 18, 'var(--brand)', 2.4)}<span>${esc(r.to.split('، ')[0])}</span></div>
       <div class="row wrap sm" style="gap:10px">${icon('clock', 16, 'var(--muted)')}<span>${reqTimes(r)}</span>${icon('users', 16, 'var(--muted)')}<span>${r.riders} کەس</span>${r.hasChild ? ui.badge('منداڵ', 'note') : ''}${r.womanOnly ? ui.badge('تەنها ئافرەت', 'woman') : ''}${r.rideType === 'private' ? ui.badge('تایبەت') : ''}</div>
       ${fitLine(r)}
-      <div class="row between"><b class="price brand">${fmt.money(r.price)}</b><span class="btn sm">بینین</span></div>
+      <div class="row between"><b class="price brand">${fmt.money(r.price)}</b></div>
+      <span class="btn block">${icon('send', 18, 'currentColor', 2.2)}بینین و ناردنی نرخ</span>
     </button>`;
   }
   function myOfferCard(r, o) {
@@ -1114,7 +1111,7 @@
       return page(`
         <div class="callscreen col">
           <div class="row"><button class="icon-btn" data-back="requests" aria-label="داخستن">${icon('x', 22)}</button><span class="grow"></span>${r.target === me.id ? ui.badge('ڕاستەوخۆ بۆ تۆ', 'amber') : r.offers.length ? ui.badge(`${r.offers.length} شۆفێر نرخیان ناردووە`, 'info') : ''}</div>
-          <div class="col center" style="align-items:center;gap:6px">${ui.avatar(r.ownerName.slice(0, 1), r.hasChild ? 'amber' : 'navy', 86)}<div class="h1">${esc(r.ownerName)}</div><div class="sm muted">داواکاری مانگانە، ${esc(r.riderNames)}</div></div>
+          <div class="col center" style="align-items:center;gap:6px">${ui.personAv(null, 86)}<div class="h1">${esc(r.ownerName)}</div><div class="sm muted">داواکاری مانگانە، ${esc(r.riderNames)}</div></div>
           <div class="card col">
             <div class="req-route big"><span>${esc(r.from)}</span>${icon('forward', 22, 'var(--brand)', 2.4)}<span>${esc(r.to)}</span></div>
             <div class="row sm">${icon('clock', 18, 'var(--muted)')}<b>${reqTimes(r)}</b></div>
@@ -1165,14 +1162,12 @@
   TK.route('inbox', {
     guard: authed,
     render() {
-      const s = S();
       const threads = sel.threadsD();
       return page(`
         ${ui.header('نامەکان', { back: 'more', right: sel.unreadMsgsD() ? ui.badge(`${sel.unreadMsgsD()} نوێ`, 'amber') : '' })}
         ${ui.threads(threads, true, (t) => {
           const name = sel.peerName(t.peer);
-          const sub = s.subscriptions.filter((x) => x.driverId === s.driver.meId && (x.owner || 'me') === t.peer).map((x) => x.riderNames).join('، ');
-          return { name, sub: sub || 'سەرنشین', link: `chat/${encodeURIComponent(t.peer)}`, avatar: ui.avatar(name.slice(0, 1), 'navy', 48) };
+          return { name, link: `chat/${encodeURIComponent(t.peer)}`, avatar: ui.personAv(sel.peerPhoto(t.peer), 54) };
         })}`, 'more');
     },
   });
@@ -1186,7 +1181,7 @@
       const phone = sel.peerPhone(peer) || null;
       const QUICK = ['٥ خولەکی تر دەگەم', 'لە بەردەم دەرگام', 'گەیشتین', 'باشە، سوپاس'];
       return `<div class="screen" style="padding-bottom:150px">
-        ${ui.header(name, { back: 'inbox', sub: 'سەرنشین', cls: 'chathead', avatar: ui.avatar(String(name || '؟').slice(0, 1), 'navy', 42), right: phone ? `<a class="icon-btn" href="tel:0${esc(phone)}" aria-label="پەیوەندی">${icon('phone', 20)}</a>` : '' })}
+        ${ui.header(name, { back: 'inbox', sub: 'سەرنشین', cls: 'chathead', avatar: ui.personAv(sel.peerPhoto(peer), 42), right: phone ? `<a class="icon-btn" href="tel:0${esc(phone)}" aria-label="پەیوەندی">${icon('phone', 20)}</a>` : '' })}
         <div class="phone-line">${icon(phone ? 'phone' : 'lock', 16)}<span class="grow">${phone ? 'ژمارەی سەرنشین' : 'سەرنشین ژمارەکەی شاردووەتەوە. لە ڕێگەی نامەوە پەیوەندی بکە.'}</span>${phone ? `<a class="latin bold" dir="ltr" href="tel:0${esc(phone)}">${fmt.phone(phone)}</a>` : ''}</div>
         <div id="thread">${threadHtml(peer)}</div>
       </div>
@@ -1237,7 +1232,7 @@
         <div class="card ok row">${icon('check', 24, 'currentColor', 2.6)}<b class="grow">دەستخۆش! هەموو سەرنشینەکان گەیاندران</b></div>
         ${riders.map((name, i) => {
           const v = U.rr[i] || 5;
-          return `<div class="card col"><div class="row">${ui.avatar(name.slice(0, 1), 'navy', 40)}<b class="grow">${esc(name)}</b></div>
+          return `<div class="card col"><div class="row">${ui.personAv(null, 40)}<b class="grow">${esc(name)}</b></div>
             <div class="row" style="gap:6px;justify-content:center">${[1, 2, 3, 4, 5].map((n) => `<button data-act="rrStar" data-arg="${i}|${n}" aria-label="${n}">${icon('star', 34, 'var(--amber)', 1.5, n <= v ? 'var(--amber)' : 'none')}</button>`).join('')}</div></div>`;
         }).join('')}
         <div class="sm muted">هەڵسەنگاندنەکان نهێنین و تەنها تیمی یەکسا دەیانبینێت.</div>
@@ -1283,7 +1278,7 @@
           <div class="wc-top">
             <div class="col tight">
               <span class="wc-title"><i></i>داهاتی ئەم مانگە (پاش کۆمیسیۆن)</span>
-              <span class="wc-tag latin" data-raw>DRIVER WALLET • VIP</span>
+              <span class="wc-tag">جزدانی شۆفێر</span>
             </div>
             <div class="row" style="gap:10px"><span class="wc-nfc">)))</span><span class="wc-chip"><i></i></span></div>
           </div>
@@ -1597,9 +1592,9 @@
 
   /* ---------- فێرکاری یەکەم جار ---------- */
   const INTRO = [
-    { ic: 'home', t: 'ئەمڕۆ', d: 'هەموو بەیانییەک لێرە دەبینیت کێ سوار دەکەیت و کەی. یەک دوگمەی گەورە هەیە: «بەڕێ کەوتم»، پاشان «گەیشتم»، «سوار بوو» و «گەیاندم».' },
-    { ic: 'route', t: 'ڕۆتەکان', d: 'چەند سەرنشینێک کە نزیکی یەکن بخە یەک تەکسی. خۆت دیاری دەکەیت یەکەم کەس کێیە. هەموو ڕۆژێک خۆکار ئامادە دەبێت.' },
-    { ic: 'megaphone', t: 'داواکاری نوێ', d: 'کاتێک سەرنشینێک تەکسی بوێت دەنگێکت بۆ دێت. نرخ ئامادەیە، تەنها «قبووڵکردن» دابگرە.' },
+    { ic: 'home', art: 'clock', t: 'ئەمڕۆ', d: 'هەموو بەیانییەک لێرە دەبینیت کێ سوار دەکەیت و کەی. یەک دوگمەی گەورە هەیە: «بەڕێ کەوتم»، پاشان «گەیشتم»، «سوار بوو» و «گەیاندم».' },
+    { ic: 'route', art: 'route', t: 'ڕۆتەکان', d: 'چەند سەرنشینێک کە نزیکی یەکن بخە یەک تەکسی. خۆت دیاری دەکەیت یەکەم کەس کێیە. هەموو ڕۆژێک خۆکار ئامادە دەبێت.' },
+    { ic: 'megaphone', art: 'megaphone', t: 'داواکاری نوێ', d: 'کاتێک سەرنشینێک تەکسی بوێت دەنگێکت بۆ دێت. نرخ ئامادەیە، تەنها «قبووڵکردن» دابگرە.' },
   ];
   TK.route('intro', {
     guard: authed,
@@ -1608,7 +1603,7 @@
       const x = INTRO[i];
       return page(`
         <div class="intro col center" style="align-items:center;gap:18px;min-height:70vh;justify-content:center;text-align:center">
-          <div class="intro-ic">${icon(x.ic, 64, 'var(--brand)', 1.8)}</div>
+          ${ui.art(x.art, 'intro-art')}
           <div class="h1">${x.t}</div>
           <div style="font-size:1.08rem;line-height:1.9;max-width:340px">${x.d}</div>
           <div class="dots">${INTRO.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
