@@ -3413,6 +3413,9 @@
     { id: 'fq2', aud: 'p', on: true, q: 'چۆن نرخ دیاری دەکرێت؟', a: 'ئەپەکە بە پێی دووری ڕێگا، ژمارەی ڕۆژەکان و ژمارەی سەرنشینەکان نرخێک پێشنیار دەکات. شۆفێرەکان دەتوانن تا {offerRange} کەمتر یان زیاتر نرخ بنێرن و تۆ هەڵدەبژێریت.' },
     { id: 'fq3', aud: 'p', on: true, q: 'دەتوانم بەشدارییەکەم ڕابگرم؟', a: 'بەڵێ، لە بەشی بەشداری «ڕاگرتنی کاتی» دابگرە. بۆ ئەو ڕۆژانەی ڕاگیراوە پارە نادەیت.' },
     { id: 'fq4', aud: 'p', on: true, q: 'چۆن پەیوەندی بە شۆفێرەکەمەوە بکەم؟', a: 'لە ناو ئەپ نامەی بۆ بنێرە، یان لە پەڕەی شۆفێرەکە پەیوەندی تەلەفۆنی پێوە بکە. ژمارەی مۆبایلی تۆ لای شۆفێر هەمیشە شاراوەیە.' },
+    { id: 'fq5', aud: 'd', on: true, q: 'چۆن داواکاری وەربگرم؟', a: '«ئامادەی کارم» چالاک بکە. کاتێک سەرنشینێک داوا بکات دەنگێکت بۆ دێت. نرخێک پێشنیار کراوە، دەتوانیت تا {offerRange} کەمتر یان زیاتر نرخ بنێریت.' },
+    { id: 'fq6', aud: 'd', on: true, q: 'ئەگەر ڕۆژێک نەتوانم بچم چی بکەم؟', a: 'گەشتەکە بکەرەوە و «ناتوانم بڕۆم، جێگرەوە» دابگرە. داواکارییەکەت بۆ شۆفێرانی تر بڵاو دەبێتەوە و ئەو بڕەی دیاری دەکەیت بۆ ئەو کەسە دەبێت کە وەری دەگرێت. ئەگەر کەس وەری نەگرت، دەبێت خۆت بڕۆیت.' },
+    { id: 'fq7', aud: 'd', on: true, q: 'بۆچی ژمارەی سەرنشین نابینم؟', a: 'بۆ پاراستنی تایبەتمەندی سەرنشینان، ژمارەکانیان شاراوەیە. لە ڕێگەی نامەی ناو ئەپەوە پەیوەندییان پێوە بکە.' },
   ];
   TK.FAQ_DEFAULT = FAQ_DEFAULT;
   /** ژمارەکانی پەیوەندی کە بەڕێوەبەر دایناون (سەرنشین p، شۆفێر d) */
@@ -5007,6 +5010,7 @@
     /** کارتی هەواڵ (بانەری جووڵاو) */
     banner(n) {
       const src = n.image ? TK.img(n.image) : '';
+      if (src && n.imageOnly) return `<div class="banner has-img img-only" data-go="news/${n.id}" role="link" aria-label="${esc(n.title)}"><img class="bimg" src="${src}" alt=""></div>`;
       return `<div class="banner th-${n.theme} ${src ? 'has-img' : ''}" data-go="news/${n.id}" role="link">
         ${src ? `<img class="bimg" src="${src}" alt="">` : ''}
         <span class="tag">${esc(n.tag)}</span>
@@ -5150,6 +5154,8 @@
   /* ---------- کارۆسێلی هەواڵ: جووڵەی خۆکار و خاڵەکان ---------- */
   let carIdx = 0;
   let carTimer = null;
+  /* بانەرەکان بێ کۆتایی دەسوڕێنەوە (وەک ئەپە جیهانییەکان): دوای دوایین ڕیکلام یەکەم دێتەوە، و پێش یەکەم دوایین.
+   * ڕێگاکە: کۆپییەکی دوایین لە پێش یەکەم و کۆپییەکی یەکەم لە دوای دوایین دادەنرێت؛ کاتێک لەسەر کۆپییەک وەستا، بێ جووڵە دەچێتە سەر ڕاستەقینەکە */
   TK.initCarousel = function () {
     clearInterval(carTimer);
     const c = document.querySelector('[data-carousel]');
@@ -5157,60 +5163,53 @@
     const track = c.querySelector('.track');
     const dots = c.querySelectorAll('.dots i');
     const count = dots.length;
-    // ئاراستەی ڕاست بۆ چەپ: سلایدی دواتر لە لای چەپەوە دێت، و scrollLeft بەرەو سالب دەچێت
-    const step = () => (track.children.length > 1 ? Math.abs(track.children[1].offsetLeft - track.children[0].offsetLeft) : track.clientWidth);
-    const pos = () => Math.abs(track.scrollLeft);
+    if (carIdx >= count) carIdx = 0;
     const setDots = (i) => dots.forEach((d, k) => d.classList.toggle('on', k === i));
-    track.style.scrollBehavior = 'auto';
-    track.scrollLeft = -carIdx * step();
-    track.style.scrollBehavior = '';
     setDots(carIdx);
+    if (count < 2) return;
+    const first = track.children[0];
+    const last = track.children[count - 1];
+    const cf = first.cloneNode(true);
+    const cl = last.cloneNode(true);
+    [cf, cl].forEach((x) => { x.setAttribute('aria-hidden', 'true'); x.classList.add('clone'); });
+    track.appendChild(cf);
+    track.insertBefore(cl, first);
+    // ئاراستەی ڕاست بۆ چەپ: scrollLeft بەرەو سالب دەچێت. شوێنی p: ٠ = کۆپی دوایین، ١..count = ڕاستەقینە، count+1 = کۆپی یەکەم
+    const step = () => Math.abs(track.children[2].offsetLeft - track.children[1].offsetLeft) || track.clientWidth;
+    const pos = () => Math.round(Math.abs(track.scrollLeft) / (step() || 1));
+    const jump = (p) => {
+      track.style.scrollSnapType = 'none';
+      track.style.scrollBehavior = 'auto';
+      track.scrollLeft = -p * step();
+      requestAnimationFrame(() => {
+        track.style.scrollSnapType = '';
+        track.style.scrollBehavior = '';
+      });
+    };
+    jump(carIdx + 1);
     let userTouch = 0;
+    let settle = 0;
+    const fix = () => {
+      const p = pos();
+      if (p <= 0) jump(count);
+      else if (p >= count + 1) jump(1);
+    };
     track.addEventListener('scroll', () => {
-      const i = Math.round(pos() / (step() || 1));
-      if (i !== carIdx && i >= 0 && i < count) {
+      const p = pos();
+      const i = (p - 1 + count) % count;
+      if (i !== carIdx) {
         carIdx = i;
         setDots(i);
       }
+      clearTimeout(settle);
+      settle = setTimeout(fix, 140);
     }, { passive: true });
-    // ئەگەر لە دوایین ڕیکلامدایت و هێشتا پەنجە بۆ دواتر دەکێشیت، دەگەڕێتەوە بۆ یەکەم
-    let startX = null;
-    let startIdx = 0;
-    const goFirst = () => {
-      carIdx = 0;
-      setDots(0);
-      track.scrollTo({ left: 0, behavior: 'smooth' });
-    };
-    track.addEventListener('touchstart', (e) => {
-      userTouch = Date.now();
-      startX = e.touches[0].clientX;
-      startIdx = carIdx;
-    }, { passive: true });
-    track.addEventListener('touchend', (e) => {
-      userTouch = Date.now();
-      if (startX == null) return;
-      const dx = e.changedTouches[0].clientX - startX; // ڕاست بۆ چەپ: دواتر = پەنجە بەرەو ڕاست
-      startX = null;
-      if (startIdx === count - 1 && dx > 40) setTimeout(goFirst, 60);
-    }, { passive: true });
-    // بە ماوس (کۆمپیوتەر)
-    track.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'mouse') return;
-      startX = e.clientX;
-      startIdx = carIdx;
-    });
-    track.addEventListener('pointerup', (e) => {
-      if (e.pointerType !== 'mouse' || startX == null) return;
-      const dx = e.clientX - startX;
-      startX = null;
-      if (startIdx === count - 1 && dx > 40) goFirst();
-    });
+    ['touchstart', 'pointerdown', 'wheel'].forEach((ev) => track.addEventListener(ev, () => (userTouch = Date.now()), { passive: true }));
     carTimer = setInterval(() => {
       if (!document.body.contains(track)) return clearInterval(carTimer);
       if (Date.now() - userTouch < 6000) return;
-      carIdx = (carIdx + 1) % count;
-      track.scrollTo({ left: -carIdx * step(), behavior: 'smooth' });
-      setDots(carIdx);
+      const p = pos();
+      track.scrollTo({ left: -(p + 1) * step(), behavior: 'smooth' });
     }, 4500);
   };
 

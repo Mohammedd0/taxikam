@@ -544,9 +544,17 @@
         ${open.length && me.online ? `<button class="card note row tap" data-go="requests" style="text-align:right"><div class="ico-box" style="background:var(--amber)">${icon('megaphone', 22, '#0B1733')}</div><div class="grow"><b>${open.length} داواکاری نوێ</b><div class="sm muted">سەرنشینی نوێ وەربگرە</div></div>${icon('forward', 20)}</button>` : ''}
         ${me.status === 'active' && (hero || runs.length) ? `<div class="daylabel">${icon('calendar', 16, 'var(--muted)')}<span>ئەمڕۆ، ${fmt.today()}</span></div>` : ''}
         ${hero ? heroCard(hero) : me.status === 'active' ? (runs.length ? `<div class="card ok row">${icon('check', 24, 'currentColor', 2.6)}<div class="grow"><b>هەموو گەشتەکانی ئەمڕۆ تەواو بوون</b><div class="xs">دەستخۆش</div></div></div>` : '') + tomorrowSection(!runs.length && !mySubs().length) : ''}
-        ${rest.length ? `<div class="section-title"><div class="h3">${hero ? 'گەشتەکانی تری ئەمڕۆ' : 'گەشتەکانی ئەمڕۆ'}</div><span class="cntp">${rest.length}</span></div>${rest.map(runRow).join('')}` : ''}`, 'today');
+        ${rest.length ? `<div class="section-title"><div class="h3">${hero ? 'گەشتەکانی تری ئەمڕۆ' : 'گەشتەکانی ئەمڕۆ'}</div><span class="cntp">${rest.length}</span></div>${rest.map(runRow).join('')}` : ''}
+        ${drvAds(mine)}`, 'today');
     },
+    after: () => TK.initCarousel(),
   });
+  /** هەواڵ و ڕێکلامی شۆفێران لە خوارەوەی «ئەمڕۆ»؛ کاتێک گەشتێک لە ڕێگەدایە دەرناکەوێت */
+  function drvAds(mine) {
+    if (mine.some((r) => r.status === 'active')) return '';
+    const ads = sel.newsFor('driver').filter((n) => sel.newsKind(n) === 'ad');
+    return ads.length ? `<div class="h3" style="margin-top:6px">هەواڵ</div>${ui.carousel(ads, { bleed: true })}` : '';
+  }
   /** گەشتەکانی بەیانی (سبەینێ) بە پێی بەشداری و ڕۆتەکان، بێ ئەوەی هێشتا دروست کرابن */
   function tomorrowPlan() {
     const d = new Date();
@@ -1139,7 +1147,8 @@
             : `<div class="card col center" style="gap:6px">
               <div class="sm muted">نرخی مانگانە</div>
               <div class="stepper"><button data-act="offStep" data-arg="5000" ${o.price >= b.max ? 'disabled' : ''}>+</button><div class="val brand">${fmt.money(o.price)}</div><button data-act="offStep" data-arg="-5000" ${o.price <= b.min ? 'disabled' : ''}>−</button></div>
-              <div class="xs muted">${o.price === r.price ? 'نرخی پێشنیارکراو بە پێی دووری و ڕۆژەکان' : `پێشنیارکراو بە پێی دووری: ${fmt.money(r.price)}`}، بۆ تۆ پاش کۆمیسیۆن <b class="ok">${fmt.money(net)}</b></div>
+              <div class="xs muted">${o.price === r.price ? 'نرخی پێشنیارکراو بە پێی دووری و ڕۆژەکان' : `پێشنیارکراو بە پێی دووری: ${fmt.money(r.price)}`}</div>
+              <div class="net-line">داهاتی تۆ: <b>${fmt.money(net)}</b></div>
             </div>`}
           <button class="btn ghost block" data-go="chat/${encodeURIComponent(r.owner)}">${icon('chat', 18)}پرسیار لە سەرنشین</button>
           ${can ? `<div class="callfoot">${me.online ? '' : `<div class="row center sm muted" style="justify-content:center;gap:8px">بۆ قبووڵکردن «ئامادەی کارم» چالاک بکە ${ui.toggle('online', false)}</div>`}
@@ -1378,7 +1387,7 @@
       if (!n) return page(ui.header('ئۆفەرەکان', { back: 'offers' }));
       const src = n.image ? TK.img(n.image) : '';
       return page(`
-        ${ui.header(n.tag, { back: 'offers' })}
+        ${ui.header(n.tag, { back: sel.newsKind(n) === 'offer' ? 'offers' : 'today' })}
         ${src ? `<div class="news-photo"><img src="${src}" alt=""></div><div class="h2">${esc(n.title)}</div>` : `<div class="news-hero th-${n.theme}">
           <div style="position:absolute;left:14px;top:14px;opacity:.9">${n.big ? `<span class="big" style="font-size:3.6rem;font-weight:700;display:block;text-align:center">${ui.bigHtml(n.big)}</span>` : icon(n.icon, 84, 'currentColor', 1.3)}</div>
           <div class="h2">${esc(n.title)}</div><div class="sm" style="opacity:.9">${esc(n.sub)}</div>
@@ -1423,7 +1432,7 @@
     const ar = acceptRate(me.id);
     return `<button class="card pcard tap" data-go="profile">
       <div class="pc-top">
-        <div class="pc-av">${src ? `<img src="${src}" alt="">` : esc((me.name || '?').slice(0, 1))}${me.status === 'active' ? `<span class="pc-ok">${icon('check', 14, '#fff', 3)}</span>` : ''}</div>
+        <div class="pc-av">${src ? `<img src="${src}" alt="">` : ui.personSvg()}${me.status === 'active' ? `<span class="pc-ok">${icon('check', 14, '#fff', 3)}</span>` : ''}</div>
         <div class="grow"><div class="pc-name">${esc(me.name)}</div><div class="pc-car">${esc([`${me.carMake || ''} ${me.carModel || ''}`.trim() || me.car, me.carColor].filter(Boolean).join(' · '))}</div>
           ${ui.plate(me.plate, me.plateType)}</div>
         ${icon('forward', 22, 'var(--muted)')}
@@ -1456,8 +1465,8 @@
         </div>
         <div class="plabel">هەژمار و یارمەتی</div>
         <div class="list">
-          ${item('user', 'پرۆفایل و بەڵگەنامەکان', 'profile')}
           ${item('settings', 'ڕێکخستنەکان', 'settings')}
+          ${item('help', 'پرسیارە باوەکان', 'faq')}
           ${item('flag', 'یارمەتی و سکاڵاکان', 'support', (me.tickets || []).some((t) => t.reply && !t.seen) ? ui.badge('وەڵام', 'amber') : '')}
           ${item('phone', 'پەیوەندی', '', '', 'contactUs')}
           ${item('play', 'فێرکاری ئەپ', '', '', 'showIntro')}
@@ -1532,13 +1541,11 @@
     guard: authed,
     render() {
       const me = sel.me() || {};
-      const list = TK.faqList('d');
       const tks = me.tickets || [];
       const st = { open: ['کراوە', 'note'], progress: ['لە کاردایە', 'info'], resolved: ['چارەسەر کرا', 'ok'] };
       return page(`
         ${ui.header('یارمەتی و سکاڵاکان', { back: 'more' })}
         <div class="card danger col"><div><b>فریاکەوتن</b><div class="sm">لە کاتی مەترسیدا</div></div><div class="grid2"><a class="btn sm danger-solid" href="tel:104">${icon('phone', 16)}پۆلیس ١٠٤</a><a class="btn sm danger-solid" href="tel:122">${icon('phone', 16)}فریاگوزاری ١٢٢</a></div></div>
-        ${list.length ? `<div class="h3">پرسیارە باوەکان</div>${ui.faq(list)}` : ''}
         <div class="section-title"><div class="h3">سکاڵاکان</div><button class="link" data-act="newTicket">نوێ</button></div>
         ${tks.length ? `<div class="list">${tks.map((t) => `<div class="item"><div class="grow"><div class="row" style="gap:6px"><b class="sm">#${t.id}</b>${ui.badge((st[t.status] || st.open)[0], (st[t.status] || st.open)[1])}</div><div class="sm">${esc(t.subject)}</div>${t.reply ? `<div class="xs muted">وەڵام: ${esc(t.reply)}</div>` : ''}</div></div>`).join('')}</div>` : '<div class="sm muted">هیچ سکاڵایەک نییە</div>'}`);
     },
@@ -1547,6 +1554,15 @@
     },
   });
   acts.contactUs = () => TK.contactSheet('d');
+  TK.route('faq', {
+    guard: authed,
+    render() {
+      const list = TK.faqList('d');
+      return page(`
+        ${ui.header('پرسیارە باوەکان', { back: 'more' })}
+        ${list.length ? ui.faq(list) : ui.empty('help', 'هیچ پرسیارێک نییە', 'تیمی یەکسا لێرە وەڵامی پرسیارە باوەکان دادەنێت')}`, 'more');
+    },
+  });
   acts.newTicket = () => {
     TK.sheet(() => `
       <div class="h2">سکاڵای نوێ</div>

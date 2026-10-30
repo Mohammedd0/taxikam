@@ -1907,3 +1907,9 @@ html.kb-open .screen.auth { justify-content: flex-start; }
 .nt-new { background: var(--info-bg); }
 .nt-new .nt-when { color: var(--info-text); font-weight: 700; }
 .nt-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--info-text); align-self: center; }
+/* بانەری «تەنها وێنە»: وێنەکە بە تەواوی، بێ نووسین و بێ سێبەری ڕەش */
+.banner.img-only::after { display: none; }
+.banner.img-only { padding: 0; }
+/* پەڕەی ناردنی نرخ: ئەو پارەیەی دوای کۆمیسیۆن بۆ شۆفێر دەمێنێتەوە */
+.net-line { font-size: .9rem; color: var(--ok-text); background: var(--ok-bg); border-radius: 12px; padding: 6px 12px; align-self: center; }
+.net-line b { font-weight: 800; }

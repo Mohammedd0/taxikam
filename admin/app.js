@@ -1140,6 +1140,8 @@
     });
     const nf = document.getElementById('n-notify');
     if (nf) U.nd.notify = nf.checked;
+    const io = document.getElementById('n-imgonly');
+    if (io) U.nd.imageOnly = io.checked;
   }
   function newsSheet() {
     const n = U.nd;
@@ -1153,7 +1155,8 @@
         ${input('n-body', 'ناوەڕۆک', n.body, { full: true, area: true })}
         ${ad ? `<div class="field full"><label>وێنە (ئارەزوومەندانە)</label><div class="photos">${ui.photoField('newsImage', 'وێنەی بانەر (پانی باشترە)', n.image, 'pickNewsImg')}</div>
           ${n.image ? `<button class="btn sm ghost" data-act="rmNewsImg">لابردنی وێنە</button>` : ''}
-          <span class="xs muted">ئەگەر وێنە دابنێیت، ڕەنگ و ئایکۆن و نووسینی گەورە پیشان نادرێن.</span></div>` : ''}
+          <span class="xs muted">ئەگەر وێنە دابنێیت، ڕەنگ و ئایکۆن و نووسینی گەورە پیشان نادرێن.</span>
+          ${n.image ? check('n-imgonly', 'تەنها وێنە (هیچ نووسینێک لەسەر بانەرەکە نییە، وەک پۆستەر)', !!n.imageOnly) : ''}</div>` : ''}
         ${input('n-tag', 'نیشانە', n.tag, { ph: ad ? 'نوێ، ڕێکلام، ئاگاداری' : 'ئۆفەر' })}
         ${select('n-aud', 'بۆ کێ', n.aud, Object.entries(AUD))}
         ${select('n-theme', 'ڕەنگ', n.theme, THEMES)}
@@ -1209,7 +1212,7 @@
     const n0 = U.nd;
     if (String(n0.title).trim().length < 3) return TK.toast('سەردێڕ بنووسە');
     const ad = n0.kind === 'ad';
-    const data = { kind: n0.kind, title: String(n0.title).trim(), sub: n0.sub, body: n0.body, tag: n0.tag || (ad ? 'نوێ' : 'ئۆفەر'), aud: n0.aud, theme: n0.theme, icon: n0.icon, big: String(n0.big || '').trim(), code: ad ? '' : String(n0.code || '').trim().toUpperCase(), until: ad ? '' : n0.until, image: ad ? n0.image : '' };
+    const data = { kind: n0.kind, title: String(n0.title).trim(), sub: n0.sub, body: n0.body, tag: n0.tag || (ad ? 'نوێ' : 'ئۆفەر'), aud: n0.aud, theme: n0.theme, icon: n0.icon, big: String(n0.big || '').trim(), code: ad ? '' : String(n0.code || '').trim().toUpperCase(), until: ad ? '' : n0.until, image: ad ? n0.image : '', imageOnly: !!(ad && n0.image && n0.imageOnly) };
     if (n0._orig && n0._orig !== data.image) TK.removeImage(n0._orig);
     TK.update((s) => {
       let n;
@@ -1985,7 +1988,7 @@
             <button class="icon-btn" data-act="ctForm" data-arg="${x.id}" aria-label="دەستکاری">${icon('edit', 18)}</button>
             <button class="icon-btn" data-act="ctDel" data-arg="${x.id}" aria-label="سڕینەوە">${icon('x', 18)}</button></div>`).join('')}</div>` : '<div class="sm muted">هێشتا هیچ ژمارەیەک دانەنراوە</div>'}
         <div class="h3" style="margin-top:10px">پرسیارە باوەکان</div>
-        <div class="section-title"><div class="sm muted">ئەم پرسیارانە لە «پرسیارە باوەکان»ی سەرنشین و «یارمەتی و سکاڵاکان»ی شۆفێر دەردەکەون. بۆ ڕێژەی نرخی شۆفێر بنووسە <span class="latin" dir="ltr">{offerRange}</span> و خۆی دەبێتە ڕێژەی ئێستا.</div><button class="btn sm" data-act="fqForm">${icon('plus', 16)}پرسیاری نوێ</button></div>
+        <div class="section-title"><div class="sm muted">ئەم پرسیارانە لە بەشی «پرسیارە باوەکان»ی ئەپی سەرنشین و ئەپی شۆفێر دەردەکەون. بۆ ڕێژەی نرخی شۆفێر بنووسە <span class="latin" dir="ltr">{offerRange}</span> و خۆی دەبێتە ڕێژەی ئێستا.</div><button class="btn sm" data-act="fqForm">${icon('plus', 16)}پرسیاری نوێ</button></div>
         ${list.length ? `<div class="list">${list.map(row).join('')}</div>` : ui.empty('help', 'هیچ پرسیارێک نییە', 'پرسیاری نوێ زیاد بکە')}`);
     },
   });
