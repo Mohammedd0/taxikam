@@ -48,7 +48,19 @@ service cloud.firestore {
     match /pnotices/{id} { allow read, delete: if isAdmin() || inR(); allow update: if isAdmin() || inR() || unsentNotice(); allow create: if signedIn(); }
     match /phistory/{id} { allow read, update, delete: if isAdmin() || inR(); allow create: if signedIn(); }
     match /dnotices/{id} { allow read, delete: if isAdmin() || inR(); allow update: if isAdmin() || inR() || unsentNotice(); allow create: if signedIn(); }
-    match /ledger/{id} { allow read: if isAdmin() || inR(); allow create: if signedIn(); allow update, delete: if isAdmin(); }
+    // دەفتەری کۆن (پێش جزدان): سەرنشین تەنها سزای «نەهاتن» بۆ شۆفێری گەشتەکەی خۆی؛ شۆفێر تەنها گواستنەوەی پارەی جێگرەوە بۆ گەشتێکی خۆی
+    function tripOf(d) { return get(/databases/$(database)/documents/trips/$(d.tripId)).data; }
+    function ledgerPax() {
+      let d = request.resource.data;
+      return isPax() && d.type == 'penalty' && d.amount is number && d.amount < 0 && d.amount >= -200000 && d.tripId is string
+        && uid() in tripOf(d)._r && tripOf(d).driverId == d.driverId;
+    }
+    function ledgerDriver() {
+      let d = request.resource.data;
+      return isDriver() && d.type == 'swap' && d.amount is number && d.amount > -1000000 && d.amount < 1000000 && d.tripId is string
+        && tripOf(d).driverId == uid() && (d.amount > 0 ? d.driverId == uid() : tripOf(d).originalDriverId == d.driverId);
+    }
+    match /ledger/{id} { allow read: if isAdmin() || inR(); allow create: if isAdmin() || ledgerPax() || ledgerDriver(); allow update, delete: if isAdmin(); }
     // «resource == null»: ئامێرەکە پێش دروستکردن دەپشکنێت ئایا هەیە (transaction)، بەڵگەنامەی نەبوو هیچ ئاشکرا ناکات
     match /driverLog/{id} { allow read: if resource == null || isAdmin() || inR(); allow update, delete: if isAdmin() || inR(); allow create: if isAdmin() || inNewR(); }
 
@@ -80,9 +92,15 @@ service cloud.firestore {
     match /dpub/{id} {
       allow read: if signedIn();
       allow create: if isAdmin() || (isDriver() && uid() == id && request.resource.data.status == 'pending');
+      // شۆفێر خۆی: هەموو شتێک جگە لە دۆخ و هەڵسەنگاندن. سەرنشین: تەنها یەک هەڵسەنگاندن لە جارێکدا (reviews +1، rating لە ١ تا ٥)
       allow update: if isAdmin()
         || (signedIn() && uid() == id && !changed().hasAny(['status', 'rating', 'reviews', 'plateType']))
-        || (signedIn() && changed().hasOnly(['rating', 'reviews', 'tags', 'freeSeats', 'trips', 'workDays', '_t', 'id']));
+        || (isPax() && changed().hasOnly(['rating', 'reviews', 'tags', '_t', 'id'])
+            && request.resource.data.reviews == resource.data.get('reviews', 0) + 1
+            && request.resource.data.rating is number && request.resource.data.rating >= 1 && request.resource.data.rating <= 5)
+        // سەرنشین کاتێک بەشداری دەکات کورسییە بەتاڵەکانی شۆفێر کەم دەکاتەوە
+        || (isPax() && changed().hasOnly(['freeSeats', '_t', 'id']) && request.resource.data.freeSeats is number
+            && request.resource.data.freeSeats >= 0 && request.resource.data.freeSeats <= 20);
       allow delete: if isAdmin();
     }
     match /img/{id} {
@@ -102,7 +120,9 @@ service cloud.firestore {
       allow delete: if isAdmin() || inR();
     }
     match /subscriptions/{id} {
-      allow read, update, delete: if isAdmin() || inR();
+      allow read, delete: if isAdmin() || inR();
+      // نرخ و خاوەن دوای دروستکردن ناگۆڕدرێن (تەنها بەڕێوەبەر)
+      allow update: if isAdmin() || (inR() && !changed().hasAny(['price', 'owner']));
       allow create: if isAdmin() || inNewR();
     }
     match /trips/{id} {
@@ -171,7 +191,8 @@ service cloud.firestore {
     // سەرنشین: تەنها پارەدانی مانگ (کەمکردنەوەی باڵانسی خۆی). شۆفێر: تەنها دێڕە سیستەمییەکان (داهاتی گەشت، جێگرەوە، گەڕاندنەوەی «نایەم»)
     function walletPax() {
       let d = request.resource.data;
-      return isPax() && d.type == 'monthpay' && d.who == uid() && d.role == 'p' && d.amount is number && d.amount < 0
+      return isPax() && d.type == 'monthpay' && d.who == uid() && d.role == 'p' && d.amount is number && d.amount <= 0
+        && d.gross is number && d.discount is number && d.discount >= 0 && d.discount <= d.gross && d.amount == d.discount - d.gross
         && d._r is list && uid() in d._r;
     }
     // ناردنی پارە لە جزدانێکەوە بۆ جزدانێکی تر: تەنها لە باڵانسی خۆی (بڕی سالب)، سەرنشین بۆ سەرنشین و شۆفێر بۆ شۆفێر
@@ -182,11 +203,20 @@ service cloud.firestore {
         && ((isPax() && d.role == 'p' && exists(/databases/$(database)/documents/accounts/$(d.to)))
           || (isDriver() && d.role == 'd' && exists(/databases/$(database)/documents/dpub/$(d.to))));
     }
+    // شۆفێر تەنها دێڕی خۆی دەنووسێت (earn, swapin, skipdeduct)؛ swapout بۆ شۆفێری ئەسڵی تەنها بە گەشتێک کە ئێستا هی خۆیەتی؛
+    // skipref بۆ سەرنشینێک تەنها ئەگەر بەشدارییەکە هی ئەم شۆفێرە بێت
+    function subOf(d) { return get(/databases/$(database)/documents/subscriptions/$(d.subId)).data; }
     function walletDriver() {
       let d = request.resource.data;
       return isDriver() && d.type in ['earn', 'swapout', 'swapin', 'skipref', 'skipdeduct'] && d.amount is number
-        && d.amount > -5000000 && d.amount < 5000000 && d._r == [d.who]
-        && (d.type != 'skipref' || d.role == 'p') && (d.type == 'skipref' || d.role == 'd');
+        && d.amount > -1000000 && d.amount < 1000000 && d._r == [d.who]
+        && (d.type != 'skipref' || (d.role == 'p' && d.amount > 0 && d.subId is string && subOf(d).driverId == uid() && subOf(d).owner == d.who))
+        && (d.type == 'skipref' || d.role == 'd')
+        && (d.type != 'earn' || (d.amount > 0 && d.amount <= 200000 && d.tripId is string && tripOf(d).driverId == uid()
+            && !(tripOf(d).status in ['scheduled', 'active']) && (d.who == uid() || tripOf(d).originalDriverId == d.who)))
+        && (d.type != 'swapin' || (d.who == uid() && d.amount > 0))
+        && (d.type != 'skipdeduct' || (d.who == uid() && d.amount < 0))
+        && (d.type != 'swapout' || (d.amount < 0 && d.who != uid() && d.tripId is string && tripOf(d).driverId == uid() && tripOf(d).originalDriverId == d.who));
     }
     match /wallet/{id} {
       // resource == null: دروستکردن بە transaction سەرەتا دەپشکنێت ئایا هەیە (هەمان ناسنامە لە دوو ئامێر)

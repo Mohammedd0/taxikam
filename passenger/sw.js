@@ -1,5 +1,5 @@
 // کارکردن بێ ئینتەرنێت: سەرەتا لە تۆڕ، ئەگەر نەبوو لە بیرگە
-const CACHE = 'taxikam-passenger-v46';
+const CACHE = 'taxikam-passenger-v47';
 const FILES = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', '../shared/core.css', '../shared/core.js', '../shared/maps.js', '../shared/wallet.js', '../shared/firebase-config.js', '../shared/cloud.js', '../shared/logo.png', '../shared/fonts/NotoNaskhArabic.woff2'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -19,6 +19,6 @@ self.addEventListener('fetch', (e) => {
         if (res.ok && (new URL(e.request.url).origin === location.origin || /gstatic\.com\/firebasejs\//.test(e.request.url))) caches.open(CACHE).then((c) => c.put(e.request, copy));
         return res;
       })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match('./index.html')))
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match('./index.html')))
   );
 });

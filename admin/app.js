@@ -163,7 +163,7 @@
       if (lowRated) alerts.push([`${lowRated} شۆفێر هەڵسەنگاندنی کەمە`, 'drivers', 'star']);
       return layout('dash', 'داشبۆرد', `
         <div class="kpis">
-          ${kpi(s.subscriptions.length, 'بەشداری چالاک', 'calendar', { go: 'subs' })}
+          ${kpi(s.subscriptions.filter((x) => x.status === 'active').length, 'بەشداری چالاک', 'calendar', { go: 'subs' })}
           ${kpi(s.accounts.length, 'ئەکاونتی سەرنشین', 'users', { go: 'passengers' })}
           ${kpi(`${drivers.length}`, 'شۆفێری چالاک', 'car', { go: 'drivers', sub: `${s.drivers.filter((d) => d.status === 'pending').length} چاوەڕێ، ${s.drivers.filter((d) => d.status === 'suspended').length} ڕاگیراو` })}
           ${kpi(fmt.money(gross), 'داهاتی مانگانە (کۆی گشتی)', 'wallet', { go: 'finance' })}
@@ -825,6 +825,7 @@
             <div class="row between sm"><span class="muted">ژمارە بۆ شۆفێر</span><b>شاراوەیە</b></div>
             <div class="row between sm"><span class="muted">هاوبەش</span><b>${a.partnerId && TK.partner(a.partnerId) ? `<a class="link" href="#/partner/${a.partnerId}">${esc(TK.partner(a.partnerId).name)}</a>` : '-'}</b></div>
             ${a.partnerNote ? `<div class="xs muted">${esc(a.partnerNote)}</div>` : ''}
+            ${(() => { const rs = (s.driverLog || []).flatMap((e) => (e.riders || []).filter((r) => r.owner === a.uid && r.rating).map((r) => r.rating)); return rs.length ? `<div class="row between sm"><span class="muted">هەڵسەنگاندنی شۆفێران بۆی (نهێنی)</span><b>${icon('star', 14, 'var(--amber)', 1.5, 'var(--amber)')} ${(rs.reduce((n, x) => n + x, 0) / rs.length).toFixed(1)} <span class="xs muted">(${fmt.n(rs.length)})</span></b></div>` : ''; })()}
             <div class="row wrap" style="gap:8px">
               <button class="btn sm secondary" data-act="assignPartner" data-arg="${a.phone}">${icon('edit', 16)}هاوبەش</button>
               <button class="btn sm secondary" data-act="resetPass" data-arg="${a.phone}">وشەی نهێنی نوێ</button>
@@ -901,6 +902,8 @@
     const amount = Math.abs(num('c-amount'));
     if (!amount) return TK.toast('بڕەکە بنووسە');
     const note = val('c-note').trim() || 'قەرەبوو لەلایەن یەکسا';
+    const ps0 = acctSlice(S(), phone);
+    if (!ps0 || ps0.__stub) return TK.toast('سەرنشینەکە هێشتا پرۆفایلی لە ئەپەکە دروست نەکردووە');
     TK.update((s) => {
       const owner = ownerOf(s, phone);
       TK.pslice(s, owner).billing.adjustments.push({ id: 'a' + TK.uid(), amount, note, at: Date.now() });
@@ -909,12 +912,15 @@
     TK.closeSheet();
     TK.toast('زیاد کرا');
   };
-  acts.delAdj = (arg) => {
+  acts.delAdj = async (arg) => {
     const [phone, id] = arg.split('|');
+    if (!(await TK.ask('ئەم قەرەبووە دەسڕدرێتەوە؟'))) return;
     TK.update((s) => {
-      const b = acctSlice(s, phone).billing;
-      b.adjustments = b.adjustments.filter((a) => a.id !== id);
+      const ps = acctSlice(s, phone);
+      if (!ps || ps.__stub) return;
+      ps.billing.adjustments = ps.billing.adjustments.filter((a) => a.id !== id);
     });
+    TK.toast('سڕایەوە');
   };
   acts.pointsForm = (phone) => {
     const ps = acctSlice(S(), phone);
@@ -923,10 +929,15 @@
   };
   acts.savePoints = (phone) => {
     const n = num('pt-n');
+    const ps0 = acctSlice(S(), phone);
+    if (!ps0 || ps0.__stub) return TK.toast('سەرنشینەکە هێشتا پرۆفایلی لە ئەپەکە دروست نەکردووە');
     TK.update((s) => {
-      acctSlice(s, phone).rewards.points = Math.max(0, Math.round(n));
+      const ps = acctSlice(s, phone);
+      ps.rewards = Object.assign({ points: 0, redeemed: [], pending: [], used: [] }, ps.rewards);
+      ps.rewards.points = Math.max(0, Math.round(n));
     });
     TK.closeSheet();
+    TK.toast('پاشەکەوت کرا');
   };
 
   /* =========================================================
@@ -1026,12 +1037,14 @@
   };
   acts.endSub = async (id) => {
     if (!(await TK.ask('بەشدارییەکە هەڵدەوەشێتەوە.'))) return;
-    TK.update((s) => TK.endSubIn(s, id, 'cancel'));
+    TK.update((s) => TK.endSubIn(s, id, 'admin'));
     TK.closeSheet();
   };
-  acts.closeReq = (id) => {
+  acts.closeReq = async (id) => {
+    if (!(await TK.ask('داواکارییەکە دادەخرێت و سەرنشین ئاگادار دەکرێتەوە؟'))) return;
     TK.update((s) => {
       const r = s.requests.find((x) => x.id === id);
+      if (!r) return;
       r.status = 'closed';
       r.closedReason = 'admin';
       pushN(s, { kind: 'info', title: 'داواکارییەکەت داخرا', body: `${r.riderNames}، ${r.to}، لەلایەن تیمی یەکسا` }, r.owner || 'me');
@@ -1095,11 +1108,12 @@
     TK.update((s) => {
       const t = s.trips.find((x) => x.id === id);
       const nd = val('t-driver');
+      if (!t) return;
       // لە ڕۆتی هاوبەش، شۆفێر و کات بۆ هەموو گەشتەکانی ڕۆتەکە دەگۆڕدرێن
       const group = t.runId ? s.trips.filter((x) => x.runId === t.runId) : [t];
-      if (nd !== t.driverId) {
+      const d = s.drivers.find((x) => x.id === nd);
+      if (nd && d && nd !== t.driverId) {
         group.forEach((x) => (x.driverId = nd));
-        const d = s.drivers.find((x) => x.id === nd);
         pushN(s, { kind: 'swap', title: 'شۆفێری گەشتەکەت گۆڕدرا', body: `${t.title}، ${d.name} (${d.car})`, link: `track/${t.id}` }, t.owner || 'me');
         pushDN(s, { driverId: nd, kind: 'ok', title: 'گەشتێکی نوێ بۆت دانرا', body: `${t.title}، ${fmt.clock(t.time)}`, link: `trip/${t.id}` });
       }
@@ -1386,9 +1400,9 @@
   acts.tpApproveGo = (id) => {
     const a = numIn('tp-amt');
     if (!(a > 0)) return TK.toast('بڕەکە بنووسە');
-    actions.approveTopup(id, a);
+    const err = actions.approveTopup(id, a);
     TK.closeSheet();
-    TK.toast('زیاد کرا');
+    TK.toast(err || 'زیاد کرا');
   };
   acts.tpReject = (id) => {
     TK.sheet(() => `<div class="h2">ڕەتکردنەوە</div>
@@ -1421,9 +1435,9 @@
       <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
   };
   acts.wdSentGo = (id) => {
-    actions.markWithdrawSent(id, String(val('wd-ref')).trim());
+    const err = actions.markWithdrawSent(id, String(val('wd-ref')).trim());
     TK.closeSheet();
-    TK.toast('تۆمار کرا');
+    TK.toast(err || 'تۆمار کرا');
   };
   acts.wdReject = (id) => {
     TK.sheet(() => `<div class="h2">ڕەتکردنەوەی داوای ڕاکێشان</div>
@@ -1584,7 +1598,7 @@
               const m = new Date();
               const paid = s.payouts.find((p) => p.driverId === d.id && new Date(p.at).getMonth() === m.getMonth() && new Date(p.at).getFullYear() === m.getFullYear());
               if (paid) return `${ui.badge('دراوە', 'ok')}<div class="xs muted">${fmt.ago(paid.at)}</div>`;
-              return po.gross || po.entries.length ? `<button class="btn sm ok" data-act="payout" data-arg="${d.id}">${po.net < 0 ? 'قەرز وەرگیرا' : 'پارە درا'}</button>` : '';
+              return (po.gross || po.entries.length) && !TK.walletOn() ? `<button class="btn sm ok" data-act="payout" data-arg="${d.id}">${po.net < 0 ? 'قەرز وەرگیرا' : 'پارە درا'}</button>` : '';
             })()}</td>
           </tr>`).join('')}</tbody>
         </table></div>
@@ -1658,9 +1672,10 @@
         ${tks.length ? `<div class="list">${tks.map((t) => `<div class="item ${t.status === 'open' ? 'red-notice' : ''}"><div class="grow"><div class="row wrap" style="gap:6px"><b class="sm">#${t.id}</b>${ui.badge(stT[t.status][0], stT[t.status][1])}${t.driver ? ui.badge('شۆفێر', 'info') : ''}<span class="xs muted">${esc(t.who || '')} <span class="latin">${fmt.phone(t.phone || '')}</span>، ${fmt.ago(t.at)}</span></div><div class="sm">${esc(t.subject)}</div>${t.reply ? `<div class="xs muted">وەڵام: ${esc(t.reply)}</div>` : ''}</div><button class="btn sm secondary" data-act="replyTicket" data-arg="${esc(t.owner)}|${t.id}">وەڵامدانەوە</button></div>`).join('')}</div>` : '<div class="sm muted">هیچ سکاڵایەک نییە</div>'}`);
     },
   });
-  acts.repOk = (id) => {
+  acts.repOk = async (id) => {
     const r0 = S().reports.find((x) => x.id === id);
     if (r0 && r0.wallet) {
+      if (!(await TK.ask(`شۆفێر نەهاتووە؟ ${fmt.money(TK.CONFIG.noShowPenalty)} سزا بۆ شۆفێر و ${fmt.money(Math.min(TK.CONFIG.noShowComp, TK.CONFIG.noShowPenalty))} قەرەبوو بۆ سەرنشین تۆمار دەکرێت.`, { yes: 'پەسەند' }))) return;
       actions.decideNoShow(id, true, ownerOf(S(), r0.phone));
       return TK.toast('پەسەند کرا: سزا و قەرەبوو تۆمار کران');
     }
@@ -2731,9 +2746,6 @@
     TK.render();
   };
   acts.exportData = async () => {
-    TK.update((s) => {
-      s.lastBackupAt = Date.now();
-    });
     const data = JSON.parse(JSON.stringify(S()));
     delete data.settings;
     const blob = new Blob([JSON.stringify({ ...data, cloud: 1 })], { type: 'application/json' });
@@ -2743,6 +2755,10 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
+    // تەنها دوای ئامادەبوونی فایلەکە وەک پاشەکەوت تۆمار دەکرێت
+    TK.update((s) => {
+      s.lastBackupAt = Date.now();
+    });
   };
   acts.importData = (v, el) => {
     const f = el.files && el.files[0];

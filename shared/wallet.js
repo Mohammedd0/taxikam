@@ -159,15 +159,15 @@
           : [['all', 'هەمووی'], ['in', 'زیادکردن'], ['out', 'ڕاکێشان'], ['xfer', 'ناردن و وەرگرتن'], ['month', 'پارەی مانگ'], ['back', 'گەڕاندنەوە']];
         const T = {
           earn: ['earn', 'swapin', 'swapout', 'skipdeduct'],
-          in: ['topup', 'adjust'],
-          out: ['withdraw'],
+          in: ['topup', 'adjust+'],
+          out: ['withdraw', 'adjust-'],
           xfer: ['xfer'],
           fine: ['penalty', 'bonus'],
           month: ['monthpay'],
           back: ['refund', 'skipref', 'comp'],
         };
         const k = U.txf && F.some((f) => f[0] === U.txf) ? U.txf : 'all';
-        const list = k === 'all' ? all : all.filter((e) => T[k].includes(e.type));
+        const list = k === 'all' ? all : all.filter((e) => T[k].includes(e.type) || (e.type === 'adjust' && T[k].includes(e.amount >= 0 ? 'adjust+' : 'adjust-')));
         const m0 = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
         const inM = all.filter((e) => e.at >= m0);
         const sumIn = inM.reduce((n, e) => n + (e.amount > 0 ? e.amount : 0), 0);
@@ -228,11 +228,16 @@
         TK.toast('ئەم وێنەیە ناخوێندرێتەوە');
       }
     },
-    tpSend() {
+    tpSend(a, el) {
       const m = TK.payMethod(U.tp.method) || {};
       const ref = String(valOf('tp-ref')).trim();
       if (m.account !== false && ref.length < 3) return TK.toast('ژمارەی حەواڵە بنووسە');
-      actions.requestTopup(U.tp.amount, U.tp.method, ref, U.tp.photo || null);
+      if (el) el.disabled = true; // دوو جار دانەگیرێت
+      const id = actions.requestTopup(U.tp.amount, U.tp.method, ref, U.tp.photo || null);
+      if (!id) {
+        if (el) el.disabled = false;
+        return TK.toast('نەنێردرا، دووبارە هەوڵ بدەرەوە');
+      }
       U.tp = null;
       TK.toast('داواکارییەکەت نێردرا');
       TK.go(C.home, true);
@@ -246,6 +251,7 @@
       if (!(await TK.ask('داواکاری پڕکردنەوە هەڵدەوەشێتەوە؟ ئەگەر پارەت ناردووە، هەڵی مەوەشێنەرەوە.'))) return;
       actions.cancelTopup(id);
       TK.closeSheet();
+      TK.toast('هەڵوەشێنرایەوە');
     },
     /* ڕاکێشان */
     wdAmt() {
@@ -288,6 +294,7 @@
     wdCancel(id) {
       actions.cancelWithdraw(id);
       TK.closeSheet();
+      TK.toast('هەڵوەشێنرایەوە');
     },
     /* ناردن */
     xfPhone(v) {
@@ -332,8 +339,12 @@
         x.err = `باڵانسەکەت بەس نییە (${fmt.money(Math.max(0, free()))})`;
         return TK.render();
       }
+      if (x.busy) return;
       if (!(await TK.ask(`${fmt.money(x.amount)} بۆ ${x.peer.name} دەنێردرێت. دوای ناردن ناگەڕێتەوە.`, { yes: 'ناردن' }))) return;
+      if (x.busy) return;
+      x.busy = true;
       const err = actions.sendMoney(x.peer, x.amount, x.note);
+      x.busy = false;
       if (err) {
         x.err = err;
         return TK.render();
