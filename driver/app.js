@@ -1291,7 +1291,6 @@
    * ======================================================= */
   function walletPage() {
     const s = S();
-    const me = sel.me();
     const id = meId();
     const all = TK.walletOf(s, id);
     const bal = TK.balance(s, id);
@@ -1299,97 +1298,30 @@
     const d0 = new Date();
     d0.setHours(0, 0, 0, 0);
     const t0 = d0.getTime();
-    const earnOf = (e) => (e.amount > 0 && e.type !== 'adjust' ? e.amount : 0);
+    const earnOf = (e) => (e.amount > 0 && ['earn', 'swapin', 'bonus'].includes(e.type) ? e.amount : 0);
     const today = all.filter((e) => e.at >= t0).reduce((n, e) => n + earnOf(e), 0);
     const m0 = new Date(d0.getFullYear(), d0.getMonth(), 1).getTime();
     const month = all.filter((e) => e.at >= m0).reduce((n, e) => n + earnOf(e), 0);
-    // ئەم هەفتەیە: شەممە تا هەینی
-    const wd = (d0.getDay() + 1) % 7;
-    const start = t0 - wd * 864e5;
-    const days = [0, 1, 2, 3, 4, 5, 6].map((i) => all.filter((e) => e.at >= start + i * 864e5 && e.at < start + (i + 1) * 864e5).reduce((n, e) => n + earnOf(e), 0));
-    const max = Math.max(1, ...days);
-    const week = days.reduce((n, x) => n + x, 0);
-    const WD = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'هـ'];
-    const subOwner = (l) => (s.subscriptions.find((x) => x.id === l.subId) || {}).owner;
-    const row = (e) => {
-      if (e.type === 'earn' && (e.lines || []).length === 1) {
-        const l = e.lines[0];
-        return ui.txRow(e, { avatar: ui.personAv(sel.peerPhoto(subOwner(l) || l.owner), 42) });
-      }
-      return ui.txRow(e);
-    };
-    const pendRows = (s.withdraws || []).filter((w) => w.driverId === id && w.status === 'pending');
     return page(`
       ${ui.header('جزدانی شۆفێر', { back: 'more', right: TK.helpBtn('wallet') })}
       ${ui.walletCard('باڵانسی بەردەست', 'جزدانی شۆفێر', bal - pend, [['sunrise', `ئەمڕۆ <b>+${fmt.group(today)}</b>`], ['calendar', `ئەم مانگە <b>${fmt.group(month)}</b>`, '#FDE68A']])}
-      <div class="qa q3">
-        <button data-act="wdForm"><span class="c pri">${icon('download', 20, 'currentColor', 2.4)}</span>داوای وەرگرتن</button>
-        <button data-go="riders"><span class="c">${icon('users', 20)}</span>سەرنشینەکانم</button>
-        <button data-act="wdHistory"><span class="c">${icon('clock', 20)}</span>وەرگیراوەکان</button>
-      </div>
-      <div class="xs muted center">${me.payMethod ? `بۆ ${esc(TK.payName(me.payMethod))}${me.payAccount ? ` <span class="latin" dir="ltr">${esc(me.payAccount)}</span>` : ''}` : 'شێوازی وەرگرتن هەڵبژێرە'}${TK.CONFIG.withdrawMin ? `، کەمترین بڕ ${fmt.money(TK.CONFIG.withdrawMin)}` : ''} · <button class="link xs" data-act="payForm">گۆڕین</button></div>
-      <div class="card col" style="gap:10px">
-        <div class="row between"><b class="sm">ئەم هەفتەیە</b><span class="xs muted">کۆ <b style="color:var(--text)">${fmt.group(week)}</b></span></div>
-        <div class="bars">${days.map((v, i) => `<div><i class="${i === wd ? 'on' : ''}" style="height:${Math.max(4, Math.round((v / max) * 100))}%"></i><span>${WD[i]}</span></div>`).join('')}</div>
-      </div>
-      ${pendRows.length ? `<div class="dayh">چاوەڕێی ناردن</div><div class="list">${pendRows.map((w) => ui.txRow({ id: w.id, type: 'withdraw', amount: -w.amount, method: w.method, note: w.account || '', at: w.at }, { pending: true, act: 'wdOpen' })).join('')}</div>` : ''}
-      ${all.length ? ui.txGroups(all, row, true) : ui.empty('wallet', 'هێشتا هیچ داهاتێک نییە', 'دوای تەواوبوونی هەر گەشتێک، پارەکەی لێرە دەردەکەوێت')}`, 'more');
+      ${TK.walletUI.trust()}
+      ${TK.walletUI.tiles()}
+      ${bal < 0 ? `<div class="card note row" style="gap:10px">${icon('alert', 20, 'var(--brand)')}<div class="grow sm">باڵانسەکەت ${fmt.money(bal)}ـە (بەهۆی سزاوە). دەتوانیت لە «زیادکردن» قەرزەکە بدەیتەوە، یان لە داهاتی گەشتەکانی داهاتوو دەبڕدرێت.</div></div>` : ''}`, 'more');
   }
   Object.assign(TK.HELP, {
-    wallet: { title: 'جزدانی شۆفێر', body: () => `<p>سەرنشین پارەی مانگ پێشوەختە دەدات بە یەکسا. کۆمیسیۆنی یەکسا (${TK.commissionText()}) یەک جار لە سەرەتاوە دەبڕدرێت، و ئەوەی دەمێنێتەوە بەسەر ڕۆژەکانی گەشتدا دابەش دەکرێت.</p><p>هەر کاتێک گەشتێک تەواو دەکەیت، پارەی ئەو گەشتە دەچێتە سەر جزدانەکەت. «نایەم»ی سەرنشین بۆ تۆ هەر حیساب دەکرێت، بەڵام بۆ هەر ${fmt.n(TK.CONFIG.skipEvery)} ڕۆژ «نایەم» لە مانگێکدا، پارەی ${fmt.n(TK.CONFIG.skipRefundDays)} ڕۆژ بۆ سەرنشین دەگەڕێتەوە.</p><p>هەر کاتێک بتەوێت «داوای وەرگرتن» بکە و یەکسا پارەکەت بۆ دەنێرێت.</p>` },
+    wallet: { title: 'جزدانی شۆفێر', body: () => `<p>سەرنشین پارەی مانگ پێشوەختە دەدات بە یەکسا. کۆمیسیۆنی یەکسا (${TK.commissionText()}) یەک جار لە سەرەتاوە دەبڕدرێت، و ئەوەی دەمێنێتەوە بەسەر ڕۆژەکانی گەشتدا دابەش دەکرێت.</p><p>هەر کاتێک گەشتێک تەواو دەکەیت، پارەی ئەو گەشتە دەچێتە سەر جزدانەکەت. «نایەم»ی سەرنشین بۆ تۆ هەر حیساب دەکرێت، بەڵام بۆ هەر ${fmt.n(TK.CONFIG.skipEvery)} ڕۆژ «نایەم» لە مانگێکدا، پارەی ${fmt.n(TK.CONFIG.skipRefundDays)} ڕۆژ بۆ سەرنشین دەگەڕێتەوە.</p><p>هەر کاتێک بتەوێت لە «ڕاکێشان» داوا بکە و یەکسا پارەکەت بۆ دەنێرێت. دەتوانیت پارەش بۆ شۆفێرێکی تر بنێریت.</p>` },
   });
-  acts.txOpen = (id) => {
-    const e = S().wallet.find((x) => x.id === id);
-    if (!e) return;
-    const lines = (e.lines || []).map((l) => `<div class="row between sm"><span>${esc(l.names)}، ${l.dir === 'back' ? 'هاتنەوە' : 'چوون'}${l.status === 'skipped' ? ' («نایەم»)' : l.status === 'absent' ? ' (نەهات)' : ''}</span><b>${fmt.group(l.amount)}</b></div>`).join('');
-    TK.sheet(() => ui.receipt(e, lines ? `<div class="card flat col tight">${lines}</div>` : ''));
-  };
-  acts.wdForm = () => {
-    const me = sel.me();
-    const free = TK.balance(S(), meId()) - TK.pendingWithdraw(S(), meId());
-    U.wd = Math.max(0, free);
-    U.wdErr = '';
-    TK.sheet(() => `<div class="h2">داوای وەرگرتن</div>
-      <div class="amt-hero" style="padding-top:0"><div class="xs muted">چەند وەردەگریت؟</div><input class="amt-in latin" id="wd-amt" inputmode="numeric" value="${fmt.group(U.wd)}"><div class="xs muted">باڵانسی بەردەست ${fmt.money(Math.max(0, free))}${TK.CONFIG.withdrawMin ? `، کەمترین ${fmt.money(TK.CONFIG.withdrawMin)}` : ''}</div></div>
-      <div class="chips" style="justify-content:center">${[free, 50000, 25000].filter((a, i, l) => a > 0 && l.indexOf(a) === i && a <= free).map((a, i) => `<button class="chip ${i === 0 ? 'on' : ''}" data-act="wdPick" data-arg="${a}">${i === 0 ? 'هەمووی ' : ''}${fmt.group(a)}</button>`).join('')}</div>
-      <div class="list" style="margin-top:4px"><div class="item mth on"><span class="mono">${icon('wallet', 20)}</span><div class="grow"><b>${esc(TK.payName(me.payMethod) || 'شێوازی وەرگرتن')}</b><div class="xs muted latin" dir="ltr" style="text-align:right">${esc(me.payAccount || '')}</div></div><button class="link sm" data-act="payForm">گۆڕین</button></div></div>
-      ${U.wdErr ? `<div class="err">${esc(U.wdErr)}</div>` : ''}
-      <button class="btn block lg" data-act="wdSend">${icon('send', 18)}ناردنی داواکاری</button>
-      <div class="xs muted center">یەکسا ئاگادار دەکرێتەوە و پارەکەت دەنێرێت. کاتێک نێردرا ئاگادار دەکرێیتەوە.</div>
-      <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
-  };
-  acts.wdPick = (a) => {
-    const el = document.getElementById('wd-amt');
-    if (el) el.value = fmt.group(+a);
-    document.querySelectorAll('[data-act="wdPick"]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-arg') === String(a)));
-  };
-  acts.wdSend = () => {
-    const el = document.getElementById('wd-amt');
-    const v = el ? Number(String(el.value).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[^\d]/g, '')) : 0;
-    const err = actions.requestWithdraw(v);
-    if (err) {
-      U.wdErr = err;
-      return TK.sheet.refresh();
-    }
-    TK.closeSheet();
-    TK.toast('داواکارییەکەت نێردرا');
-  };
-  acts.wdOpen = (id) => {
-    const w = (S().withdraws || []).find((x) => x.id === id);
-    if (!w) return;
-    TK.sheet(() => ui.receipt({ id: w.id, type: 'withdraw', amount: -w.amount, method: w.method, note: w.account || '', at: w.at, _pending: true }, `<button class="btn secondary block" data-act="wdCancel" data-arg="${esc(id)}">هەڵوەشاندنەوەی داواکاری</button>`));
-  };
-  acts.wdCancel = (id) => {
-    actions.cancelWithdraw(id);
-    TK.closeSheet();
-  };
-  acts.wdHistory = () => {
-    const list = (S().withdraws || []).filter((w) => w.driverId === meId()).sort((a, b) => b.at - a.at);
-    const st = { pending: ['چاوەڕێ', 'note'], sent: ['نێردرا', 'ok'], rejected: ['ڕەتکرایەوە', 'danger'], cancelled: ['هەڵوەشاوە', ''] };
-    TK.sheet(() => `<div class="h2">وەرگیراوەکان</div>
-      ${list.length ? `<div class="list">${list.map((w) => `<div class="item"><span class="txi">${icon('download', 20)}</span><div class="grow"><b class="sm">${fmt.money(w.amount)}</b><div class="xs muted">${esc(TK.payName(w.method))}${w.account ? ` <span class="latin">${esc(w.account)}</span>` : ''}، ${fmt.date(w.sentAt || w.at)}${w.why ? '، ' + esc(w.why) : ''}</div></div>${ui.badge((st[w.status] || st.pending)[0], (st[w.status] || st.pending)[1])}</div>`).join('')}</div>` : '<div class="sm muted center">هێشتا هیچ داوایەکت نەکردووە</div>'}
-      <button class="btn ghost block" data-close>داخستن</button>`);
-  };
+  const subOwnerOf = (l) => (S().subscriptions.find((x) => x.id === l.subId) || {}).owner;
+  TK.walletUI.install({
+    role: 'd',
+    home: 'earnings',
+    me: () => meId(),
+    page: (body) => page(body),
+    guard: () => authed(),
+    need: () => Math.max(0, -TK.balance(S(), meId())),
+    row: (e) => (e.type === 'earn' && (e.lines || []).length === 1 ? { avatar: ui.personAv(sel.peerPhoto(subOwnerOf(e.lines[0]) || e.lines[0].owner), 42) } : {}),
+  });
 
   TK.route('earnings', {
     guard: authed,

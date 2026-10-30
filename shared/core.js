@@ -708,8 +708,8 @@
     referrals: -1, // بانگهێشتی هاوڕێ (ئەحمەد و ئاراس هەردووکیان دەیبینن)
     unsent: -1, // دەقی ڕاستەقینەی نامە گەڕێنراوەکان (تەنها بەڕێوەبەر دەیبینێت)
     wallet: -1, // دەفتەری جزدان: هەر دێڕێک ناسڕێتەوە و ناگۆڕدرێت
-    topups: -1, // داواکاری پڕکردنەوەی جزدانی سەرنشین (و گەڕاندنەوەی بەشداری)
-    withdraws: -1, // داوای وەرگرتنی پارەی شۆفێر
+    topups: -1, // داواکاری پڕکردنەوەی جزدان (سەرنشین یان شۆفێر، role) و گەڕاندنەوەی بەشداری
+    withdraws: -1, // داوای ڕاکێشانی پارە (driverId = خاوەنەکەی، شۆفێر یان سەرنشین، role)
   };
   // زانیاری تایبەتی شۆفێر کە تەنها خۆی و بەڕێوەبەر دەیبینن (بەڵگەنامە، ناونیشان، موچە)
   const SENS = new Set([
@@ -723,8 +723,8 @@
   // هەر ڕۆڵێک دەتوانێت چی بنووسێت: rw = دروستکردن/گۆڕین/سڕینەوە، c = تەنها دروستکردن، u = تەنها گۆڕین
   const ALL_RW = Object.keys(ARR).concat(['meta', 'pax', 'accounts', 'drivers', 'dpub', 'pnotices', 'phistory']).reduce((o, k) => ((o[k] = 'rw'), o), {});
   const MODES = {
-    passenger: { pax: 'rw', accounts: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', pnotices: 'rw', phistory: 'rw', dnotices: 'c', adminNotices: 'c', reports: 'c', ledger: 'c', partnerEarnings: 'c', dpub: 'u', unsent: 'c', referrals: 'rw', wallet: 'c', topups: 'rw' },
-    driver: { drivers: 'rw', dpub: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', dnotices: 'rw', driverLog: 'rw', pnotices: 'c', phistory: 'c', adminNotices: 'c', ledger: 'c', unsent: 'c', wallet: 'c', withdraws: 'rw' },
+    passenger: { pax: 'rw', accounts: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', pnotices: 'rw', phistory: 'rw', dnotices: 'c', adminNotices: 'c', reports: 'c', ledger: 'c', partnerEarnings: 'c', dpub: 'u', unsent: 'c', referrals: 'rw', wallet: 'c', topups: 'rw', withdraws: 'rw' },
+    driver: { drivers: 'rw', dpub: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', dnotices: 'rw', driverLog: 'rw', pnotices: 'c', phistory: 'c', adminNotices: 'c', ledger: 'c', unsent: 'c', wallet: 'c', withdraws: 'rw', topups: 'rw' },
     admin: ALL_RW,
     home: {},
   };
@@ -780,7 +780,7 @@
     else if (K === 'dnotices' || K === 'ledger' || K === 'payouts') r = [it.driverId];
     else if (K === 'driverLog') r = [it.driverId, it.originalDriverId];
     else if (K === 'referrals') r = [it.inviter, it.invitee];
-    else if (K === 'wallet') r = [it.who].concat(it.type === 'monthpay' || it.type === 'legacy' ? (it.lines || []).map((l) => l.driverId) : []);
+    else if (K === 'wallet') r = [it.who].concat(it.type === 'monthpay' || it.type === 'legacy' ? (it.lines || []).map((l) => l.driverId) : it.type === 'xfer' ? [it.to] : []);
     else if (K === 'topups') r = [it.owner];
     else if (K === 'withdraws') r = [it.driverId];
     // ئەوانەی هەموو بەشەکانی نابینن، دەستکاری لیستی خوێنەران ناکەن (تەنها زیاد دەکەن)
@@ -1133,7 +1133,7 @@
     if (ROLE === 'passenger') {
       return out.concat(
         [{ id: 'pax', doc: 'pax/' + uid }, { id: 'acc', doc: 'accounts/' + uid }, { id: 'dpub', col: 'dpub' }, { id: 'news', col: 'news' }],
-        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'pnotices', 'phistory', 'referrals', 'wallet', 'topups'].map(R)
+        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'pnotices', 'phistory', 'referrals', 'wallet', 'topups', 'withdraws'].map(R)
       );
     }
     if (ROLE === 'driver') {
@@ -1144,7 +1144,7 @@
           { id: 'oswap', col: 'swaps', where: ['status', '==', 'open'] },
           { id: 'otrip', col: 'trips', where: ['swapOpen', '==', true] },
         ],
-        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'dnotices', 'ledger', 'payouts', 'driverLog', 'wallet', 'withdraws'].map(R)
+        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'dnotices', 'ledger', 'payouts', 'driverLog', 'wallet', 'withdraws', 'topups'].map(R)
       );
     }
     if (ROLE === 'admin') {
@@ -1382,6 +1382,7 @@
       console.error('reconcile', e);
       return;
     }
+    if (walletOn() && (ROLE === 'passenger' || ROLE === 'driver')) ensureDir();
     if (stable(probe) !== stable(state)) update(() => probe);
     // بەڵگەنامەی سەرەتایی (بۆ نموونە meta/app بۆ بەڕێوەبەر) یان ئەوەی پێشتر نەنووسرابوو
     else {
@@ -1390,6 +1391,22 @@
     }
   }
   TK.reconcile = reconcile;
+  /** تۆماری ژمارەکەم لە pdir/ddir (بۆ ئەوەی کەسانی تر بە ژمارە بمدۆزنەوە و پارەم بۆ بنێرن). یەک جار لە هەر کردنەوەیەک */
+  let dirDone = false;
+  async function ensureDir() {
+    if (dirDone || !cloud.me || !window.TKFB || !window.TKFB.get || !cloud.user || !cloud.user.email) return;
+    dirDone = true;
+    const [key, dom] = String(cloud.user.email).split('@');
+    const col = dom === 'd.taxikam.app' ? 'ddir' : dom === 'p.taxikam.app' ? 'pdir' : null;
+    const name = ROLE === 'driver' ? (sel.me() || {}).name : (state.passenger || {}).name;
+    if (!col || !key || !name) return (dirDone = false);
+    try {
+      const cur = await window.TKFB.get(col + '/' + key);
+      if (!cur || cur.uid !== cloud.me || cur.name !== name) await window.TKFB.write({ op: 'set', path: col + '/' + key, data: { uid: cloud.me, name } });
+    } catch (e) {
+      dirDone = false;
+    }
+  }
   setInterval(() => {
     if (state && state.day !== TODAY()) scheduleCompose();
     reconcile();
@@ -2008,9 +2025,8 @@
     if (walletOn() && dueLines(s, 'me').length) {
       const mk = MONTH_KEY();
       const inv = TK.invoice(s, 'me', { due: true });
-      // پارەدانی خۆکار ئەگەر باڵانس بەس بێت (سەرنشین دەتوانێت بیکوژێنێتەوە)
-      if (s.billing.autoPay !== false && inv.total <= TK.balance(s, 'me')) payMonthIn(s, 'me');
-      else if (s.billing.dueNotice !== mk) {
+      // پارەدان هەمیشە بە دەستی سەرنشینە، تەنها ئاگادار دەکرێتەوە
+      if (s.billing.dueNotice !== mk) {
         s.billing.dueNotice = mk;
         notice(s, { kind: 'pay', title: 'پارەی مانگ ئامادە بکە', body: `${fmt.money(inv.total)}، گەشتەکان دوای پارەدان دەست پێدەکەن`, link: 'wallet' });
       }
@@ -2046,8 +2062,13 @@
 
   /** گۆڕینی خاوەن لە هەموو تۆمارە هاوبەشەکان («me» ← UID و بە پێچەوانەوە) */
   function retag(s, from, to) {
-    (s.wallet || []).forEach((e) => e.role === 'p' && e.who === from && (e.who = to));
+    (s.wallet || []).forEach((e) => {
+      if (e.role !== 'p') return;
+      if (e.who === from) e.who = to;
+      if (e.type === 'xfer' && e.to === from) e.to = to;
+    });
     (s.topups || []).forEach((x) => x.owner === from && (x.owner = to));
+    (s.withdraws || []).forEach((w) => w.role === 'p' && w.driverId === from && (w.driverId = to));
     (s.driverLog || []).forEach((e) => (e.riders || []).forEach((r) => (r.owner || 'me') === from && (r.owner = to)));
     s.requests.forEach((r) => r.owner === from && (r.owner = to));
     s.messages.forEach((m) => m.peer === from && (m.peer = to));
@@ -2252,6 +2273,13 @@
       }
       const name = state.passenger.name;
       const errBefore = cloud.lastWriteError;
+      // ژمارەکەی لە لیستی «ناردن» لادەبرێت
+      try {
+        const key = String((cloud.user && cloud.user.email) || '').split('@')[0];
+        if (key) await window.TKFB.write({ op: 'delete', path: 'pdir/' + key });
+      } catch (e) {
+        /* بەڕێوەبەر دەتوانێت بیسڕێتەوە */
+      }
       update((s) => {
         s.subscriptions.filter((x) => (x.owner || 'me') === 'me').map((x) => x.id).forEach((id) => endSub(s, id, 'deleted'));
         // ناوەکان لە گەشتە کۆنەکانی خۆی
@@ -2579,18 +2607,16 @@
       });
       return err;
     },
-    setAutoPay(on) {
-      update((s) => {
-        s.billing.autoPay = !!on;
-      });
-    },
     /** داواکاری پڕکردنەوە: سەرنشین پارەی نارد (FIB، FastPay) یان دەیدات بە بەڕێوەبەر (کاش). بەڕێوەبەر پەسەندی دەکات */
     requestTopup(amount, method, ref, photo) {
       let id = null;
+      const d = ROLE === 'driver' ? sel.me() : null;
+      if (ROLE === 'driver' && !d) return null;
       update((s) => {
         id = 'tp' + uid();
-        s.topups.unshift({ id, kind: 'topup', owner: 'me', name: s.passenger.name, phone: s.passenger.phone, amount, method, ref: ref || '', photo: photo || null, status: 'pending', at: Date.now() });
-        anotice(s, { kind: 'pay', title: `پڕکردنەوە: ${s.passenger.name}`, body: `${fmt.money(amount)}، ${TK.payName(method)}${ref ? `، ${ref}` : ''}`, link: 'wallet' });
+        const who = d ? { owner: d.id, role: 'd', name: d.name, phone: d.phone } : { owner: 'me', role: 'p', name: s.passenger.name, phone: s.passenger.phone };
+        s.topups.unshift(Object.assign({ id, kind: 'topup', amount, method, ref: ref || '', photo: photo || null, status: 'pending', at: Date.now() }, who));
+        anotice(s, { kind: 'pay', title: `پڕکردنەوە: ${who.name}${d ? ' (شۆفێر)' : ''}`, body: `${fmt.money(amount)}، ${TK.payName(method)}${ref ? `، ${ref}` : ''}`, link: 'wallet' });
       });
       return id;
     },
@@ -2607,13 +2633,15 @@
         if (!x || x.status !== 'pending') return;
         const a = Math.round(amount > 0 ? amount : x.amount);
         const refund = x.kind === 'refund';
-        const e = went(s, { id: 't_' + safeId(id), who: x.owner, role: 'p', type: refund ? 'refund' : 'topup', amount: a, method: x.method, ref: x.ref || '', note: refund ? x.note : `${TK.payName(x.method)}${x.ref ? `، حەواڵە ${x.ref}` : ''}`, name: x.name, req: id, subId: x.subId || null });
+        const e = went(s, { id: 't_' + safeId(id), who: x.owner, role: x.role || 'p', type: refund ? 'refund' : 'topup', amount: a, method: x.method, ref: x.ref || '', note: refund ? x.note : `${TK.payName(x.method)}${x.ref ? `، حەواڵە ${x.ref}` : ''}`, name: x.name, req: id, subId: x.subId || null });
         if (!e) return;
         x.status = 'approved';
         x.amount = a;
         x.decidedAt = Date.now();
         x.entryId = e.id;
-        notice(s, { kind: 'pay', title: refund ? 'پارەکەت گەڕایەوە' : 'جزدانەکەت پڕ کرایەوە', body: `${fmt.money(a)} چووە سەر جزدانەکەت`, link: 'wallet' }, x.owner);
+        const n = { kind: 'pay', title: refund ? 'پارەکەت گەڕایەوە' : 'جزدانەکەت پڕ کرایەوە', body: `${fmt.money(a)} چووە سەر جزدانەکەت` };
+        if (x.role === 'd') dnotice(s, x.owner, Object.assign(n, { link: 'earnings' }));
+        else notice(s, Object.assign(n, { link: 'wallet' }), x.owner);
       });
     },
     rejectTopup(id, why) {
@@ -2623,7 +2651,9 @@
         x.status = 'rejected';
         x.why = why || '';
         x.decidedAt = Date.now();
-        notice(s, { kind: 'info', title: x.kind === 'refund' ? 'داوای گەڕاندنەوە ڕەتکرایەوە' : 'پڕکردنەوە پەسەند نەکرا', body: `${fmt.money(x.amount)}${why ? `، ${why}` : ''}. بۆ زانیاری پەیوەندی بە یەکسا بکە`, link: 'wallet' }, x.owner);
+        const n = { kind: 'info', title: x.kind === 'refund' ? 'داوای گەڕاندنەوە ڕەتکرایەوە' : 'پڕکردنەوە پەسەند نەکرا', body: `${fmt.money(x.amount)}${why ? `، ${why}` : ''}. بۆ زانیاری پەیوەندی بە یەکسا بکە` };
+        if (x.role === 'd') dnotice(s, x.owner, Object.assign(n, { link: 'earnings' }));
+        else notice(s, Object.assign(n, { link: 'wallet' }), x.owner);
       });
     },
     /** بەڕێوەبەر: زیادکردن یان لێبڕینی دەستی (سەرنشین p، شۆفێر d) */
@@ -2636,22 +2666,68 @@
         else notice(s, { kind: 'pay', title: amount > 0 ? 'جزدانەکەت پڕ کرایەوە' : 'لێبڕین لە جزدانەکەت', body, link: 'wallet' }, who);
       });
     },
-    /** شۆفێر داوای وەرگرتنی پارە دەکات. هەڵە یان null */
-    requestWithdraw(amount) {
-      const me = sel.me();
-      if (!me) return 'هەژمار نەدۆزرایەوە';
-      const free = TK.balance(state, me.id) - TK.pendingWithdraw(state, me.id);
+    /** داوای ڕاکێشانی پارە (شۆفێر یان سەرنشین): یەکسا بە دەست دەینێرێت. هەڵە یان null */
+    requestWithdraw(amount, method, account) {
+      const d = ROLE === 'driver' ? sel.me() : null;
+      if (ROLE === 'driver' && !d) return 'هەژمار نەدۆزرایەوە';
+      const who = d ? d.id : 'me';
+      const free = TK.balance(state, who) - TK.pendingWithdraw(state, who);
       const min = cfg().withdrawMin || 0;
+      method = method || (d && d.payMethod) || '';
+      account = String(account != null ? account : (d && d.payAccount) || '').trim();
+      const m = TK.payMethod(method);
       amount = Math.round(amount);
       if (!(amount > 0)) return 'بڕەکە بنووسە';
       if (amount > free) return `زۆرترین ${fmt.money(Math.max(0, free))}`;
       if (min && amount < min) return `کەمترین بڕ ${fmt.money(min)}`;
-      if (!me.payMethod) return 'سەرەتا شێوازی وەرگرتن هەڵبژێرە';
+      if (!m || m.on === false) return 'شێوازی وەرگرتن هەڵبژێرە';
+      if (m.account !== false && account.replace(/\D/g, '').length < 6) return `ژمارەی هەژماری ${m.name} بنووسە`;
+      const name = d ? d.name : state.passenger.name;
       update((s) => {
-        s.withdraws.unshift({ id: 'wd' + uid(), driverId: me.id, name: me.name, amount, method: me.payMethod, account: me.payAccount || '', status: 'pending', at: Date.now() });
-        anotice(s, { kind: 'pay', title: `داوای وەرگرتن: ${me.name}`, body: `${fmt.money(amount)}، ${TK.payName(me.payMethod)}${me.payAccount ? ` ${me.payAccount}` : ''}`, link: 'wallet' });
+        s.withdraws.unshift({ id: 'wd' + uid(), driverId: who, role: d ? 'd' : 'p', name, phone: d ? d.phone : s.passenger.phone, amount, method, account: m.account === false ? '' : account, status: 'pending', at: Date.now() });
+        anotice(s, { kind: 'pay', title: `داوای ڕاکێشان: ${name}${d ? ' (شۆفێر)' : ''}`, body: `${fmt.money(amount)}، ${TK.payName(method)}${account && m.account !== false ? ` ${account}` : ''}`, link: 'wallet' });
       });
       return null;
+    },
+    /** دۆزینەوەی خاوەنی ژمارەیەک بۆ ناردن (سەرنشین بۆ سەرنشین، شۆفێر بۆ شۆفێر). { uid, name } یان { err } */
+    async lookupPeer(phone) {
+      const p = cleanPhone(phone);
+      if (!/^7\d{9}$/.test(p)) return { err: 'ژمارەی مۆبایل دروست نییە' };
+      const mine = ROLE === 'driver' ? cleanPhone((sel.me() || {}).phone) : cleanPhone(state.passenger.phone);
+      if (p === mine) return { err: 'ناتوانیت بۆ خۆت بنێریت' };
+      if (!window.TKFB || !window.TKFB.get) return { err: 'ئینتەرنێت نییە' };
+      const col = ROLE === 'driver' ? 'ddir' : 'pdir';
+      try {
+        for (const k of [p, '0' + p]) {
+          const d = await window.TKFB.get(col + '/' + k);
+          if (d && d.uid && d.uid !== cloud.me) return { uid: d.uid, name: d.name || '', phone: p };
+        }
+      } catch (e) {
+        return { err: 'پەیوەندی نییە، دووبارە هەوڵ بدەرەوە' };
+      }
+      return { err: ROLE === 'driver' ? 'هیچ شۆفێرێکی یەکسا بەم ژمارەیە نییە' : 'هیچ سەرنشینێکی یەکسا بەم ژمارەیە نییە' };
+    },
+    /** ناردنی پارە لە جزدانی خۆمەوە بۆ کەسێکی تر (هەمان ڕۆڵ). هەڵە یان null */
+    sendMoney(peer, amount, note) {
+      const d = ROLE === 'driver' ? sel.me() : null;
+      if (ROLE === 'driver' && !d) return 'هەژمار نەدۆزرایەوە';
+      if (!peer || !peer.uid || peer.uid === cloud.me) return 'وەرگر هەڵبژێرە';
+      const who = d ? d.id : 'me';
+      const free = TK.balance(state, who) - TK.pendingWithdraw(state, who);
+      amount = Math.round(amount);
+      if (!(amount > 0)) return 'بڕەکە بنووسە';
+      if (amount > free) return `باڵانسەکەت بەس نییە (${fmt.money(Math.max(0, free))})`;
+      const fromName = d ? d.name : state.passenger.name;
+      let id = null;
+      update((s) => {
+        const e = went(s, { id: 'x' + uid(), who, role: d ? 'd' : 'p', type: 'xfer', to: peer.uid, toName: peer.name || '', fromName, amount: -amount, note: String(note || '').trim().slice(0, 80) });
+        if (!e) return;
+        id = e.id;
+        const n = { kind: 'pay', title: `${fromName} پارەی بۆ ناردیت`, body: `${fmt.money(amount)} چووە سەر جزدانەکەت${e.note ? `، ${e.note}` : ''}` };
+        if (d) dnotice(s, peer.uid, Object.assign(n, { link: 'earnings' }));
+        else notifyPax(s, peer.uid, Object.assign(n, { link: 'wallet' }));
+      });
+      return id ? null : 'نەنێردرا، دووبارە هەوڵ بدەرەوە';
     },
     cancelWithdraw(id) {
       update((s) => {
@@ -2664,12 +2740,14 @@
       update((s) => {
         const w = s.withdraws.find((x) => x.id === id);
         if (!w || w.status !== 'pending') return;
-        const e = went(s, { id: 'w_' + safeId(id), who: w.driverId, role: 'd', type: 'withdraw', amount: -w.amount, method: w.method, ref: ref || '', note: `${TK.payName(w.method)}${w.account ? ` ${w.account}` : ''}`, req: id, by: 'admin' });
+        const e = went(s, { id: 'w_' + safeId(id), who: w.driverId, role: w.role || 'd', type: 'withdraw', amount: -w.amount, method: w.method, ref: ref || '', note: `${TK.payName(w.method)}${w.account ? ` ${w.account}` : ''}`, req: id, by: 'admin' });
         if (!e) return;
         w.status = 'sent';
         w.sentAt = Date.now();
         w.ref = ref || '';
-        dnotice(s, w.driverId, { kind: 'pay', title: 'پارەکەت نێردرا', body: `${fmt.money(w.amount)}، ${TK.payName(w.method)}${w.account ? ` ${w.account}` : ''}`, link: 'earnings' });
+        const n = { kind: 'pay', title: 'پارەکەت نێردرا', body: `${fmt.money(w.amount)}، ${TK.payName(w.method)}${w.account ? ` ${w.account}` : ''}` };
+        if (w.role === 'p') notice(s, Object.assign(n, { link: 'wallet' }), w.driverId);
+        else dnotice(s, w.driverId, Object.assign(n, { link: 'earnings' }));
       });
     },
     rejectWithdraw(id, why) {
@@ -2678,7 +2756,9 @@
         if (!w || w.status !== 'pending') return;
         w.status = 'rejected';
         w.why = why || '';
-        dnotice(s, w.driverId, { kind: 'info', title: 'داوای وەرگرتن ڕەتکرایەوە', body: `${fmt.money(w.amount)}${why ? `، ${why}` : ''}`, link: 'earnings' });
+        const n = { kind: 'info', title: 'داوای ڕاکێشان ڕەتکرایەوە', body: `${fmt.money(w.amount)}${why ? `، ${why}` : ''}` };
+        if (w.role === 'p') notice(s, Object.assign(n, { link: 'wallet' }), w.driverId);
+        else dnotice(s, w.driverId, Object.assign(n, { link: 'earnings' }));
       });
     },
     /** بەڕێوەبەر: «شۆفێر نەهات» پەسەند یان ڕەت دەکاتەوە (جزدان) */
@@ -3480,13 +3560,15 @@
       skipdeduct: { icon: 'undo', title: 'گەڕانەوەی ڕۆژ بۆ سەرنشین', sub: e.note || '' },
       penalty: { icon: 'alert', title: 'سزا', sub: e.note || '', bad: true },
       bonus: { icon: 'trophy', title: 'پاداشت', sub: e.note || '' },
-      withdraw: { icon: 'download', title: `وەرگرتن${m ? ' بە ' + m : ''}`, sub: e.note || '' },
+      withdraw: { icon: 'download', title: `ڕاکێشان${m ? ' بۆ ' + m : ''}`, sub: e.note || '' },
+      xfer: e.incoming ? { icon: 'send', title: `وەرگرتن لە ${e.fromName || ''}`, sub: e.note || 'ناردن لە جزدانێکی ترەوە' } : { icon: 'send', title: `ناردن بۆ ${e.toName || ''}`, sub: e.note || '' },
     };
     return T[e.type] || { icon: 'wallet', title: e.note || e.type, sub: '' };
   };
-  TK.walletOf = (s, who) => (s.wallet || []).filter((e) => e.who === who).sort((a, b) => (b.at || 0) - (a.at || 0));
-  TK.balance = (s, who) => (s.wallet || []).reduce((n, e) => n + (e.who === who ? e.amount || 0 : 0), 0);
-  /** ئەو داوای وەرگرتنانەی شۆفێر کە هێشتا نەنێردراون (لە باڵانسی بەردەست کەم دەکرێنەوە) */
+  /** دێڕەکانی کەسێک. ناردنێک کە بۆی هاتووە (xfer بە to) وەک دێڕی هاتوو (بڕی پۆزەتیڤ) دەگەڕێنرێتەوە */
+  TK.walletOf = (s, who) => (s.wallet || []).filter((e) => e.who === who || (e.type === 'xfer' && e.to === who)).map((e) => (e.who === who ? e : Object.assign({}, e, { amount: -(e.amount || 0), incoming: true }))).sort((a, b) => (b.at || 0) - (a.at || 0));
+  TK.balance = (s, who) => (s.wallet || []).reduce((n, e) => n + (e.who === who ? e.amount || 0 : e.type === 'xfer' && e.to === who ? -(e.amount || 0) : 0), 0);
+  /** ئەو داوای ڕاکێشانانەی هێشتا نەنێردراون (لە باڵانسی بەردەست کەم دەکرێنەوە) */
   TK.pendingWithdraw = (s, driverId) => (s.withdraws || []).filter((w) => w.driverId === driverId && w.status === 'pending').reduce((n, w) => n + w.amount, 0);
   const monthOf = (day) => String(day || TODAY()).slice(0, 7);
   /** پارەدانی مانگی بەشدارییەک لە دەفتەرەوە (نەک لەسەر بەشدارییەکە، تا کەس نەتوانێت خۆی «دراوە» بنووسێت):
