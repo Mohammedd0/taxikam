@@ -1354,7 +1354,9 @@
     composeNow();
     const draft = clone(state);
     const r = fn(draft);
-    state = r || draft;
+    // تەنها ئەگەر fn بە ئەنقەست state ـێکی تەواوی گەڕاندەوە (وەک reconcile)، جێگای دەگرێتەوە.
+    // هەر گەڕاندنەوەیەکی تر (دەق، ژمارە، true) پشتگوێ دەخرێت: دەنا هەموو زانیارییەکان وەک «سڕاوە» دادەنران و لە Firebase دەسڕانەوە
+    state = r && typeof r === 'object' && Array.isArray(r.subscriptions) && Array.isArray(r.drivers) && Array.isArray(r.trips) ? r : draft;
     saveLocal(state);
     cloudFlush();
     emit();
@@ -2636,11 +2638,17 @@
       let err = null;
       update((s) => {
         const x = s.topups.find((y) => y.id === id);
-        if (!x || x.status !== 'pending') return (err = 'ئەم داواکارییە ئیتر چاوەڕێ نییە');
+        if (!x || x.status !== 'pending') {
+          err = 'ئەم داواکارییە ئیتر چاوەڕێ نییە';
+          return;
+        }
         const a = Math.round(amount > 0 ? amount : x.amount);
         const refund = x.kind === 'refund';
         const e = went(s, { id: 't_' + safeId(id), who: x.owner, role: x.role || 'p', type: refund ? 'refund' : 'topup', amount: a, method: x.method, ref: x.ref || '', note: refund ? x.note : `${TK.payName(x.method)}${x.ref ? `، حەواڵە ${x.ref}` : ''}`, name: x.name, req: id, subId: x.subId || null });
-        if (!e) return (err = 'پێشتر تۆمار کراوە');
+        if (!e) {
+          err = 'پێشتر تۆمار کراوە';
+          return;
+        }
         x.status = 'approved';
         x.amount = a;
         x.decidedAt = Date.now();
@@ -2747,8 +2755,14 @@
       let err = null;
       update((s) => {
         const w = s.withdraws.find((x) => x.id === id);
-        if (!w || w.status !== 'pending') return (err = 'ئەم داوایە ئیتر چاوەڕێ نییە');
-        if (TK.balance(s, w.driverId) < w.amount) return (err = `باڵانسەکەی بەس نییە (${fmt.money(TK.balance(s, w.driverId))})`);
+        if (!w || w.status !== 'pending') {
+          err = 'ئەم داوایە ئیتر چاوەڕێ نییە';
+          return;
+        }
+        if (TK.balance(s, w.driverId) < w.amount) {
+          err = `باڵانسەکەی بەس نییە (${fmt.money(TK.balance(s, w.driverId))})`;
+          return;
+        }
         const e = went(s, { id: 'w_' + safeId(id), who: w.driverId, role: w.role || 'd', type: 'withdraw', amount: -w.amount, method: w.method, ref: ref || '', note: `${TK.payName(w.method)}${w.account ? ` ${w.account}` : ''}`, req: id, by: 'admin' });
         if (!e) return;
         w.status = 'sent';
@@ -3165,7 +3179,10 @@
       let err = null;
       update((s) => {
         const d = s.drivers.find((x) => x.id === s.driver.meId);
-        if (!d) return (err = 'نەدۆزرایەوە');
+        if (!d) {
+          err = 'نەدۆزرایەوە';
+          return;
+        }
         if (d.payMethod === method && (d.payAccount || '') === (m.account === false ? '' : acc)) return;
         d.payPrev = { method: d.payMethod || '', account: d.payAccount || '' };
         d.payMethod = method;
