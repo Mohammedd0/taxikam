@@ -24,6 +24,11 @@
     rewards: null, // لیستی پاداشتەکان (null = بنەڕەت)
     faq: null, // پرسیارە باوەکان (null = بنەڕەت)
     contacts: [], // ژمارەکانی پەیوەندی بە یەکسا: { id, phone, label, aud: p|d|all }
+    walletOn: false, // جزدان: سەرنشین پێش یەکەم گەشتی هەر مانگێک لە جزدانەوە پارە دەدات، شۆفێر ڕۆژانە داهات وەردەگرێت
+    skipEvery: 5, // جزدان: بۆ هەر ئەوەندە ڕۆژ «نایەم» لە یەک مانگدا...
+    skipRefundDays: 1, // ...پارەی ئەوەندە ڕۆژ لە شۆفێرەوە بۆ سەرنشین دەگەڕێتەوە
+    noShowComp: 5000, // جزدان: لە سزای «شۆفێر نەهات» ئەوەندە دەچێتە سەر باڵانسی سەرنشین
+    withdrawMin: 25000, // جزدان: کەمترین بڕ بۆ داوای وەرگرتنی شۆفێر (٠ = بێ سنوور)
     offerRange: 0.15, // شۆفێر دەتوانێت تا ١٥٪ کەمتر یان زیاتر نرخ پێشنیار بکات
     requestHours: 48, // داواکاری دوای ٤٨ کاتژمێر دادەخرێت
     basePrice: 50000, // نرخی بنەڕەتی مانگانە
@@ -326,9 +331,9 @@
   ];
   // شێوازەکانی وەرگرتنی موچەی شۆفێر (بەڕێوەبەر زیاد یان ناچالاکیان دەکات)
   const PAY_METHODS = [
-    { id: 'fib', name: 'FIB', on: true, account: true },
-    { id: 'fastpay', name: 'FastPay', on: true, account: true },
-    { id: 'cash', name: 'کاش', on: true, account: false },
+    { id: 'fib', name: 'FIB', on: true, account: true, topup: true, yeksaAccount: '', holder: '' },
+    { id: 'fastpay', name: 'FastPay', on: true, account: true, topup: true, yeksaAccount: '', holder: '' },
+    { id: 'cash', name: 'کاش', on: true, account: false, topup: true },
   ];
   TK.PAY_METHODS_DEFAULTS = PAY_METHODS;
   TK.payMethods = () => (state && state.payMethods && state.payMethods.length ? state.payMethods : PAY_METHODS);
@@ -520,6 +525,9 @@
       config: {},
       ledger: [],
       payouts: [],
+      wallet: [],
+      topups: [],
+      withdraws: [],
       reports: [],
       broadcasts: [],
       news: [],
@@ -699,6 +707,9 @@
     reports: -1, ledger: -1, payouts: -1, driverLog: -1, news: -1, broadcasts: -1, partners: 1, partnerEarnings: -1, partnerPays: -1,
     referrals: -1, // بانگهێشتی هاوڕێ (ئەحمەد و ئاراس هەردووکیان دەیبینن)
     unsent: -1, // دەقی ڕاستەقینەی نامە گەڕێنراوەکان (تەنها بەڕێوەبەر دەیبینێت)
+    wallet: -1, // دەفتەری جزدان: هەر دێڕێک ناسڕێتەوە و ناگۆڕدرێت
+    topups: -1, // داواکاری پڕکردنەوەی جزدانی سەرنشین (و گەڕاندنەوەی بەشداری)
+    withdraws: -1, // داوای وەرگرتنی پارەی شۆفێر
   };
   // زانیاری تایبەتی شۆفێر کە تەنها خۆی و بەڕێوەبەر دەیبینن (بەڵگەنامە، ناونیشان، موچە)
   const SENS = new Set([
@@ -712,8 +723,8 @@
   // هەر ڕۆڵێک دەتوانێت چی بنووسێت: rw = دروستکردن/گۆڕین/سڕینەوە، c = تەنها دروستکردن، u = تەنها گۆڕین
   const ALL_RW = Object.keys(ARR).concat(['meta', 'pax', 'accounts', 'drivers', 'dpub', 'pnotices', 'phistory']).reduce((o, k) => ((o[k] = 'rw'), o), {});
   const MODES = {
-    passenger: { pax: 'rw', accounts: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', pnotices: 'rw', phistory: 'rw', dnotices: 'c', adminNotices: 'c', reports: 'c', ledger: 'c', partnerEarnings: 'c', dpub: 'u', unsent: 'c', referrals: 'rw' },
-    driver: { drivers: 'rw', dpub: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', dnotices: 'rw', driverLog: 'rw', pnotices: 'c', phistory: 'c', adminNotices: 'c', ledger: 'c', unsent: 'c' },
+    passenger: { pax: 'rw', accounts: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', pnotices: 'rw', phistory: 'rw', dnotices: 'c', adminNotices: 'c', reports: 'c', ledger: 'c', partnerEarnings: 'c', dpub: 'u', unsent: 'c', referrals: 'rw', wallet: 'c', topups: 'rw' },
+    driver: { drivers: 'rw', dpub: 'rw', requests: 'rw', subscriptions: 'rw', trips: 'rw', routes: 'rw', messages: 'rw', swaps: 'rw', dnotices: 'rw', driverLog: 'rw', pnotices: 'c', phistory: 'c', adminNotices: 'c', ledger: 'c', unsent: 'c', wallet: 'c', withdraws: 'rw' },
     admin: ALL_RW,
     home: {},
   };
@@ -769,6 +780,9 @@
     else if (K === 'dnotices' || K === 'ledger' || K === 'payouts') r = [it.driverId];
     else if (K === 'driverLog') r = [it.driverId, it.originalDriverId];
     else if (K === 'referrals') r = [it.inviter, it.invitee];
+    else if (K === 'wallet') r = [it.who].concat(it.type === 'monthpay' || it.type === 'legacy' ? (it.lines || []).map((l) => l.driverId) : []);
+    else if (K === 'topups') r = [it.owner];
+    else if (K === 'withdraws') r = [it.driverId];
     // ئەوانەی هەموو بەشەکانی نابینن، دەستکاری لیستی خوێنەران ناکەن (تەنها زیاد دەکەن)
     const partial = (K === 'routes' && ROLE !== 'driver' && ROLE !== 'admin') || K === 'swaps';
     if (partial && prev && prev._r) r = r.concat(prev._r);
@@ -1054,7 +1068,7 @@
         if (personal.test(path) && !synced()) return;
         // گەشت و مێژووی شۆفێر ناسنامەی دیاریکراویان هەیە (هەموو ئامێرێک هەمان ناسنامە دروست دەکات):
         // تەنها ئەگەر نەبوو دروست دەکرێن، بۆ ئەوەی گەشتێکی دەستپێکراو نەسڕێتەوە
-        const once = /^(trips|driverLog)\//.test(path);
+        const once = /^(trips|driverLog|wallet)\//.test(path);
         if (mode !== 'u') ops.push({ op: once ? 'create' : 'set', path, data: clone(data) });
       } else if (mode !== 'c') {
         const u = fieldDiff(e.data || {}, data);
@@ -1119,7 +1133,7 @@
     if (ROLE === 'passenger') {
       return out.concat(
         [{ id: 'pax', doc: 'pax/' + uid }, { id: 'acc', doc: 'accounts/' + uid }, { id: 'dpub', col: 'dpub' }, { id: 'news', col: 'news' }],
-        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'pnotices', 'phistory', 'referrals'].map(R)
+        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'pnotices', 'phistory', 'referrals', 'wallet', 'topups'].map(R)
       );
     }
     if (ROLE === 'driver') {
@@ -1130,7 +1144,7 @@
           { id: 'oswap', col: 'swaps', where: ['status', '==', 'open'] },
           { id: 'otrip', col: 'trips', where: ['swapOpen', '==', true] },
         ],
-        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'dnotices', 'ledger', 'payouts', 'driverLog'].map(R)
+        ['requests', 'subscriptions', 'trips', 'routes', 'messages', 'swaps', 'dnotices', 'ledger', 'payouts', 'driverLog', 'wallet', 'withdraws'].map(R)
       );
     }
     if (ROLE === 'admin') {
@@ -1747,6 +1761,8 @@
   /** دروستکردنی گەشتەکانی ئەمڕۆی بەشدارییەک (چوون و هاتنەوە). ئەگەر لە ڕۆتێکدایە، syncRun دروستی دەکات */
   function genTrips(s, sub) {
     if (sub.status === 'ended' || !dayApplies(sub)) return;
+    // جزدان: پێش پارەدانی ئەم مانگە گەشت دروست نابێت
+    if (walletOn() && !subPaid(s, sub, monthOf(s.day))) return;
     ['go', 'back'].forEach((dir) => {
       if (!dayTime(sub, dir) || routedIn(s, sub.id, dir)) return;
       if (s.trips.some((t) => t.subId === sub.id && t.day === s.day && t.dir === dir)) return;
@@ -1780,7 +1796,7 @@
     const subs = route.subIds
       .map((id) => s.subscriptions.find((x) => x.id === id))
       // کاتی جیاواز بۆ هەر ڕۆژێک: ئەو ڕۆژەی کاتەکەی زۆر جیاوازە لە کاتی ئاسایی، بە تەنها دەڕوات
-      .filter((x) => x && x.status === 'active' && x.driverId === route.driverId && dayApplies(x) && dayTime(x, route.dir) && inRouteOn(x, route.dir));
+      .filter((x) => x && x.status === 'active' && x.driverId === route.driverId && dayApplies(x) && dayTime(x, route.dir) && inRouteOn(x, route.dir) && (!walletOn() || subPaid(s, x, monthOf(s.day))));
     subs.forEach((x) => {
       let t = s.trips.find((y) => y.subId === x.id && y.day === s.day && y.dir === route.dir);
       if (t && t.status !== 'scheduled' && t.status !== 'skipped') return; // پێشتر بە تاک دەستی پێکردووە
@@ -1903,6 +1919,7 @@
     if (!run.length) return;
     const lead = run.find((t) => t.status === 'done') || run[0];
     const key = (lead.runId || lead.id) + ':' + (lead.day || s.day);
+    walletRun(s, run, lead.day || s.day);
     s.driverLog = s.driverLog || [];
     if (s.driverLog.some((e) => e.key === key)) return;
     const st = (t) => (t.status === 'done' ? 'done' : t.status === 'absent' ? 'absent' : t.status === 'skipped' ? 'skipped' : t.status === 'noshow' ? 'noshow' : 'missed');
@@ -1924,7 +1941,7 @@
       d.workDays = d.workDays || [];
       if (!d.workDays.includes(s.day)) d.workDays.push(s.day);
     }
-    const sw = run.find((t) => t.swapPay && t.originalDriverId);
+    const sw = !walletOn() && run.find((t) => t.swapPay && t.originalDriverId);
     if (sw) {
       ledger(s, sw.originalDriverId, 'swap', -sw.swapPay, `جێگرەوە بۆ ${sw.runTitle || sw.title}`);
       ledger(s, sw.driverId, 'swap', sw.swapPay, `جێگرەوەی ${(s.drivers.find((x) => x.id === sw.originalDriverId) || {}).name || ''}، ${sw.runTitle || sw.title}`);
@@ -1987,15 +2004,26 @@
   /** ئەپی سەرنشین: گەشتی ئەمڕۆی بەشدارییەکانی خۆی و فاتورەی مانگی نوێ */
   function reconcilePassenger(s) {
     s.day = TODAY();
+    fixBilling(s.billing);
+    if (walletOn() && dueLines(s, 'me').length) {
+      const mk = MONTH_KEY();
+      const inv = TK.invoice(s, 'me', { due: true });
+      // پارەدانی خۆکار ئەگەر باڵانس بەس بێت (سەرنشین دەتوانێت بیکوژێنێتەوە)
+      if (s.billing.autoPay !== false && inv.total <= TK.balance(s, 'me')) payMonthIn(s, 'me');
+      else if (s.billing.dueNotice !== mk) {
+        s.billing.dueNotice = mk;
+        notice(s, { kind: 'pay', title: 'پارەی مانگ ئامادە بکە', body: `${fmt.money(inv.total)}، گەشتەکان دوای پارەدان دەست پێدەکەن`, link: 'wallet' });
+      }
+    }
     s.subscriptions.filter((x) => (x.owner || 'me') === 'me').forEach((x) => {
       syncPeople(s, x);
       genTrips(s, x);
     });
-    fixBilling(s.billing);
   }
   /** بەڕێوەبەر: هەموو شتێک (بۆ ئەو شۆفێرانەی ئەمڕۆ ئەپەکەیان نەکردووەتەوە) و ئاگادارکردنەوەی بەسەرچوونی بەڵگەنامە */
   function ensureDay(s) {
     s.day = TODAY();
+    walletBonuses(s);
     closeOldTrips(s, () => true);
     revertRejectedSwaps(s);
     s.subscriptions.forEach((x) => genTrips(s, x));
@@ -2018,6 +2046,8 @@
 
   /** گۆڕینی خاوەن لە هەموو تۆمارە هاوبەشەکان («me» ← UID و بە پێچەوانەوە) */
   function retag(s, from, to) {
+    (s.wallet || []).forEach((e) => e.role === 'p' && e.who === from && (e.who = to));
+    (s.topups || []).forEach((x) => x.owner === from && (x.owner = to));
     (s.driverLog || []).forEach((e) => (e.riders || []).forEach((r) => (r.owner || 'me') === from && (r.owner = to)));
     s.requests.forEach((r) => r.owner === from && (r.owner = to));
     s.messages.forEach((m) => m.peer === from && (m.peer = to));
@@ -2515,32 +2545,174 @@
     },
     /** تۆمارکردنی پارەدانی فاتورە. phone: بەتاڵ = سەرنشینی ئێستا، یان ژمارەی سەرنشینێک (بەڕێوەبەر) */
     pay(total, points, phone) {
+      const st = state;
+      const acc = phone && phone !== st.passenger.phone ? st.accounts.find((a) => a.phone === phone) : null;
+      const owner = !phone || phone === st.passenger.phone ? 'me' : acc ? acc.uid : phone;
+      if (walletOn()) {
+        // جزدان: بەڕێوەبەر کاشەکەی وەرگرت ← دەچێتە سەر جزدان و پارەی مانگ دەدرێت. سەرنشین ← تەنها لە جزدانەوە
+        let err = null;
+        update((s) => {
+          if (ROLE === 'admin') {
+            const inv = TK.invoice(s, owner, { due: true });
+            const ps = pslice(s, owner);
+            if (inv.total > 0) went(s, { id: 't' + uid(), who: owner, role: 'p', type: 'topup', amount: inv.total, method: 'cash', note: 'کاش، وەرگیرا لەلایەن بەڕێوەبەر', by: 'admin', name: ps ? ps.passenger.name : '' });
+          }
+          err = payMonthIn(s, owner);
+        });
+        return err;
+      }
       update((s) => {
-        const acc = phone && phone !== s.passenger.phone ? s.accounts.find((a) => a.phone === phone) : null;
-        const owner = !phone || phone === s.passenger.phone ? 'me' : acc ? acc.uid : phone;
         const ps = pslice(s, owner);
         if (!ps) return;
         const inv = TK.invoice(s, owner);
-        const pts = TK.pointsFor(inv.total);
-        const now = Date.now();
-        ps.billing.paid = true;
-        ps.billing.history.unshift({ month: ps.billing.month, total: inv.total, at: now, method: ps.billing.method, lines: inv.lines, promo: inv.promo, disc: inv.disc, discounts: inv.discounts.map((d) => ({ label: d.label, amount: d.amount })), credit: inv.credit, name: ps.passenger.name });
-        partnerEarn(s, ps.passenger.phone, ps.passenger.name, ps.billing.month, inv.total);
-        ps.billing.adjustments = []; // قەرەبووەکان بەکارهاتن
-        // داشکاندنە بەکارهاتووەکان
-        ps.rewards = Object.assign({ points: 0, redeemed: [], pending: [], used: [] }, ps.rewards);
-        inv.discounts.forEach((d) => {
-          const r = d.kind !== 'reward' && (s.referrals || []).find((x) => x.id === d.id);
-          if (r && d.kind === 'refIn') r.inviteeUsedAt = now;
-          if (r && d.kind === 'refOut') r.inviterUsedAt = now;
-          if (d.kind === 'reward') {
-            const p = (ps.rewards.pending || []).find((x) => x.id === d.id);
-            ps.rewards.pending = (ps.rewards.pending || []).filter((x) => x.id !== d.id);
-            if (p) ps.rewards.used = [Object.assign({}, p, { value: d.amount, usedAt: now })].concat(ps.rewards.used || []).slice(0, 30);
-          }
-        });
-        ps.rewards.points += pts;
+        const pts = recordPayment(s, owner, inv);
         notice(s, { kind: 'pay', title: 'پارەدان تۆمار کرا', body: `${fmt.money(inv.total)}${pts ? `، ${pts} خاڵی پاداشت زیاد کرا` : ''}` }, owner);
+      });
+      return null;
+    },
+    /* ---------- جزدان ---------- */
+    /** سەرنشین پارەی مانگ لە جزدانەکەی دەدات. هەڵە یان null */
+    payMonth() {
+      let err = null;
+      update((s) => {
+        err = payMonthIn(s, 'me');
+      });
+      return err;
+    },
+    setAutoPay(on) {
+      update((s) => {
+        s.billing.autoPay = !!on;
+      });
+    },
+    /** داواکاری پڕکردنەوە: سەرنشین پارەی نارد (FIB، FastPay) یان دەیدات بە بەڕێوەبەر (کاش). بەڕێوەبەر پەسەندی دەکات */
+    requestTopup(amount, method, ref, photo) {
+      let id = null;
+      update((s) => {
+        id = 'tp' + uid();
+        s.topups.unshift({ id, kind: 'topup', owner: 'me', name: s.passenger.name, phone: s.passenger.phone, amount, method, ref: ref || '', photo: photo || null, status: 'pending', at: Date.now() });
+        anotice(s, { kind: 'pay', title: `پڕکردنەوە: ${s.passenger.name}`, body: `${fmt.money(amount)}، ${TK.payName(method)}${ref ? `، ${ref}` : ''}`, link: 'wallet' });
+      });
+      return id;
+    },
+    cancelTopup(id) {
+      update((s) => {
+        const x = s.topups.find((y) => y.id === id && y.status === 'pending' && y.kind !== 'refund');
+        if (x) x.status = 'cancelled';
+      });
+    },
+    /** بەڕێوەبەر: پڕکردنەوە (یان گەڕاندنەوە) پەسەند دەکات ← دێڕێک لە دەفتەر و ئاگادارکردنەوە */
+    approveTopup(id, amount) {
+      update((s) => {
+        const x = s.topups.find((y) => y.id === id);
+        if (!x || x.status !== 'pending') return;
+        const a = Math.round(amount > 0 ? amount : x.amount);
+        const refund = x.kind === 'refund';
+        const e = went(s, { id: 't_' + safeId(id), who: x.owner, role: 'p', type: refund ? 'refund' : 'topup', amount: a, method: x.method, ref: x.ref || '', note: refund ? x.note : `${TK.payName(x.method)}${x.ref ? `، حەواڵە ${x.ref}` : ''}`, name: x.name, req: id, subId: x.subId || null });
+        if (!e) return;
+        x.status = 'approved';
+        x.amount = a;
+        x.decidedAt = Date.now();
+        x.entryId = e.id;
+        notice(s, { kind: 'pay', title: refund ? 'پارەکەت گەڕایەوە' : 'جزدانەکەت پڕ کرایەوە', body: `${fmt.money(a)} چووە سەر جزدانەکەت`, link: 'wallet' }, x.owner);
+      });
+    },
+    rejectTopup(id, why) {
+      update((s) => {
+        const x = s.topups.find((y) => y.id === id);
+        if (!x || x.status !== 'pending') return;
+        x.status = 'rejected';
+        x.why = why || '';
+        x.decidedAt = Date.now();
+        notice(s, { kind: 'info', title: x.kind === 'refund' ? 'داوای گەڕاندنەوە ڕەتکرایەوە' : 'پڕکردنەوە پەسەند نەکرا', body: `${fmt.money(x.amount)}${why ? `، ${why}` : ''}. بۆ زانیاری پەیوەندی بە یەکسا بکە`, link: 'wallet' }, x.owner);
+      });
+    },
+    /** بەڕێوەبەر: زیادکردن یان لێبڕینی دەستی (سەرنشین p، شۆفێر d) */
+    walletAdjust(who, role, amount, note, method, kind) {
+      update((s) => {
+        const type = kind || (role === 'p' && amount > 0 && method ? 'topup' : 'adjust');
+        went(s, { id: 'a' + uid(), who, role, type, amount: Math.round(amount), method: method || null, note: note || (amount > 0 ? 'زیادکردنی دەستی' : 'لێبڕینی دەستی'), by: 'admin' });
+        const body = `${note ? note + '، ' : ''}${amount > 0 ? '+' : '−'}${fmt.money(Math.abs(amount))}`;
+        if (role === 'd') dnotice(s, who, { kind: 'pay', title: amount > 0 ? 'پارە بۆ جزدانەکەت' : 'لێبڕین لە جزدانەکەت', body, link: 'earnings' });
+        else notice(s, { kind: 'pay', title: amount > 0 ? 'جزدانەکەت پڕ کرایەوە' : 'لێبڕین لە جزدانەکەت', body, link: 'wallet' }, who);
+      });
+    },
+    /** شۆفێر داوای وەرگرتنی پارە دەکات. هەڵە یان null */
+    requestWithdraw(amount) {
+      const me = sel.me();
+      if (!me) return 'هەژمار نەدۆزرایەوە';
+      const free = TK.balance(state, me.id) - TK.pendingWithdraw(state, me.id);
+      const min = cfg().withdrawMin || 0;
+      amount = Math.round(amount);
+      if (!(amount > 0)) return 'بڕەکە بنووسە';
+      if (amount > free) return `زۆرترین ${fmt.money(Math.max(0, free))}`;
+      if (min && amount < min) return `کەمترین بڕ ${fmt.money(min)}`;
+      if (!me.payMethod) return 'سەرەتا شێوازی وەرگرتن هەڵبژێرە';
+      update((s) => {
+        s.withdraws.unshift({ id: 'wd' + uid(), driverId: me.id, name: me.name, amount, method: me.payMethod, account: me.payAccount || '', status: 'pending', at: Date.now() });
+        anotice(s, { kind: 'pay', title: `داوای وەرگرتن: ${me.name}`, body: `${fmt.money(amount)}، ${TK.payName(me.payMethod)}${me.payAccount ? ` ${me.payAccount}` : ''}`, link: 'wallet' });
+      });
+      return null;
+    },
+    cancelWithdraw(id) {
+      update((s) => {
+        const w = s.withdraws.find((x) => x.id === id && x.status === 'pending');
+        if (w) w.status = 'cancelled';
+      });
+    },
+    /** بەڕێوەبەر پارەکەی نارد ← لە جزدانی شۆفێر دەبڕدرێت */
+    markWithdrawSent(id, ref) {
+      update((s) => {
+        const w = s.withdraws.find((x) => x.id === id);
+        if (!w || w.status !== 'pending') return;
+        const e = went(s, { id: 'w_' + safeId(id), who: w.driverId, role: 'd', type: 'withdraw', amount: -w.amount, method: w.method, ref: ref || '', note: `${TK.payName(w.method)}${w.account ? ` ${w.account}` : ''}`, req: id, by: 'admin' });
+        if (!e) return;
+        w.status = 'sent';
+        w.sentAt = Date.now();
+        w.ref = ref || '';
+        dnotice(s, w.driverId, { kind: 'pay', title: 'پارەکەت نێردرا', body: `${fmt.money(w.amount)}، ${TK.payName(w.method)}${w.account ? ` ${w.account}` : ''}`, link: 'earnings' });
+      });
+    },
+    rejectWithdraw(id, why) {
+      update((s) => {
+        const w = s.withdraws.find((x) => x.id === id);
+        if (!w || w.status !== 'pending') return;
+        w.status = 'rejected';
+        w.why = why || '';
+        dnotice(s, w.driverId, { kind: 'info', title: 'داوای وەرگرتن ڕەتکرایەوە', body: `${fmt.money(w.amount)}${why ? `، ${why}` : ''}`, link: 'earnings' });
+      });
+    },
+    /** بەڕێوەبەر: «شۆفێر نەهات» پەسەند یان ڕەت دەکاتەوە (جزدان) */
+    decideNoShow(reportId, ok, owner) {
+      update((s) => {
+        const r = s.reports.find((x) => x.id === reportId);
+        if (!r || r.status !== 'open') return;
+        r.status = ok ? 'approved' : 'rejected';
+        r.decidedAt = Date.now();
+        if (ok) {
+          if (r.penalty) went(s, { id: 'np_' + safeId(r.id), who: r.driverId, role: 'd', type: 'penalty', amount: -r.penalty, note: `نەهاتن، ${r.title || ''}`, report: r.id, by: 'admin' });
+          if (r.credit && owner) went(s, { id: 'nc_' + safeId(r.id), who: owner, role: 'p', type: 'comp', amount: r.credit, note: `قەرەبوو: شۆفێر نەهات، ${r.title || ''}`, report: r.id, by: 'admin' });
+          notice(s, { kind: 'pay', title: 'ڕاپۆرتەکەت پەسەند کرا', body: `${fmt.money(r.credit)} قەرەبوو چووە سەر جزدانەکەت`, link: 'wallet' }, owner);
+          dnotice(s, r.driverId, { kind: 'info', red: true, title: 'سزا: نەهاتن', body: `${r.title || ''}، −${fmt.money(r.penalty)}`, link: 'earnings' });
+        } else {
+          // شۆفێر هاتبوو: پارەی ئەو گەشتەی بۆ دەچێت
+          const t = s.trips.find((x) => x.id === r.tripId);
+          if (t && t.status === 'noshow') t.status = 'done';
+          else if (r.legValue) went(s, { id: 'en_' + safeId(r.id), who: r.driverId, role: 'd', type: 'earn', amount: r.legValue, day: r.day, month: monthOf(r.day), lines: [{ subId: r.subId, owner: owner || '', names: r.title || '', dir: r.dir, status: 'done', amount: r.legValue }], title: r.title || '', note: 'ڕاپۆرتی نەهاتن ڕەتکرایەوە', by: 'admin' });
+          notice(s, { kind: 'info', title: 'ڕاپۆرتەکەت پشکنرا', body: 'بە پێی زانیارییەکانی گەشت شۆفێر هاتبوو', link: 'support' }, owner);
+          dnotice(s, r.driverId, { kind: 'ok', title: 'ڕاپۆرتی نەهاتن ڕەتکرایەوە', body: 'پارەی ئەو گەشتە بۆت دەچێت', link: 'earnings' });
+        }
+      });
+    },
+    /** بەڕێوەبەر جزدان چالاک دەکات: بەشدارییەکانی ئەم مانگە بە «پێشتر دراوە» دادەنرێن (موچەی ئەم مانگە بە شێوازی کۆن)، لە مانگی داهاتووەوە هەموو شت لە جزدانەوە */
+    enableWallet(on) {
+      update((s) => {
+        s.config = Object.assign({}, s.config, { walletOn: !!on });
+        if (!on) return;
+        const mk = MONTH_KEY();
+        s.subscriptions.forEach((x) => {
+          if (x.status === 'ended' || subPaid(s, x, mk)) return;
+          went(s, { id: `lg_${safeId(x.id)}_${mk}`, who: x.owner, role: 'p', type: 'legacy', amount: 0, month: mk, lines: [{ subId: x.id, driverId: x.driverId, names: x.riderNames }], note: 'ئەم مانگە بە شێوازی پێشوو', by: 'admin' });
+        });
       });
     },
     /** گۆڕینەوەی خاڵ بە پاداشت: دەبێت بە داشکاندنی چاوەڕوان و لە فاتورەی داهاتوو دەبڕدرێت */
@@ -2572,7 +2744,10 @@
         syncRoutesOf(s, sub.id);
         sub.pauseLog = sub.pauseLog || [];
         if (paused) sub.pauseLog.push({ from: Date.now(), to: null });
-        else if (sub.pauseLog.length && !sub.pauseLog[sub.pauseLog.length - 1].to) sub.pauseLog[sub.pauseLog.length - 1].to = Date.now();
+        else if (sub.pauseLog.length && !sub.pauseLog[sub.pauseLog.length - 1].to) {
+          sub.pauseLog[sub.pauseLog.length - 1].to = Date.now();
+          refundRequest(s, sub, legsPaused(sub, sub.pauseLog[sub.pauseLog.length - 1]), 'ڕاگرتنی کاتی');
+        }
         const names = sub.riderNames;
         const d = s.drivers.find((x) => x.id === sub.driverId);
         notice(s, { kind: 'info', title: paused ? 'بەشدارییەکە ڕاگیرا' : 'بەشدارییەکە دەستی پێکردەوە', body: `${names}، ${d ? d.name : ''} ئاگادار کرایەوە` });
@@ -2655,6 +2830,17 @@
         const t = s.trips.find((x) => x.id === tripId);
         if (!t || t.status !== 'scheduled') return;
         const c = cfg();
+        if (walletOn()) {
+          // جزدان: هیچ شتێک ناگۆڕێت تا بەڕێوەبەر دەیپشکنێت. پارەی ئەو گەشتە بۆ کەس ناچێت
+          const sub = s.subscriptions.find((x) => x.id === t.subId);
+          const mk = monthOf(t.day || s.day);
+          t.status = 'noshow';
+          s.reports.unshift({ id: 'r' + uid(), type: 'noshow', wallet: true, tripId, subId: t.subId, day: t.day || s.day, dir: t.dir, driverId: t.driverId, by: s.passenger.name, phone: s.passenger.phone, note: note || '', penalty: c.noShowPenalty, credit: Math.min(c.noShowComp, c.noShowPenalty), legValue: legValue(s, sub, mk), status: 'open', at: Date.now(), title: t.title });
+          notice(s, { kind: 'info', title: 'ڕاپۆرتەکەت نێردرا', body: 'یەکسا دەیپشکنێت. ئەگەر پەسەند کرا، قەرەبووەکە دەچێتە سەر جزدانەکەت' });
+          dnotice(s, t.driverId, { kind: 'info', red: true, title: 'ڕاپۆرتی نەهاتن', body: `${t.title}، یەکسا دەیپشکنێت. ئەگەر هەڵەیە پەیوەندی بە یەکسا بکە`, link: 'support' });
+          anotice(s, { kind: 'report', red: true, title: `ڕاپۆرتی «شۆفێر نەهات» لە ${s.passenger.name}`, body: t.title, link: 'reports' });
+          return;
+        }
         const sub = s.subscriptions.find((x) => x.id === t.subId);
         const perTrip = sub ? sub.price / Math.max(1, TK.legsPerWeek(sub) * 4.3) : 0;
         const credit = Math.max(c.noShowCreditMin, Math.round(perTrip / 500) * 500);
@@ -3256,6 +3442,260 @@
     return e;
   }
   TK.ledgerAdd = ledger;
+  /* =========================================================
+   * جزدان
+   * دەفتەرێک کە هەر دێڕێکی ناسڕێتەوە و ناگۆڕدرێت؛ باڵانس = کۆی دێڕەکان.
+   * who: UIDـی سەرنشین (لە ئەپی سەرنشین «me») یان ناسنامەی شۆفێر. role: p سەرنشین، d شۆفێر.
+   * ناسنامەی دێڕەکان دیاریکراون (بۆ نموونە e_ڕۆت_ڕۆژ)، بۆیە ئەگەر دوو ئامێر هەمان کار بکەن دووبارە نابێتەوە.
+   * پڕکردنەوە ئێستا بە دەستی بەڕێوەبەرە (topups)؛ دواتر سێرڤەری FIB/FastPay هەمان دێڕی «topup» دەنووسێت.
+   * ======================================================= */
+  const walletOn = () => cfg().walletOn === true;
+  TK.walletOn = walletOn;
+  const safeId = (x) => String(x).replace(/[^\w-]/g, '_');
+  /** دێڕێکی نوێ لە دەفتەر (ئەگەر هەمان ناسنامە هەبێت هیچ ناکات) */
+  function went(s, e) {
+    s.wallet = s.wallet || [];
+    if (s.wallet.some((x) => x.id === e.id)) return null;
+    const x = Object.assign({ at: Date.now(), by: ROLE }, e);
+    s.wallet.unshift(x);
+    payIdx.delete(s.wallet);
+    return x;
+  }
+  TK.walletAdd = went;
+  /** ناونیشان و ئایکۆنی هەر جۆرێکی دێڕ (بۆ سەرنشین و شۆفێر) */
+  TK.txLabel = function (e) {
+    const m = e.method ? TK.payName(e.method) : '';
+    const lines = (e.lines || []).map((l) => `${l.names}${l.status === 'skipped' ? ' («نایەم»)' : l.status === 'absent' ? ' (نەهات)' : ''}`).join('، ');
+    const T = {
+      topup: { icon: 'wallet', title: `پڕکردنەوە${m ? ' بە ' + m : ''}`, sub: e.note || '' },
+      monthpay: { icon: 'receipt', title: e.note || 'پارەی مانگ', sub: (e.lines || []).map((l) => l.names).join('، ') || e.title || '' },
+      skipref: { icon: 'undo', title: 'گەڕانەوەی پارەی ڕۆژ', sub: e.note || '' },
+      comp: { icon: 'shield', title: 'قەرەبوو: شۆفێر نەهات', sub: e.note || '' },
+      refund: { icon: 'undo', title: 'گەڕاندنەوە', sub: e.note || '' },
+      adjust: { icon: 'sliders', title: e.amount >= 0 ? 'زیادکردن لەلایەن یەکسا' : 'لێبڕین لەلایەن یەکسا', sub: e.note || '' },
+      legacy: { icon: 'calendar', title: 'مانگی پێش جزدان', sub: e.note || '' },
+      earn: { icon: 'route', title: lines || e.title || 'داهاتی گەشت', sub: `${e.title || ''}${e.dir ? (e.dir === 'go' ? '، چوون' : '، هاتنەوە') : ''}` },
+      swapout: { icon: 'swap', title: 'جێگرەوە', sub: e.note || '' },
+      swapin: { icon: 'swap', title: 'گەشتی جێگرەوە', sub: e.note || '' },
+      skipdeduct: { icon: 'undo', title: 'گەڕانەوەی ڕۆژ بۆ سەرنشین', sub: e.note || '' },
+      penalty: { icon: 'alert', title: 'سزا', sub: e.note || '', bad: true },
+      bonus: { icon: 'trophy', title: 'پاداشت', sub: e.note || '' },
+      withdraw: { icon: 'download', title: `وەرگرتن${m ? ' بە ' + m : ''}`, sub: e.note || '' },
+    };
+    return T[e.type] || { icon: 'wallet', title: e.note || e.type, sub: '' };
+  };
+  TK.walletOf = (s, who) => (s.wallet || []).filter((e) => e.who === who).sort((a, b) => (b.at || 0) - (a.at || 0));
+  TK.balance = (s, who) => (s.wallet || []).reduce((n, e) => n + (e.who === who ? e.amount || 0 : 0), 0);
+  /** ئەو داوای وەرگرتنانەی شۆفێر کە هێشتا نەنێردراون (لە باڵانسی بەردەست کەم دەکرێنەوە) */
+  TK.pendingWithdraw = (s, driverId) => (s.withdraws || []).filter((w) => w.driverId === driverId && w.status === 'pending').reduce((n, w) => n + w.amount, 0);
+  const monthOf = (day) => String(day || TODAY()).slice(0, 7);
+  /** پارەدانی مانگی بەشدارییەک لە دەفتەرەوە (نەک لەسەر بەشدارییەکە، تا کەس نەتوانێت خۆی «دراوە» بنووسێت):
+   * دێڕی monthpay (سەرنشین دەیدات) یان legacy (بەڕێوەبەر: ئەو مانگەی جزدان تێیدا چالاک کرا). هەردوو سەرنشین و شۆفێر دەیبینن */
+  const payIdx = new WeakMap();
+  function payRec(s, sub, mk = MONTH_KEY()) {
+    if (!sub) return null;
+    const w = s.wallet || [];
+    let idx = payIdx.get(w);
+    if (!idx) {
+      idx = {};
+      w.forEach((e) => (e.type === 'monthpay' || e.type === 'legacy') && (e.lines || []).forEach((l) => (idx[l.subId + '|' + e.month] = Object.assign({ ref: e.id, legacy: e.type === 'legacy' }, l))));
+      payIdx.set(w, idx);
+    }
+    return idx[sub.id + '|' + mk] || null;
+  }
+  TK.payRec = payRec;
+  const subPaid = (s, sub, mk = MONTH_KEY()) => !!payRec(s, sub, mk);
+  TK.subPaid = (sub, mk) => subPaid(state, sub, mk);
+  /** ژمارەی گەشتەکانی (چوون و هاتنەوە جیا) بەشدارییەک لە مانگێکدا، لە ڕۆژی from ـەوە */
+  function legsInMonth(sub, mk, from, ignoreStart) {
+    const [y, m] = mk.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    const x = ignoreStart ? Object.assign({}, sub, { startDate: null }) : sub;
+    let n = 0;
+    for (let d = 1; d <= last; d++) {
+      const dt = new Date(y, m - 1, d);
+      if (from && TODAY(dt) < from) continue;
+      if (!dayApplies(x, dt)) continue;
+      ['go', 'back'].forEach((dir) => dayTime(x, dir, dt) && n++);
+    }
+    return n;
+  }
+  TK.legsInMonth = legsInMonth;
+  /** چەند گەشت لە ڕۆژێکدا (١ یان ٢) بۆ «نایەم»: یەک لا = نیو ڕۆژ */
+  const legsPerDay = (sub) => {
+    if (hasPerDay(sub)) return Math.max(1, ...Object.values(sub.perDay || {}).map((e) => (e && e.go ? 1 : 0) + (e && e.back ? 1 : 0)));
+    return Math.max(1, (sub.go ? 1 : 0) + (sub.back ? 1 : 0));
+  };
+  /** بەهای یەک گەشت بۆ شۆفێر (دوای کۆمیسیۆن، کە یەک جار لە کاتی پارەداندا دەبڕدرێت) لە مانگێکدا */
+  const legValue = (s, sub, mk) => {
+    const rec = payRec(s, sub, mk);
+    if (!rec || rec.legacy || !rec.legs) return 0;
+    return Math.round((rec.amt - rec.fee) / rec.legs);
+  };
+  TK.legValue = (sub, mk) => legValue(state, sub, mk);
+  /** ئەو بەشدارییانەی سەرنشین کە پارەی ئەم مانگەیان نەدراوە: بڕ لە ئەمڕۆوە تا کۆتایی مانگ (بە پێی ژمارەی گەشت) */
+  function dueLines(s, owner) {
+    const mk = MONTH_KEY();
+    const from = TODAY();
+    return s.subscriptions.filter((x) => (x.owner || 'me') === owner && x.status === 'active' && !subPaid(s, x, mk)).map((x) => {
+      const full = legsInMonth(x, mk, null, true);
+      const legs = legsInMonth(x, mk, x.startDate && x.startDate > from ? x.startDate : from);
+      if (!full || !legs) return null;
+      const factor = legs / full;
+      const amount = Math.round((x.price * factor) / 250) * 250;
+      const d = s.drivers.find((y) => y.id === x.driverId) || {};
+      return { subId: x.id, label: `${x.riderNames}، ${d.name || ''}`, note: legs < full ? `${legs} گەشتی ماوەی ئەم مانگە` : '', full: x.price, amount, legs, factor };
+    }).filter(Boolean);
+  }
+  TK.dueLines = dueLines;
+  /** تۆمارکردنی پارەدانی مانگ: مێژوو، هاوبەش، داشکاندنە بەکارهاتووەکان، خاڵ */
+  function recordPayment(s, owner, inv, method) {
+    const ps = pslice(s, owner);
+    if (!ps) return 0;
+    const pts = TK.pointsFor(inv.total);
+    const now = Date.now();
+    ps.billing.paid = true;
+    ps.billing.history.unshift({ month: ps.billing.month, total: inv.total, at: now, method: method || ps.billing.method, lines: inv.lines, promo: inv.promo, disc: inv.disc, discounts: inv.discounts.map((d) => ({ label: d.label, amount: d.amount })), credit: inv.credit, name: ps.passenger.name });
+    partnerEarn(s, ps.passenger.phone, ps.passenger.name, ps.billing.month, inv.total);
+    if (!walletOn()) ps.billing.adjustments = []; // قەرەبووەکان بەکارهاتن
+    ps.rewards = Object.assign({ points: 0, redeemed: [], pending: [], used: [] }, ps.rewards);
+    inv.discounts.forEach((d) => {
+      const r = d.kind !== 'reward' && (s.referrals || []).find((x) => x.id === d.id);
+      if (r && d.kind === 'refIn') r.inviteeUsedAt = now;
+      if (r && d.kind === 'refOut') r.inviterUsedAt = now;
+      if (d.kind === 'reward') {
+        const p = (ps.rewards.pending || []).find((x) => x.id === d.id);
+        ps.rewards.pending = (ps.rewards.pending || []).filter((x) => x.id !== d.id);
+        if (p) ps.rewards.used = [Object.assign({}, p, { value: d.amount, usedAt: now })].concat(ps.rewards.used || []).slice(0, 30);
+      }
+    });
+    ps.rewards.points += pts;
+    return pts;
+  }
+  /** پارەدانی مانگ لە جزدان (لە ناو update). هەڵە دەگەڕێنێتەوە یان null */
+  function payMonthIn(s, owner) {
+    const inv = TK.invoice(s, owner, { due: true });
+    if (!inv.lines.length) return 'هیچ پارەیەکی ئەم مانگە نەماوە';
+    if (TK.balance(s, owner) < inv.total) return 'باڵانسی جزدانەکەت بەس نییە';
+    const mk = MONTH_KEY();
+    const now = Date.now();
+    const subIds = inv.lines.map((l) => l.subId).sort();
+    const rule = TK.commissionRule();
+    const lines = inv.lines.map((l) => {
+      const sub = s.subscriptions.find((x) => x.id === l.subId);
+      return { subId: l.subId, driverId: sub.driverId, names: sub.riderNames, amt: l.amount, fee: TK.feeFor(sub, l.amount, l.factor, rule), legs: l.legs };
+    });
+    const gross = lines.reduce((n, l) => n + l.amt, 0);
+    // داشکاندن (هاوبەش، بانگهێشت، پاداشت) لە کۆمیسیۆنی یەکسا دەدرێت، نەک لە بەشی شۆفێر
+    const e = went(s, { id: safeId(`m_${mk}_${subIds.join('_')}`), who: owner, role: 'p', type: 'monthpay', amount: -inv.total, gross, discount: gross - inv.total, month: mk, lines, note: `پارەی مانگ، ${fmt.MONTHS[new Date().getMonth()]}`, title: inv.lines.map((l) => l.label).join('؛ ') });
+    if (!e) return 'پارەی ئەم مانگە پێشتر دراوە';
+    lines.forEach((l) => {
+      const sub = s.subscriptions.find((x) => x.id === l.subId);
+      genTrips(s, sub);
+      dnotice(s, sub.driverId, { kind: 'pay', title: `${sel.peerName(sub.owner || 'me')} پارەی مانگی دا`, body: `${sub.riderNames}، گەشتەکان دەست پێدەکەن`, link: 'riders' });
+    });
+    const pts = recordPayment(s, owner, inv, 'wallet');
+    notice(s, { kind: 'pay', title: 'پارەی مانگ درا', body: `${fmt.money(inv.total)} لە جزدانەکەت${pts ? `، ${pts} خاڵی پاداشت` : ''}` }, owner);
+    return null;
+  }
+  /** داهاتی شۆفێر کاتێک ڕۆتێک (یان گەشتێک) کۆتایی دێت: تەواوبوو، «نایەم» و «نەهات»ی سەرنشین داهاتن؛ «شۆفێر نەهات» و نەکراو نا */
+  function walletRun(s, run, day) {
+    if (!walletOn() || !run.length) return;
+    const mk = monthOf(day);
+    const lead = run[0];
+    const groups = {};
+    run.forEach((t) => {
+      const sub = s.subscriptions.find((x) => x.id === t.subId);
+      const v = legValue(s, sub, mk);
+      if (!v) return;
+      const st = t.status === 'done' ? 'done' : t.status === 'skipped' ? 'skipped' : t.status === 'absent' ? 'absent' : null;
+      if (!st) return;
+      const who = t.originalDriverId || t.driverId;
+      (groups[who] = groups[who] || []).push({ subId: sub.id, owner: sub.owner || 'me', names: sub.riderNames, dir: t.dir, status: st, amount: v });
+    });
+    const key = safeId(`${lead.runId || lead.id}_${day}`);
+    Object.keys(groups).forEach((who) => {
+      const lines = groups[who];
+      went(s, { id: `e_${key}_${who}`, who, role: 'd', type: 'earn', amount: lines.reduce((n, l) => n + l.amount, 0), day, month: mk, lines, title: lead.runTitle || lead.title, dir: lead.dir });
+    });
+    // پارەی جێگرەوە: لە شۆفێری سەرەکییەوە بۆ ئەو شۆفێرەی چوو، تەنها ئەگەر گەشتەکە کرا
+    const sw = run.find((t) => t.swapPay && t.originalDriverId && t.status === 'done');
+    if (sw) {
+      const fromName = (s.drivers.find((x) => x.id === sw.originalDriverId) || {}).name || '';
+      const toName = (s.drivers.find((x) => x.id === sw.driverId) || {}).name || '';
+      went(s, { id: `so_${safeId(sw.id)}`, who: sw.originalDriverId, role: 'd', type: 'swapout', amount: -sw.swapPay, day, month: mk, note: `جێگرەوە: ${toName}، ${sw.runTitle || sw.title}` });
+      went(s, { id: `si_${safeId(sw.id)}`, who: sw.driverId, role: 'd', type: 'swapin', amount: sw.swapPay, day, month: mk, note: `جێگرەوەی ${fromName}، ${sw.runTitle || sw.title}` });
+    }
+    [...new Set(run.filter((t) => t.status === 'skipped').map((t) => t.subId))].forEach((id) => skipRefunds(s, id, mk));
+  }
+  TK.walletRun = walletRun;
+  /** «نایەم»: بۆ هەر skipEvery ڕۆژ لە یەک مانگدا، پارەی skipRefundDays ڕۆژ لە شۆفێرەوە بۆ سەرنشین (یەک لا = نیو ڕۆژ) */
+  function skipRefunds(s, subId, mk) {
+    const c = cfg();
+    const sub = s.subscriptions.find((x) => x.id === subId);
+    const v = legValue(s, sub, mk);
+    if (!v || !(c.skipEvery > 0) || !(c.skipRefundDays > 0)) return;
+    const lpd = legsPerDay(sub);
+    const legs = (s.wallet || []).filter((e) => e.type === 'earn' && e.month === mk).reduce((n, e) => n + (e.lines || []).filter((l) => l.subId === subId && l.status === 'skipped').length, 0);
+    const k = Math.floor(legs / (c.skipEvery * lpd));
+    const amount = v * lpd * c.skipRefundDays;
+    for (let i = 1; i <= k; i++) {
+      const note = `گەڕانەوەی ${c.skipRefundDays} ڕۆژ (${c.skipEvery} ڕۆژ «نایەم»)، ${sub.riderNames}`;
+      const a = went(s, { id: `sr_${safeId(subId)}_${mk}_${i}`, who: sub.owner || 'me', role: 'p', type: 'skipref', amount, month: mk, subId, note });
+      if (a) {
+        went(s, { id: `sd_${safeId(subId)}_${mk}_${i}`, who: sub.driverId, role: 'd', type: 'skipdeduct', amount: -amount, month: mk, subId, note });
+        notice(s, { kind: 'pay', title: 'پارەی ڕۆژێک گەڕایەوە', body: `${fmt.money(amount)} چووە سەر جزدانەکەت (${c.skipEvery} ڕۆژ «نایەم»)` }, sub.owner);
+      }
+    }
+  }
+  /** پاداشتی مانگانەی شۆفێر بۆ مانگی ڕابردوو (تەنها بەڕێوەبەر دەینووسێت) */
+  function walletBonuses(s) {
+    if (!walletOn() || ROLE !== 'admin') return;
+    const c = cfg();
+    const d0 = new Date();
+    const pmk = MONTH_KEY(new Date(d0.getFullYear(), d0.getMonth() - 1, 1));
+    if (!(c.bonusAmount > 0)) return;
+    s.drivers.forEach((d) => {
+      const days = (d.workDays || []).filter((x) => x.startsWith(pmk)).length;
+      if (days < c.bonusDays) return;
+      if (went(s, { id: `b_${safeId(d.id)}_${pmk}`, who: d.id, role: 'd', type: 'bonus', amount: c.bonusAmount, month: pmk, note: `پاداشتی مانگانە، ${days} ڕۆژی کار` })) {
+        dnotice(s, d.id, { kind: 'pay', title: 'پاداشتی مانگانە', body: `${fmt.money(c.bonusAmount)} چووە سەر جزدانەکەت`, link: 'earnings' });
+      }
+    });
+  }
+  /** گەڕاندنەوەی پارەی ئەو ڕۆژانەی کە بەشدارییەک نەکرا (هەڵوەشاندنەوە یان ڕاگرتن): داواکارییەک بۆ بەڕێوەبەر (سەرنشین خۆی ناتوانێت پارە بخاتە سەر جزدان) */
+  function refundRequest(s, sub, legs, why) {
+    const mk = MONTH_KEY();
+    const rec = payRec(s, sub, mk);
+    if (!walletOn() || !rec || rec.legacy || !rec.legs || legs <= 0) return;
+    const amount = Math.round((rec.amt * Math.min(legs, rec.legs)) / rec.legs / 250) * 250;
+    if (!amount) return;
+    const ps = pslice(s, sub.owner || 'me') || s;
+    s.topups = s.topups || [];
+    s.topups.unshift({ id: 'tp' + uid(), kind: 'refund', owner: sub.owner || 'me', name: ps.passenger.name, phone: ps.passenger.phone, amount, method: 'refund', subId: sub.id, legs, note: `${why}، ${sub.riderNames}، ${legs} گەشت`, status: 'pending', at: Date.now() });
+    anotice(s, { kind: 'pay', title: `داوای گەڕاندنەوە: ${ps.passenger.name}`, body: `${fmt.money(amount)}، ${why}`, link: 'wallet' });
+  }
+  /** ژمارەی گەشتەکانی ماوەی مانگ لە ئەمڕۆوە (گەشتە دەستپێنەکراوەکانی ئەمڕۆ لەگەڵ) */
+  function legsLeft(s, sub) {
+    const mk = MONTH_KEY();
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const today = s.trips.filter((t) => t.subId === sub.id && t.day === TODAY() && t.status === 'scheduled').length;
+    return (monthOf(TODAY(d)) === mk ? legsInMonth(sub, mk, TODAY(d)) : 0) + today;
+  }
+  /** گەشتەکانی ماوەی ڕاگرتنێک لەم مانگەدا (لە ڕۆژی دوای ڕاگرتنەوە تا ڕۆژی پێش دەستپێکردنەوە) */
+  function legsPaused(sub, p) {
+    const mk = MONTH_KEY();
+    const a = new Date(p.from);
+    a.setDate(a.getDate() + 1);
+    const b = new Date(p.to || Date.now());
+    let n = 0;
+    for (let d = new Date(a.getFullYear(), a.getMonth(), a.getDate()); d < new Date(b.getFullYear(), b.getMonth(), b.getDate()); d.setDate(d.getDate() + 1)) {
+      if (monthOf(TODAY(d)) !== mk || !dayApplies(sub, d)) continue;
+      ['go', 'back'].forEach((dir) => dayTime(sub, dir, d) && n++);
+    }
+    return n;
+  }
   TK.noticeAdd = (s, n, owner) => notice(s, n, owner);
   TK.dnoticeAdd = (s, n) => dnotice(s, n.driverId, n);
   /** بەشی ئاگادارکردنەوەی شۆفێر بۆ دوگمەکانی سەرەوە: pay پارە، req داواکاری، acct هەژمار، trip گەشت (ئاگادارکردنەوە کۆنەکانیش دەگرێتەوە) */
@@ -3273,6 +3713,7 @@
   function endSub(s, id, why) {
     const sub = s.subscriptions.find((x) => x.id === id);
     if (!sub) return;
+    if (ROLE !== 'driver') refundRequest(s, sub, sub.status === 'paused' ? 0 : legsLeft(s, sub), why === 'change' ? 'گۆڕینی شۆفێر' : 'هەڵوەشاندنەوەی بەشداری');
     s.subscriptions = s.subscriptions.filter((x) => x.id !== id);
     // ئەگەر ئاراس پێش یەکەم پارەدان هەڵیوەشاندەوە، داشکاندنی بانگهێشت نامێنێت
     if (why !== 'change') (s.referrals || []).forEach((x) => x.subId === id && x.status === 'subscribed' && !x.inviteeUsedAt && (x.status = 'cancelled'));
@@ -3444,10 +3885,11 @@
 
   /** فاتورەی مانگی سەرنشینێک (بنەڕەت: سەرنشینی ئێستا)
    * ڕیز: کۆی بەشدارییەکان ← کۆدی داشکاندن ← داشکاندنی بانگهێشت و پاداشت ← قەرەبوو */
-  TK.invoice = function (s, owner = 'me') {
+  TK.invoice = function (s, owner = 'me', opts = {}) {
     const ps = pslice(s, owner) || { billing: { adjustments: [] } };
     const mb = monthBounds();
-    const lines = s.subscriptions.filter((x) => (x.owner || 'me') === owner).map((x) => {
+    // جزدان: تەنها ئەو بەشدارییانەی پارەی ئەم مانگەیان نەدراوە، لە ئەمڕۆوە
+    const lines = opts.due ? dueLines(s, owner) : s.subscriptions.filter((x) => (x.owner || 'me') === owner).map((x) => {
       const sh = monthShare(x);
       if (!sh) return null;
       const d = s.drivers.find((y) => y.id === x.driverId) || {};
@@ -3479,7 +3921,7 @@
       take({ kind: 'reward', id: p.id, label: `پاداشت، ${p.title}`, amount });
     });
     const disc = discounts.reduce((n, d) => n + d.amount, 0);
-    const adj = (b.adjustments || []).reduce((n, a) => n + a.amount, 0);
+    const adj = opts.due ? 0 : (b.adjustments || []).reduce((n, a) => n + a.amount, 0);
     const credit = Math.min(adj, Math.max(0, sub - promo - disc));
     return { lines, sub, promo, discounts, waiting, disc, credit, adjustments: b.adjustments || [], total: Math.max(0, sub - promo - disc - credit) };
   };
@@ -4864,6 +5306,65 @@
     /** وێنەی شۆفێر (ئەگەر هەبێت) یان وێنەی بنەڕەت */
     dAvatar(d, size = 44) {
       return ui.personAv(d && d.photo, size);
+    },
+    /** کارتی ڕەشی جزدان (هەمان شێوەی سەرنشین و شۆفێر) */
+    walletCard(title, tag, amount, pills = []) {
+      return `<div class="wcard">
+        <div class="wc-top"><div class="col tight"><span class="wc-title"><i></i>${esc(title)}</span><span class="wc-tag">${esc(tag)}</span></div><div class="row" style="gap:10px"><span class="wc-nfc">)))</span><span class="wc-chip"><i></i></span></div></div>
+        <div class="wc-amount ${amount < 0 ? 'neg' : ''}">${amount < 0 ? '−' : ''}${fmt.group(Math.abs(amount))} <small>دینار</small></div>
+        <div class="wc-line"></div>
+        <div class="wc-foot">${pills.map((p) => `<span class="wc-pill">${TK.icon(p[0], 16, p[2] || '#FBBF24')}${p[1]}</span>`).join('')}<span class="wc-coins"><i></i><i></i></span></div>
+      </div>`;
+    },
+    /** دێڕێکی دەفتەر: ئایکۆن، ناونیشان، ڕوونکردنەوە، بڕ */
+    txRow(e, opts = {}) {
+      const L = TK.txLabel(e);
+      const amt = e.amount || 0;
+      const tone = opts.pending ? 'pend' : amt > 0 ? 'in' : L.bad ? 'bad' : '';
+      const col = tone === 'in' ? 'var(--ok-text)' : tone === 'pend' ? '#B45309' : tone === 'bad' ? 'var(--danger-text)' : 'var(--text)';
+      const lead = opts.avatar || `<span class="txi ${tone}">${TK.icon(L.icon, 20, col)}</span>`;
+      return `<div class="item tx tap" data-act="${opts.act || 'txOpen'}" data-arg="${esc(e.id)}">${lead}<div class="grow" style="min-width:0"><div class="t">${esc(L.title)}</div><div class="s">${esc(L.sub)}</div></div><div class="a ${amt > 0 ? 'in' : ''}">${amt > 0 ? '+' : amt < 0 ? '−' : ''}${fmt.group(Math.abs(amt))}<small>${opts.pending ? 'چاوەڕێ' : fmt.hhmm(e.at)}</small></div></div>`;
+    },
+    /** دێڕەکان بە پێی ڕۆژ: ئەمڕۆ، دوێنێ، پاشان مانگ */
+    txGroups(list, row, sums) {
+      const d0 = new Date();
+      d0.setHours(0, 0, 0, 0);
+      const t = d0.getTime();
+      const groups = [];
+      list.forEach((e) => {
+        const at = e.at || 0;
+        const d = new Date(at);
+        const k = at >= t ? 'ئەمڕۆ' : at >= t - 864e5 ? 'دوێنێ' : `${fmt.MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+        let g = groups.find((x) => x[0] === k);
+        if (!g) groups.push((g = [k, []]));
+        g[1].push(e);
+      });
+      return groups.map(([k, l]) => {
+        const sum = l.reduce((n, e) => n + (e.amount || 0), 0);
+        return `<div class="dayh">${k}${sums ? `<span>${sum > 0 ? '+' : sum < 0 ? '−' : ''}${fmt.group(Math.abs(sum))}</span>` : ''}</div><div class="list">${l.map(row).join('')}</div>`;
+      }).join('');
+    },
+    /** پسوولەی دێڕێکی دەفتەر (یان داواکارییەک) */
+    receipt(e, extra = '') {
+      const L = TK.txLabel(e);
+      const amt = e.amount || 0;
+      const row = (k, v) => (v ? `<div class="row between"><span class="muted">${k}</span><b>${v}</b></div>` : '');
+      const d = new Date(e.at || Date.now());
+      return `<div class="col center" style="align-items:center;gap:8px;padding:4px 0 8px">
+          <span class="okc ${amt < 0 ? 'out' : ''}">${TK.icon(amt < 0 ? 'receipt' : 'check', 32, amt < 0 ? 'var(--text)' : 'var(--ok-text)', 2.4)}</span>
+          <div class="h1" style="margin:0">${amt > 0 ? '+' : amt < 0 ? '−' : ''}${fmt.group(Math.abs(amt))} <small class="muted" style="font-size:1rem">دینار</small></div>
+          ${e._pending ? ui.badge('چاوەڕێی پشکنینە', 'note') : ui.badge('تۆمارکراو', 'ok')}
+        </div>
+        <div class="card flat col tight sm" style="line-height:2">
+          ${row('جۆر', esc(L.title))}
+          ${row('وردەکاری', esc(L.sub))}
+          ${row('شێواز', e.method ? esc(TK.payName(e.method)) : '')}
+          ${row('ژمارەی حەواڵە', e.ref ? `<span class="latin">${esc(e.ref)}</span>` : '')}
+          ${row('کات', `${fmt.date(e.at)}، ${fmt.hhmm(e.at)}`)}
+          ${row('ناسنامە', `<span class="latin" data-raw>${esc(String(e.id).slice(-10).toUpperCase())}</span>`)}
+        </div>
+        ${extra}
+        <button class="btn ghost block" data-close>داخستن</button>`;
     },
     /** لیستی پرسیارە باوەکان (کردنەوە و داخستن) */
     faq(list) {

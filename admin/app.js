@@ -58,6 +58,7 @@
       expiry: s.drivers.filter((d) => expWarn(d).length).length,
       requests: s.requests.filter((r) => r.status === 'open').length,
       swaps: s.swaps.filter((w) => w.status === 'open').length,
+      walletPending: (s.topups || []).filter((x) => x.status === 'pending').length + (s.withdraws || []).filter((w) => w.status === 'pending').length,
       get driversAlert() {
         return this.pending + this.expiry;
       },
@@ -72,7 +73,8 @@
     ['subs', 'calendar', 'بەشداری و داواکاری', 'requests'],
     ['trips', 'route', 'گەشتەکان', 'swaps'],
     ['news', 'news', 'هەواڵ و ئاگادارکردنەوە'],
-    ['finance', 'wallet', 'دارایی'],
+    ['finance', 'cash', 'دارایی'],
+    ['wallet', 'wallet', 'جزدان و پارەدان', 'walletPending'],
     ['reports', 'alert', 'سکاڵا و ڕاپۆرت', 'reports'],
     ['faq', 'help', 'پرسیار و پەیوەندی'],
     ['chats', 'chat', 'نامەکان'],
@@ -154,6 +156,7 @@
       if (openT) alerts.push([`${openT} سکاڵا وەڵام نەدراوەتەوە`, 'reports', 'help']);
       if (backupDue()) alerts.push([S().lastBackupAt ? 'زیاتر لە هەفتەیەکە پاشەکەوتی زانیارییەکانت (Backup) نەکردووە' : 'هێشتا هیچ پاشەکەوتێکی زانیارییەکانت (Backup) نەکردووە', 'settings', 'download', true]);
       if (c.swaps) alerts.push([`${c.swaps} گەشت جێگرەوەی دەوێت`, 'trips', 'swap']);
+      if (c.walletPending) alerts.push([`${c.walletPending} داواکاری جزدان (پڕکردنەوە، گەڕاندنەوە، وەرگرتن) چاوەڕێن`, 'wallet', 'wallet']);
       const stale = s.requests.filter((r) => r.status === 'open' && !r.offers.length && Date.now() - r.createdAt > 3600000).length;
       if (stale) alerts.push([`${stale} داواکاری زیاتر لە کاتژمێرێکە هیچ نرخێکی بۆ نەهاتووە`, 'subs', 'megaphone']);
       const lowRated = s.drivers.filter((d) => d.status === 'active' && d.reviews > 5 && d.rating < 4.5).length;
@@ -495,6 +498,7 @@
               <div class="xs muted">پێش ناردنی موچە، بە تەلەفۆن لەگەڵ شۆفێر پشتڕاستی بکەرەوە کە خۆی گۆڕیویەتی.</div>
               <button class="btn sm ok" data-act="ackPay" data-arg="${d.id}">${icon('check', 16, 'currentColor', 2.4)}پشتڕاستم کردەوە</button></div>` : ''}
             <div class="row between sm"><span class="muted">تۆمارکراو</span><b>${fmt.date(d.joinedAt)}</b></div>
+            ${walletBox(d.id, 'd')}
             <div class="row wrap" style="gap:8px">
               ${d.status !== 'active' ? `<button class="btn sm ok" data-act="setDStatus" data-arg="${d.id}|active" ${allOk ? '' : 'disabled'}>${icon('check', 16, 'currentColor', 2.4)}پشتڕاستکردنەوە و چالاککردن</button>` : ''}
               <button class="btn sm secondary" data-act="editDriver" data-arg="${d.id}">${icon('edit', 16)}دەستکاری</button>
@@ -511,13 +515,13 @@
             </div>
           </div>
           <div class="card col">
-            <div class="h3">حیسابی ئەم مانگە</div>
+            ${TK.walletOn() ? '' : `<div class="h3">حیسابی ئەم مانگە</div>
             <div class="row between sm"><span class="muted">کۆی بەشدارییەکان</span><b>${fmt.money(po.gross)}</b></div>
             <div class="row between sm"><span class="muted">کۆمیسیۆن</span><b class="neg">${fmt.group(po.commission)}</b></div>
             ${po.entries.map((e) => `<div class="row between sm"><span class="muted">${esc(e.note)} <span class="xs">(${fmt.ago(e.at)})</span></span><span class="row" style="gap:6px"><b class="${e.amount < 0 ? 'neg' : 'ok'}">${fmt.group(Math.abs(e.amount))}</b><button class="icon-btn plain" style="width:28px;height:28px" data-act="delLedger" data-arg="${e.id}" aria-label="سڕینەوە">${icon('x', 14, 'var(--muted)')}</button></span></div>`).join('')}
             ${po.bonus ? `<div class="row between sm"><span class="muted">پاداشتی مانگانە</span><b class="ok">${fmt.group(po.bonus)}</b></div>` : ''}
             <div class="hr"></div>
-            <div class="row between"><b>بۆ شۆفێر</b><b class="brand">${fmt.money(po.net)}</b></div>
+            <div class="row between"><b>بۆ شۆفێر</b><b class="brand">${fmt.money(po.net)}</b></div>`}
             ${(s.routes || []).filter((r) => r.driverId === d.id).length ? `<div class="h3" style="margin-top:8px">ڕۆتەکان (تەکسی هاوبەش)</div>
             <div class="list">${(s.routes || []).filter((r) => r.driverId === d.id).sort((a, b) => a.time.localeCompare(b.time)).map((r) => `<div class="item"><div class="grow"><b class="sm">${esc(r.name)}</b><div class="xs muted">${r.dir === 'back' ? 'هاتنەوە' : 'چوون'}، ${fmt.clock(r.time)}، ${r.subIds.map((id) => (s.subscriptions.find((x) => x.id === id) || {}).riderNames).filter(Boolean).map(esc).join(' ← ')}</div></div>${ui.badge(`${r.subIds.length} بەشداری`, 'info')}</div>`).join('')}</div>` : ''}
             <div class="h3" style="margin-top:8px">گەشتەکانی ئەمڕۆ (${trips.length})</div>
@@ -733,6 +737,11 @@
     const note = val('l-note').trim() || (type === 'penalty' ? 'سزا' : 'پاداشت');
     if (!amount) return TK.toast('بڕەکە بنووسە');
     if (type === 'penalty') amount = -amount;
+    if (TK.walletOn()) {
+      actions.walletAdjust(id, 'd', amount, note, null, type);
+      TK.closeSheet();
+      return TK.toast('لە جزدانی شۆفێر تۆمار کرا');
+    }
     TK.update((s) => {
       TK.ledgerAdd(s, id, type, amount, note);
       pushDN(s, { driverId: id, kind: amount < 0 ? 'info' : 'ok', title: amount < 0 ? 'سزا لە حیسابەکەت' : 'پاداشت بۆ حیسابەکەت', body: `${note}، ${amount < 0 ? '-' : '+'}${fmt.money(Math.abs(amount))}`, link: 'earnings' });
@@ -821,6 +830,7 @@
               <button class="btn sm secondary" data-act="resetPass" data-arg="${a.phone}">وشەی نهێنی نوێ</button>
               <button class="btn sm ${a.blocked ? 'ok' : 'danger'}" data-act="blockAcc" data-arg="${a.phone}">${a.blocked ? 'چالاککردنەوە' : 'ڕاگرتنی ئەکاونت'}</button>
             </div>
+            ${walletBox(a.uid, 'p')}
             <div class="h3" style="margin-top:6px">ئەندامانی خێزان (${fam.members.length})</div>
             <div class="list">${fam.members.map((m) => `<div class="item">${ui.personAv(m.id === fam.members[0].id ? TK.sel.peerPhoto(a.uid) : null, 36)}<div class="grow"><b class="sm">${esc(m.name)}</b><div class="xs muted">${esc(m.relation || '')}${m.age ? '، ' + m.age + ' ساڵ' : ''}</div></div></div>`).join('') || '<div class="item sm muted">هیچ</div>'}</div>
             <div class="h3">بەشدارییەکان (${subs.length})</div>
@@ -1285,6 +1295,194 @@
       return n + TK.invoice(s, owner).disc;
     }, 0);
   }
+  /* =========================================================
+   * جزدان و پارەدان
+   * ======================================================= */
+  const paxName = (s, uid) => (s.accounts.find((a) => a.uid === uid) || {}).name || ((s.vault[uid] || {}).passenger || {}).name || '-';
+  const whoName = (s, e) => (e.role === 'd' ? (sel.driver(e.who) || {}).name || '-' : paxName(s, e.who));
+  const walletPerson = (s, e) => (e.role === 'd' ? `driver/${e.who}` : `passenger/${(s.accounts.find((a) => a.uid === e.who) || {}).phone || ''}`);
+  /** باڵانسی هەموو کەسێک (بۆ قەرزداران و کۆی گشتی) */
+  const balances = (s) => {
+    const m = {};
+    (s.wallet || []).forEach((e) => {
+      const k = e.role + '|' + e.who;
+      m[k] = (m[k] || 0) + (e.amount || 0);
+    });
+    return Object.entries(m).map(([k, v]) => ({ role: k.split('|')[0], who: k.split('|')[1], bal: v }));
+  };
+  TK.route('wallet', {
+    guard,
+    render() {
+      const s = S();
+      if (!TK.walletOn()) {
+        return layout('wallet', 'جزدان و پارەدان', `<div class="card col" style="gap:12px;max-width:680px">
+          <div class="row" style="gap:12px"><div class="ico-box xl">${icon('wallet', 30)}</div><div class="grow"><b>جزدان هێشتا چالاک نییە</b><div class="sm muted">کاتێک چالاکی دەکەیت، سەرنشین پێش یەکەم گەشتی هەر مانگێک لە جزدانەوە پارە دەدات، و شۆفێر ڕۆژانە داهاتی گەشتەکانی وەردەگرێت.</div></div></div>
+          <div class="sm" style="line-height:1.9">• بەشدارییەکانی ئەم مانگە وەک «پێشتر دراوە» دادەنرێن و موچەی ئەم مانگە بە شێوازی پێشوو دەبێت.<br>• لە مانگی داهاتووەوە، هەموو پارەدانێک لە جزدانەوە دەبێت.<br>• پێش چالاککردن، لە «یاسا و ڕێکخستن» ژمارەی FIB و FastPay ـی یەکسا دابنێ.</div>
+          <button class="btn" data-act="walletEnable" style="align-self:flex-start">${icon('check', 18, 'currentColor', 2.4)}چالاککردنی جزدان</button></div>`);
+      }
+      const tf = U.wtf || 'all';
+      const tps = (s.topups || []).filter((x) => x.status === 'pending' && (tf === 'all' || (tf === 'refund' ? x.kind === 'refund' : x.method === tf && x.kind !== 'refund')));
+      const wds = (s.withdraws || []).filter((w) => w.status === 'pending');
+      const bals = balances(s);
+      const paxSum = bals.filter((b) => b.role === 'p').reduce((n, b) => n + b.bal, 0);
+      const drvSum = bals.filter((b) => b.role === 'd').reduce((n, b) => n + b.bal, 0);
+      const debt = bals.filter((b) => b.bal < 0);
+      const recent = (s.wallet || []).filter((e) => e.type !== 'legacy').slice().sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, U.wall ? 400 : 25);
+      const methods = [...new Set((s.topups || []).filter((x) => x.status === 'pending' && x.kind !== 'refund').map((x) => x.method))];
+      const pendRow = (x) => `<div class="item pend-row">${ui.personAv(null, 44)}<div class="grow"><b>${esc(x.name || paxName(s, x.owner))}</b><div class="xs muted"><span class="latin">${fmt.phone(x.phone || '')}</span> · ${fmt.ago(x.at)}${x.kind === 'refund' ? ` · ${esc(x.note || '')}` : ''}</div></div>
+          ${ui.badge(x.kind === 'refund' ? 'گەڕاندنەوە' : TK.payName(x.method), x.kind === 'refund' ? 'note' : x.method === 'cash' ? '' : 'info')}<span class="xs latin muted" style="min-width:80px">${esc(x.ref || '—')}</span><span class="amt">+${fmt.group(x.amount)}</span>
+          <div class="row" style="gap:6px"><button class="btn sm ok" data-act="tpApprove" data-arg="${x.id}">${icon('check', 14, 'currentColor', 2.4)}پەسەند</button><button class="btn sm danger" data-act="tpReject" data-arg="${x.id}">ڕەتکردنەوە</button>${x.photo ? `<button class="icon-btn" data-act="tpPhoto" data-arg="${x.id}" aria-label="وێنەی پسوولە">${icon('eye', 16)}</button>` : ''}</div></div>`;
+      const wdRow = (w) => `<div class="item pend-row">${ui.dAvatar(sel.driver(w.driverId), 44)}<div class="grow"><b>${esc(w.name || (sel.driver(w.driverId) || {}).name || '')}</b><div class="xs muted">باڵانس ${fmt.group(TK.balance(s, w.driverId))} · ${fmt.ago(w.at)}</div></div>
+          ${ui.badge(TK.payName(w.method), 'info')}<span class="latin muted sm" style="min-width:120px">${esc(w.account || '—')}</span><span class="amt">${fmt.group(w.amount)}</span>
+          <div class="row" style="gap:6px"><button class="btn sm ok" data-act="wdSent" data-arg="${w.id}">${icon('check', 14, 'currentColor', 2.4)}نێردرا</button><button class="btn sm danger" data-act="wdReject" data-arg="${w.id}">ڕەتکردنەوە</button></div></div>`;
+      return layout('wallet', 'جزدان و پارەدان', `
+        <div class="kpis">
+          ${kpi(fmt.n((s.topups || []).filter((x) => x.status === 'pending').length), 'پڕکردنەوە و گەڕاندنەوە چاوەڕێن', 'clock', { alert: (s.topups || []).some((x) => x.status === 'pending') })}
+          ${kpi(fmt.n(wds.length), 'داوای وەرگرتنی شۆفێر', 'download', { alert: wds.length > 0 })}
+          ${kpi(fmt.group(paxSum), 'پارەی سەرنشینان لە جزدان', 'wallet', { sub: 'قەرزی یەکسا بۆ سەرنشینان' })}
+          ${kpi(fmt.group(drvSum), 'باڵانسی شۆفێران', 'car', { sub: 'هێشتا نەنێردراوە' })}
+        </div>
+        <div class="section-title"><div class="h3">پڕکردنەوە و گەڕاندنەوەی چاوەڕێ</div><div class="row wrap" style="gap:6px">${[['all', 'هەمووی']].concat(methods.map((m) => [m, TK.payName(m)])).concat([['refund', 'گەڕاندنەوە']]).map(([k, l]) => `<button class="chip ${tf === k ? 'on' : ''}" data-act="wtf" data-arg="${k}">${esc(l)}</button>`).join('')}</div></div>
+        ${tps.length ? `<div class="list">${tps.map(pendRow).join('')}</div>` : '<div class="sm muted">هیچ داواکارییەکی چاوەڕێ نییە</div>'}
+        <div class="h3">داوای وەرگرتنی شۆفێران</div>
+        ${wds.length ? `<div class="list">${wds.map(wdRow).join('')}</div>` : '<div class="sm muted">هیچ داوایەک نییە</div>'}
+        ${debt.length ? `<div class="h3" style="color:var(--danger-text)">باڵانسی کەمتر لە سفر</div><div class="list">${debt.map((b) => `<div class="item tap" data-go="${walletPerson(s, b)}">${icon(b.role === 'd' ? 'car' : 'user', 18)}<b class="grow">${esc(whoName(s, b))}</b><span class="xs muted">${b.role === 'd' ? 'شۆفێر' : 'سەرنشین'}</span><b class="neg">${fmt.money(b.bal)}</b></div>`).join('')}</div>` : ''}
+        <div class="section-title"><div class="h3">دوایین جووڵەکانی دەفتەر</div><div class="row" style="gap:8px"><button class="btn sm" data-act="wAdjust">${icon('plus', 16)}زیادکردن / لێبڕینی دەستی</button><button class="btn sm secondary" data-act="wExport">${icon('download', 16)}هەناردە (CSV)</button></div></div>
+        ${recent.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>کات</th><th>کەس</th><th>جۆر</th><th>بڕ</th><th>وردەکاری</th><th>لەلایەن</th><th>ناسنامە</th></tr></thead><tbody>
+          ${recent.map((e) => { const L = TK.txLabel(e); return `<tr class="tap" data-go="${walletPerson(s, e)}"><td class="sm">${fmt.date(e.at)} ${fmt.hhmm(e.at)}</td><td>${esc(whoName(s, e))}<div class="xs muted">${e.role === 'd' ? 'شۆفێر' : 'سەرنشین'}</div></td><td class="sm">${esc(L.title)}</td><td class="${e.amount < 0 ? 'neg' : 'ok'}"><b>${e.amount > 0 ? '+' : e.amount < 0 ? '−' : ''}${fmt.group(Math.abs(e.amount || 0))}</b></td><td class="xs">${esc(L.sub)}${e.ref ? ` <span class="latin">${esc(e.ref)}</span>` : ''}${e.type === 'monthpay' && e.discount ? `<div class="muted">داشکاندن ${fmt.group(e.discount)} لە ${fmt.group(e.gross)}</div>` : ''}</td><td class="sm">${e.by === 'admin' ? 'بەڕێوەبەر' : e.by === 'passenger' ? 'سەرنشین' : e.by === 'driver' ? 'خۆکار' : esc(e.by || '')}</td><td class="latin xs" data-raw>${esc(String(e.id).slice(-10).toUpperCase())}</td></tr>`; }).join('')}
+        </tbody></table></div>${!U.wall && (s.wallet || []).length > 25 ? '<button class="link" data-act="wAll">هەمووی</button>' : ''}` : '<div class="sm muted">هێشتا هیچ جووڵەیەک نییە</div>'}
+        <div class="xs muted">هەر دێڕێکی دەفتەر ناسڕێتەوە و ناگۆڕدرێت. هەڵەیەک بە دێڕێکی پێچەوانە (لێبڕین یان زیادکردن) ڕاست دەکرێتەوە.</div>`);
+    },
+  });
+  acts.walletEnable = async () => {
+    if (!(await TK.ask('جزدان چالاک دەکرێت. بەشدارییەکانی ئەم مانگە وەک «پێشتر دراوە» دادەنرێن، و لە مانگی داهاتووەوە سەرنشینان پێش یەکەم گەشت لە جزدانەوە پارە دەدەن.', { yes: 'چالاککردن' }))) return;
+    actions.enableWallet(true);
+    TK.toast('جزدان چالاک کرا');
+  };
+  acts.walletDisable = async () => {
+    if (!(await TK.ask('جزدان ناچالاک دەکرێت و پارەدان دەگەڕێتەوە بۆ شێوازی پێشوو. باڵانس و دەفتەر وەک خۆیان دەمێننەوە.', { yes: 'ناچالاککردن' }))) return;
+    actions.enableWallet(false);
+  };
+  acts.wtf = (k) => {
+    U.wtf = k;
+    TK.render();
+  };
+  acts.wAll = () => {
+    U.wall = true;
+    TK.render();
+  };
+  acts.tpApprove = (id) => {
+    const x = (S().topups || []).find((y) => y.id === id);
+    if (!x) return;
+    TK.sheet(() => `<div class="h2">${x.kind === 'refund' ? 'پەسەندکردنی گەڕاندنەوە' : 'پەسەندکردنی پڕکردنەوە'}</div>
+      <div class="sm muted">${esc(x.name || '')}، ${x.kind === 'refund' ? esc(x.note || '') : `${esc(TK.payName(x.method))}${x.ref ? `، حەواڵە <span class="latin">${esc(x.ref)}</span>` : ''}`}</div>
+      ${x.kind === 'refund' ? '' : '<div class="card note sm">پێش پەسەندکردن، لە ئەپی بانکەکە دڵنیا بەرەوە کە پارەکە گەیشتووە.</div>'}
+      ${input('tp-amt', 'بڕی گەیشتوو', fmt.group(x.amount), { unit: 'دینار' })}
+      <button class="btn block ok" data-act="tpApproveGo" data-arg="${id}">${icon('check', 18, 'currentColor', 2.4)}پەسەند و زیادکردن بۆ جزدان</button>
+      <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+  };
+  acts.tpApproveGo = (id) => {
+    const a = numIn('tp-amt');
+    if (!(a > 0)) return TK.toast('بڕەکە بنووسە');
+    actions.approveTopup(id, a);
+    TK.closeSheet();
+    TK.toast('زیاد کرا');
+  };
+  acts.tpReject = (id) => {
+    TK.sheet(() => `<div class="h2">ڕەتکردنەوە</div>
+      <div class="chips">${['پارەکە نەگەیشتووە', 'ژمارەی حەواڵە هەڵەیە', 'بڕەکە جیاوازە'].map((x) => `<button class="chip" data-act="reasonPick" data-arg="${x}">${x}</button>`).join('')}</div>
+      ${input('tp-why', 'هۆکار (بۆ سەرنشین دەردەکەوێت)', '', { full: true })}
+      <button class="btn block danger-solid" data-act="tpRejectGo" data-arg="${id}">ڕەتکردنەوە</button>
+      <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+  };
+  acts.reasonPick = (x) => {
+    const el = document.getElementById('tp-why') || document.getElementById('wd-why');
+    if (el) el.value = x;
+  };
+  acts.tpRejectGo = (id) => {
+    actions.rejectTopup(id, String(val('tp-why')).trim());
+    TK.closeSheet();
+  };
+  acts.tpPhoto = (id) => {
+    const x = (S().topups || []).find((y) => y.id === id);
+    const src = x && x.photo ? TK.img(x.photo) : '';
+    TK.sheet(() => `<div class="h2">وێنەی پسوولە</div>${src ? `<img src="${src}" alt="" style="width:100%;border-radius:16px">` : '<div class="sm muted">وێنەکە هێشتا نەگەیشتووە</div>'}<button class="btn ghost block" data-close>داخستن</button>`);
+  };
+  acts.wdSent = (id) => {
+    const w = (S().withdraws || []).find((x) => x.id === id);
+    if (!w) return;
+    TK.sheet(() => `<div class="h2">ناردنی پارە بۆ ${esc(w.name || '')}</div>
+      <div class="acct"><span>${fmt.money(w.amount)}</span><span class="sm">${esc(TK.payName(w.method))} <span class="latin" dir="ltr">${esc(w.account || '')}</span></span></div>
+      <div class="sm muted">سەرەتا پارەکە بنێرە، پاشان لێرە تۆماری بکە. لە جزدانی شۆفێرەکە دەبڕدرێت و ئاگادار دەکرێتەوە.</div>
+      ${input('wd-ref', 'ژمارەی حەواڵە (ئارەزوومەندانە)', '', { ltr: true })}
+      <button class="btn block ok" data-act="wdSentGo" data-arg="${id}">${icon('check', 18, 'currentColor', 2.4)}نێردرا</button>
+      <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+  };
+  acts.wdSentGo = (id) => {
+    actions.markWithdrawSent(id, String(val('wd-ref')).trim());
+    TK.closeSheet();
+    TK.toast('تۆمار کرا');
+  };
+  acts.wdReject = (id) => {
+    TK.sheet(() => `<div class="h2">ڕەتکردنەوەی داوای وەرگرتن</div>
+      ${input('wd-why', 'هۆکار (بۆ شۆفێر دەردەکەوێت)', '', { full: true })}
+      <button class="btn block danger-solid" data-act="wdRejectGo" data-arg="${id}">ڕەتکردنەوە</button>
+      <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+  };
+  acts.wdRejectGo = (id) => {
+    actions.rejectWithdraw(id, String(val('wd-why')).trim());
+    TK.closeSheet();
+  };
+  /** زیادکردن یان لێبڕینی دەستی بۆ هەر کەسێک (who/role ئەگەر لە پەڕەی کەسەکەوە بێت) */
+  acts.wAdjust = (arg) => {
+    const s = S();
+    const [role0, who0] = String(arg || '').split('|');
+    const people = s.accounts.map((a) => ['p|' + a.uid, `${a.name} (سەرنشین)`]).concat(s.drivers.map((d) => ['d|' + d.id, `${d.name} (شۆفێر)`]));
+    TK.sheet(() => `<div class="h2">زیادکردن یان لێبڕین</div>
+      <div class="form-grid">
+        ${who0 ? `<input type="hidden" id="wa-who" value="${esc(role0 + '|' + who0)}"><div class="field full"><label>کەس</label><b>${esc((people.find((p) => p[0] === role0 + '|' + who0) || [])[1] || '')}</b></div>` : select('wa-who', 'کەس', '', [['', 'هەڵبژێرە']].concat(people), { full: true })}
+        ${select('wa-type', 'جۆر', 'in', [['in', 'زیادکردن (+)'], ['out', 'لێبڕین (−)']])}
+        ${input('wa-amt', 'بڕ', '', { unit: 'دینار' })}
+        ${select('wa-m', 'شێواز (بۆ پڕکردنەوەی سەرنشین)', '', [['', 'هیچ']].concat(TK.payMethods().map((m) => [m.id, m.name])))}
+        ${input('wa-note', 'هۆکار', '', { full: true, ph: 'بۆ نموونە: کاش لە ئۆفیس، ڕاستکردنەوەی هەڵە' })}
+      </div>
+      <button class="btn block" data-act="wAdjustGo">تۆمارکردن</button>
+      <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+  };
+  acts.wAdjustGo = () => {
+    const [role, who] = String(val('wa-who') || '').split('|');
+    const a = numIn('wa-amt');
+    if (!who) return TK.toast('کەسەکە هەڵبژێرە');
+    if (!(a > 0)) return TK.toast('بڕەکە بنووسە');
+    const amount = val('wa-type') === 'out' ? -a : a;
+    actions.walletAdjust(who, role, amount, String(val('wa-note')).trim(), amount > 0 && role === 'p' ? val('wa-m') || null : null);
+    TK.closeSheet();
+    TK.toast('تۆمار کرا');
+  };
+  acts.wExport = () => {
+    const s = S();
+    const rows = [['id', 'at', 'role', 'name', 'type', 'amount', 'method', 'ref', 'note', 'by']].concat((s.wallet || []).slice().sort((a, b) => a.at - b.at).map((e) => [e.id, new Date(e.at).toISOString(), e.role, whoName(s, e), e.type, e.amount, e.method || '', e.ref || '', (TK.txLabel(e).sub || '').replace(/[\n,]/g, ' '), e.by || '']));
+    const csv = '﻿' + rows.map((r) => r.map((x) => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `yeksa-wallet-${TK.monthKey()}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+  /** بەشی جزدان لە پەڕەی سەرنشین یان شۆفێر */
+  const walletBox = (who, role) => {
+    if (!TK.walletOn()) return '';
+    const s = S();
+    const list = TK.walletOf(s, who).filter((e) => e.type !== 'legacy');
+    const bal = TK.balance(s, who);
+    return `<div class="card col">
+      <div class="row between"><div class="h3">جزدان</div><b class="${bal < 0 ? 'neg' : ''}" style="font-size:1.2rem">${fmt.money(bal)}</b></div>
+      ${list.length ? `<div class="list">${list.slice(0, 8).map((e) => { const L = TK.txLabel(e); return `<div class="item"><div class="grow"><b class="sm">${esc(L.title)}</b><div class="xs muted">${esc(L.sub)} · ${fmt.date(e.at)}</div></div><b class="${e.amount < 0 ? 'neg' : 'ok'}">${e.amount > 0 ? '+' : e.amount < 0 ? '−' : ''}${fmt.group(Math.abs(e.amount || 0))}</b></div>`; }).join('')}</div>` : '<div class="sm muted">هێشتا هیچ جووڵەیەک نییە</div>'}
+      <button class="btn sm secondary" style="align-self:flex-start" data-act="wAdjust" data-arg="${role}|${esc(who)}">${icon('plus', 16)}زیادکردن / لێبڕین</button>
+    </div>`;
+  };
+
   TK.route('finance', {
     guard,
     render() {
@@ -1303,7 +1501,7 @@
         const st = TK.partnerStats(s, p.id);
         return { month: a.month + st.month, balance: a.balance + st.balance };
       }, { month: 0, balance: 0 });
-      return layout('finance', 'دارایی', `
+      return layout('finance', 'دارایی', `${TK.walletOn() ? `<div class="card note row tap" data-go="wallet">${icon('wallet', 20, 'var(--brand)')}<span class="grow sm">جزدان چالاکە: پارەی سەرنشینان و داهاتی ڕۆژانەی شۆفێران لە «جزدان و پارەدان» بەڕێوە دەبرێت. ئەم پەڕەیە بۆ مانگە کۆنەکان و هاوبەشەکانە.</span>${icon('back', 18)}</div>` : ''}
         <div class="kpis">
           ${kpi(fmt.money(T.gross), 'کۆی بەشدارییەکانی مانگ', 'wallet')}
           ${kpi(fmt.money(T.net), 'بەشی شۆفێران', 'car')}
@@ -1398,6 +1596,11 @@
     },
   });
   acts.repOk = (id) => {
+    const r0 = S().reports.find((x) => x.id === id);
+    if (r0 && r0.wallet) {
+      actions.decideNoShow(id, true, ownerOf(S(), r0.phone));
+      return TK.toast('پەسەند کرا: سزا و قەرەبوو تۆمار کران');
+    }
     TK.update((s) => {
       const r = s.reports.find((x) => x.id === id);
       r.status = 'approved';
@@ -1405,6 +1608,12 @@
     TK.toast('پەسەند کرا');
   };
   acts.repNo = async (id) => {
+    const r0 = S().reports.find((x) => x.id === id);
+    if (r0 && r0.wallet) {
+      if (!(await TK.ask('شۆفێر هاتبوو؟ پارەی ئەو گەشتە بۆ شۆفێر دەچێت و سەرنشین هیچ قەرەبوویەک وەرناگرێت.'))) return;
+      actions.decideNoShow(id, false, ownerOf(S(), r0.phone));
+      return TK.toast('ڕەتکرایەوە');
+    }
     if (!(await TK.ask('قەرەبووی سەرنشین و سزای شۆفێر دەگەڕێنرێنەوە.'))) return;
     TK.update((s) => {
       const r = s.reports.find((x) => x.id === id);
@@ -2271,6 +2480,12 @@
       ['bonusDays', 'ڕۆژی کار بۆ پاداشت', 'ڕۆژ'],
       ['debtLimit', 'سنووری قەرزی شۆفێر', 'دینار'],
     ]],
+    ['جزدان', [
+      ['skipEvery', 'بۆ هەر ئەوەندە ڕۆژ «نایەم» لە مانگێکدا...', 'ڕۆژ'],
+      ['skipRefundDays', '...پارەی ئەوەندە ڕۆژ لە شۆفێرەوە بۆ سەرنشین دەگەڕێتەوە', 'ڕۆژ'],
+      ['noShowComp', 'لە سزای «شۆفێر نەهات» بۆ سەرنشین (قەرەبوو)', 'دینار'],
+      ['withdrawMin', 'کەمترین بڕی داوای وەرگرتنی شۆفێر (٠ = بێ سنوور)', 'دینار'],
+    ]],
     ['کات', [
       ['skipCutoffMin', '«نایەم» تا چەند خولەک پێش گەشت', 'خولەک'],
       ['requestHours', 'ماوەی داواکاری', 'کاتژمێر'],
@@ -2317,6 +2532,11 @@
           <div class="xs muted">شۆفێر لە ئەپەکەی خۆیەوە یەکێک لەمانە هەڵدەبژێرێت. هەر کاتێک گۆڕی، ئاگادار دەکرێیتەوە.</div>
           <div class="list">${TK.payMethods().map((m) => `<div class="item"><div class="ico-box">${icon('wallet', 18, 'var(--brand)')}</div><div class="grow"><b class="sm">${esc(m.name)}</b><div class="xs muted">${m.account === false ? 'بێ ژمارەی حیساب' : 'ژمارەی حیساب پێویستە'}، ${S().drivers.filter((d) => d.payMethod === m.id).length} شۆفێر</div></div>${ui.toggle('payMethodOn', m.on !== false, m.id)}</div>`).join('')}</div>
           <div class="row wrap" style="gap:8px"><input class="input grow" id="pm-name" style="min-height:42px;min-width:160px" placeholder="ناوی شێوازی نوێ، بۆ نموونە: Zain Cash"><label class="row sm" style="gap:6px"><input type="checkbox" id="pm-acc" checked>ژمارەی حیساب پێویستە</label><button class="btn sm" data-act="addPayMethod">${icon('plus', 16)}زیادکردن</button></div>
+        </div>
+        <div class="card col"><div class="row between"><div class="h3">جزدان و پڕکردنەوەی سەرنشین</div>${TK.walletOn() ? `<button class="btn sm danger" data-act="walletDisable">ناچالاککردنی جزدان</button>` : `<button class="btn sm" data-act="walletEnable">${icon('check', 16, 'currentColor', 2.4)}چالاککردنی جزدان</button>`}</div>
+          <div class="xs muted">ئەو شێوازانەی سەرنشین دەتوانێت جزدانەکەی پێ پڕ بکاتەوە. ژمارەی حیسابی یەکسا و ناوی خاوەنەکەی بە سەرنشین پیشان دەدرێت.</div>
+          <div class="list">${TK.payMethods().map((m) => `<div class="item"><div class="ico-box">${icon(m.id === 'cash' ? 'cash' : 'wallet', 18, 'var(--brand)')}</div><div class="grow"><b class="sm">${esc(m.name)}</b><div class="xs muted">${m.id === 'cash' ? 'لە ئۆفیسی یەکسا' : m.yeksaAccount ? `<span class="latin" dir="ltr">${esc(m.yeksaAccount)}</span>${m.holder ? ` · ${esc(m.holder)}` : ''}` : '<span style="color:var(--danger-text)">ژمارەی حیساب دانەنراوە</span>'}</div></div>
+            ${m.id !== 'cash' ? `<button class="icon-btn" data-act="pmEdit" data-arg="${m.id}" aria-label="دەستکاری">${icon('edit', 16)}</button>` : ''}${/^pm/.test(m.id) ? `<button class="icon-btn" data-act="pmDel" data-arg="${m.id}" aria-label="سڕینەوە">${icon('trash', 16)}</button>` : ''}${ui.toggle('pmTopup', m.topup !== false && m.on !== false, m.id)}</div>`).join('')}</div>
         </div>
         <div class="cols">
           <div class="card col"><div class="h3">ئەکاونتی بەڕێوەبەر</div>
@@ -2395,6 +2615,45 @@
       ensurePay(s).push({ id: 'pm' + TK.uid(), name, on: true, account: acc });
     });
     TK.toast('زیاد کرا');
+  };
+  acts.pmTopup = (id) => {
+    TK.update((s) => {
+      const x = ensurePay(s).find((y) => y.id === id);
+      if (!x) return;
+      const was = x.topup !== false && x.on !== false;
+      x.topup = !was;
+      if (!was) x.on = true;
+    });
+  };
+  acts.pmEdit = (id) => {
+    const m = TK.payMethod(id) || {};
+    TK.sheet(() => `<div class="h2">${esc(m.name || '')}</div>
+      <div class="form-grid">
+        ${input('pm-acc2', 'ژمارەی حیسابی یەکسا', m.yeksaAccount || '', { ltr: true, full: true, ph: '0750 000 0000' })}
+        ${input('pm-holder', 'ناوی خاوەنی حیساب', m.holder || '', { full: true, ph: 'Yeksa Taxi' })}
+      </div>
+      <div class="xs muted">سەرنشین ئەم ژمارەیە کۆپی دەکات و پارەکەی بۆ دەنێرێت. باش دڵنیا بەرەوە لە دروستی.</div>
+      <button class="btn block" data-act="pmEditGo" data-arg="${id}">پاشەکەوتکردن</button>
+      <button class="btn ghost block" data-close>پاشگەزبوونەوە</button>`);
+  };
+  acts.pmEditGo = (id) => {
+    const acc = String(val('pm-acc2')).trim();
+    const holder = String(val('pm-holder')).trim();
+    TK.update((s) => {
+      const x = ensurePay(s).find((y) => y.id === id);
+      if (x) Object.assign(x, { yeksaAccount: acc, holder });
+    });
+    TK.closeSheet();
+    TK.toast('پاشەکەوت کرا');
+  };
+  acts.pmDel = async (id) => {
+    const m = TK.payMethod(id);
+    if (!m) return;
+    if (S().drivers.some((d) => d.payMethod === id)) return TK.toast('هەندێک شۆفێر ئەم شێوازەیان هەڵبژاردووە. سەرەتا ناچالاکی بکە');
+    if (!(await TK.ask(`«${m.name}» دەسڕدرێتەوە؟`))) return;
+    TK.update((s) => {
+      s.payMethods = ensurePay(s).filter((y) => y.id !== id);
+    });
   };
   acts.ackPay = (id) => {
     actions.ackPayChange(id);

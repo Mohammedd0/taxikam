@@ -165,5 +165,45 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
       allow create: if signedIn() && request.resource.data.by == uid();
     }
+
+    // ---------- جزدان ----------
+    // دەفتەر: هەر دێڕێک تەنها دروست دەکرێت (هەرگیز ناگۆڕدرێت). پارە زیادکردن بۆ سەرنشین تەنها بەڕێوەبەر.
+    // سەرنشین: تەنها پارەدانی مانگ (کەمکردنەوەی باڵانسی خۆی). شۆفێر: تەنها دێڕە سیستەمییەکان (داهاتی گەشت، جێگرەوە، گەڕاندنەوەی «نایەم»)
+    function walletPax() {
+      let d = request.resource.data;
+      return isPax() && d.type == 'monthpay' && d.who == uid() && d.role == 'p' && d.amount is number && d.amount < 0
+        && d._r is list && uid() in d._r;
+    }
+    function walletDriver() {
+      let d = request.resource.data;
+      return isDriver() && d.type in ['earn', 'swapout', 'swapin', 'skipref', 'skipdeduct'] && d.amount is number
+        && d.amount > -5000000 && d.amount < 5000000 && d._r == [d.who]
+        && (d.type != 'skipref' || d.role == 'p') && (d.type == 'skipref' || d.role == 'd');
+    }
+    match /wallet/{id} {
+      // resource == null: دروستکردن بە transaction سەرەتا دەپشکنێت ئایا هەیە (هەمان ناسنامە لە دوو ئامێر)
+      allow read: if resource == null || isAdmin() || inR();
+      allow create: if isAdmin() || walletPax() || walletDriver();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+    // داواکاری پڕکردنەوە: سەرنشین دروستی دەکات (چاوەڕێ) یان هەڵیدەوەشێنێتەوە؛ پەسەندکردن تەنها بەڕێوەبەر
+    match /topups/{id} {
+      allow read: if isAdmin() || inR();
+      allow create: if isAdmin() || (isPax() && request.resource.data.owner == uid() && request.resource.data.status == 'pending'
+        && request.resource.data.amount is number && request.resource.data.amount > 0 && request.resource.data._r == [uid()]);
+      allow update: if isAdmin() || (inR() && resource.data.owner == uid() && resource.data.status == 'pending'
+        && request.resource.data.status == 'cancelled' && changed().hasOnly(['status']));
+      allow delete: if isAdmin();
+    }
+    // داوای وەرگرتنی شۆفێر: شۆفێر دروستی دەکات یان هەڵیدەوەشێنێتەوە؛ ناردنی پارە تەنها بەڕێوەبەر
+    match /withdraws/{id} {
+      allow read: if isAdmin() || inR();
+      allow create: if isAdmin() || (isDriver() && request.resource.data.driverId == uid() && request.resource.data.status == 'pending'
+        && request.resource.data.amount is number && request.resource.data.amount > 0 && request.resource.data._r == [uid()]);
+      allow update: if isAdmin() || (inR() && resource.data.driverId == uid() && resource.data.status == 'pending'
+        && request.resource.data.status == 'cancelled' && changed().hasOnly(['status']));
+      allow delete: if isAdmin();
+    }
   }
 }

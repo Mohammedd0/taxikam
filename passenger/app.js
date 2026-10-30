@@ -355,7 +355,11 @@
 
         ${swap && sel.mySubs().length ? `<div class="card note row top">${icon('swap', 20, 'var(--brand)')}<div class="grow sm"><b>${esc(swap.title)}</b><div>${esc(swap.body)}</div></div></div>` : ''}
 
-        ${!s.billing.paid && TK.invoice(s).total ? `<div class="card row tap" data-go="billing">
+        ${TK.walletOn() && TK.invoice(s, 'me', { due: true }).lines.length ? `<div class="card row tap" data-go="paymonth">
+            <div class="ico-box" style="background:var(--amber)">${icon('wallet', 20, '#0B1733')}</div>
+            <div class="grow"><b>پارەی ${esc(s.billing.month)} ئامادە بکە</b><div class="sm muted">${fmt.money(TK.invoice(s, 'me', { due: true }).total)}، گەشتەکان دوای پارەدان دەست پێدەکەن</div></div>${icon('forward', 20, 'var(--muted)')}
+          </div>` : ''}
+        ${!TK.walletOn() && !s.billing.paid && TK.invoice(s).total ? `<div class="card row tap" data-go="billing">
             <div class="ico-box info">${icon('wallet', 20, 'var(--info-text)')}</div>
             <div class="grow"><b>فاتورەی ${esc(s.billing.month)} ئامادەیە</b><div class="sm muted">${fmt.money(TK.invoice(s).total)}</div></div>${icon('forward', 20, 'var(--muted)')}
           </div>` : ''}
@@ -575,7 +579,7 @@
             ${t.status === 'scheduled' ? (TK.canSkip(t) ? `<div class="row" style="gap:8px"><button class="btn sm secondary grow" data-act="skipTrip" data-arg="${t.id}">${icon('x', 16)}نایەم</button><button class="btn sm secondary" data-go="chat/${d.id}">${icon('chat', 16)}</button></div>` : `<div class="row between"><span class="xs muted">کەمتر لە ${TK.CONFIG.skipCutoffMin} خولەک ماوە، «نایەم» ناکرێت. نامە بۆ شۆفێر بنێرە.</span><button class="btn sm secondary" data-go="chat/${d.id}">${icon('chat', 16)}</button></div>`) : ''}
             ${t.status === 'skipped' ? `<div class="row between"><span class="xs muted">${t.skipReason ? esc(t.skipReason) : 'شۆفێر ئاگادار کرایەوە'}</span><button class="btn sm secondary" data-act="unskip" data-arg="${t.id}">دەیەم</button></div>` : ''}
           </div>`;
-        }).join('') : ui.empty('calendar', 'ئەمڕۆ هیچ گەشتێکت نییە', sel.mySubs().length ? 'گەشتەکانی بەیانی لە سەرەکی دەبینیت' : 'بەشدارییەکی مانگانە دروست بکە و هەموو ڕۆژێک شۆفێرەکەت دێت', sel.mySubs().length ? '<button class="btn secondary" data-go="home">سەرەکی</button>' : '<button class="btn" data-act="newSub">بەشداری نوێ</button>')}
+        }).join('') : TK.walletOn() && TK.invoice(S(), 'me', { due: true }).lines.length ? ui.empty('calendar', 'پارەی مانگ چاوەڕێیە', 'گەشتەکان دوای پارەدانی ئەم مانگە دەست پێدەکەن', '<button class="btn" data-go="paymonth">پارەدانی مانگ</button>') : ui.empty('calendar', 'ئەمڕۆ هیچ گەشتێکت نییە', sel.mySubs().length ? 'گەشتەکانی بەیانی لە سەرەکی دەبینیت' : 'بەشدارییەکی مانگانە دروست بکە و هەموو ڕۆژێک شۆفێرەکەت دێت', sel.mySubs().length ? '<button class="btn secondary" data-go="home">سەرەکی</button>' : '<button class="btn" data-act="newSub">بەشداری نوێ</button>')}
         ${pending.length > 1 ? `<button class="btn ghost block" data-act="skipAll">ئەمڕۆ هیچ کەسێک نایەت</button>` : ''}
         <div class="xs muted center">«نایەم» تا ${TK.CONFIG.skipCutoffMin} خولەک پێش کاتی گەشت دەکرێت.</div>
         <button class="card row tap" style="text-align:right" data-go="history">${icon('clock', 20, 'var(--brand)')}<span class="grow bold">گەشتە کۆنەکان</span>${icon('forward', 18, 'var(--muted)')}</button>`, 'trips');
@@ -1551,7 +1555,7 @@
           ${memberAv(lead, 52)}
           <div class="grow" style="min-width:0"><b class="ds-name ellipsis">${esc(fmt.names(names))}</b><div class="xs muted">${esc(fmt.days(sub.days))}</div></div>
         </div>
-        <span class="ts-state ${paused ? 'off' : ''}"><i></i>${paused ? 'ڕاگیراوە' : 'چالاک'}</span>
+        ${!paused && TK.walletOn() && !TK.subPaid(sub) ? `<button class="ts-state due tap" data-go="paymonth"><i></i>چاوەڕێی پارەدانە</button>` : `<span class="ts-state ${paused ? 'off' : ''}"><i></i>${paused ? 'ڕاگیراوە' : 'چالاک'}</span>`}
       </div>
       <div class="ds-route">
         <span class="ds-dot"></span><div class="ds-rt"><b class="ellipsis">${place(sub.from)}</b>${tm(sub.go, 'چوون')}</div>
@@ -1746,8 +1750,218 @@
    * پارەدان
    * ======================================================= */
   const invoice = () => TK.invoice(S());
+  /* =========================================================
+   * جزدان (کاتێک بەڕێوەبەر چالاکی کردبێت)
+   * ======================================================= */
+  const W = () => TK.walletOn();
+  const myBal = () => TK.balance(S(), 'me');
+  const dueInv = () => TK.invoice(S(), 'me', { due: true });
+  const myTx = () => TK.walletOf(S(), 'me').filter((e) => e.type !== 'legacy');
+  const pendingTp = () => (S().topups || []).filter((x) => x.owner === 'me' && x.status === 'pending');
+  const topupMethods = () => TK.payMethods().filter((m) => m.on !== false && m.topup !== false && (m.account === false || m.yeksaAccount));
+  const monoOf = (m) => (m.account === false ? icon('cash', 22) : `<span class="latin">${esc(m.name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || m.name.slice(0, 2))}</span>`);
+  Object.assign(TK.HELP, {
+    wallet: { title: 'جزدانەکەم', body: () => `<p>پارە دەخەیتە سەر جزدانەکەت (FIB، FastPay یان کاش)، و پارەی هەر مانگێک پێش یەکەم گەشت لێی دەدرێت.</p><p>پارەکە لای یەکسا دەمێنێتەوە و ڕۆژ بە ڕۆژ، تەنها دوای تەواوبوونی هەر گەشتێک، دەچێتە سەر حیسابی شۆفێر.</p><p>بۆ هەر ${fmt.n(TK.CONFIG.skipEvery)} ڕۆژ «نایەم» لە مانگێکدا، پارەی ${fmt.n(TK.CONFIG.skipRefundDays)} ڕۆژ دەگەڕێتەوە سەر جزدانەکەت. ئەگەر شۆفێر نەهات و یەکسا پەسەندی کرد، قەرەبووەکەش لێرە دەبینیت.</p>` },
+  });
+  TK.route('wallet', {
+    guard: () => authed() || (W() ? null : 'billing'),
+    render() {
+      const s = S();
+      const bal = myBal();
+      const inv = dueInv();
+      const need = Math.max(0, inv.total - bal);
+      const paidNow = sel.mySubs().some((x) => TK.subPaid(x));
+      const pend = pendingTp();
+      const tx = myTx();
+      const auto = s.billing.autoPay !== false;
+      const pills = [[inv.lines.length ? 'calendar' : 'check', inv.lines.length ? `ئەم مانگە <b>${fmt.group(inv.total)}</b>` : paidNow ? 'ئەم مانگە دراوە' : 'هیچ پارەیەک نییە', '#FBBF24'], [auto ? 'check' : 'pause', auto ? 'خۆکار' : 'دەستی', '#FDE68A']];
+      return page(`
+        ${ui.header('جزدانەکەم', { back: 'profile', right: TK.helpBtn('wallet') })}
+        ${ui.walletCard('باڵانسی بەردەست', 'جزدانی یەکسا', bal, pills)}
+        <div class="qa">
+          <button data-go="topup"><span class="c pri">${icon('plus', 22, 'currentColor', 2.4)}</span>پڕکردنەوە</button>
+          <button data-go="paymonth"><span class="c">${icon('receipt', 20)}</span>پارەدانی مانگ</button>
+          <button data-act="autoPay"><span class="c">${icon(auto ? 'check' : 'pause', 20)}</span>${auto ? 'خۆکار' : 'دەستی'}</button>
+          <button data-act="help" data-arg="wallet"><span class="c">${icon('help', 20)}</span>یارمەتی</button>
+        </div>
+        ${inv.lines.length ? `<div class="card col" style="gap:10px">
+          <div class="row between"><b>پارەی ${esc(s.billing.month)}</b><span class="badge note">گەشتەکان چاوەڕێن</span></div>
+          <div class="progress"><i style="width:${Math.min(100, Math.round((bal / Math.max(1, inv.total)) * 100))}%"></i></div>
+          <div class="row between sm"><span class="muted">ئامادەیە <b style="color:var(--text)">${fmt.group(Math.max(0, Math.min(bal, inv.total)))}</b></span><span class="muted">لە ${fmt.group(inv.total)}</span></div>
+          ${need ? `<button class="btn block secondary sm" data-act="topupNeed" data-arg="${need}">${icon('plus', 16)}پڕکردنەوەی ${fmt.group(need)} ی ماوە</button>` : `<button class="btn block sm" data-go="paymonth">${icon('check', 16, 'currentColor', 2.4)}پارەدان لە جزدان</button>`}
+        </div>` : ''}
+        <div class="trust">${icon('shield', 16, 'var(--ok-text)')}<span>پارەکەت لای یەکسا پارێزراوە. هەر جووڵەیەک لێرە تۆمار دەکرێت.</span></div>
+        ${pend.length ? `<div class="dayh">چاوەڕێی پشکنین</div><div class="list">${pend.map((x) => ui.txRow({ id: x.id, type: x.kind === 'refund' ? 'refund' : 'topup', amount: x.amount, method: x.kind === 'refund' ? null : x.method, note: x.kind === 'refund' ? x.note : `چاوەڕێی پشکنینی یەکسا${x.ref ? '، حەواڵە ' + x.ref : ''}`, at: x.at }, { pending: true, act: 'tpOpen' })).join('')}</div>` : ''}
+        ${tx.length ? ui.txGroups(tx, (e) => ui.txRow(e)) : pend.length ? '' : ui.empty('wallet', 'هێشتا هیچ جووڵەیەک نییە', 'جزدانەکەت پڕ بکەرەوە بۆ پارەدانی مانگ', '<button class="btn" data-go="topup">پڕکردنەوە</button>')}`);
+    },
+  });
+  acts.autoPay = () => {
+    const on = S().billing.autoPay !== false;
+    actions.setAutoPay(!on);
+    TK.toast(on ? 'پارەدانی خۆکار کوژایەوە' : 'پارەدانی خۆکار چالاک کرا');
+  };
+  acts.topupNeed = (a) => {
+    U.tp = { amount: +a, method: (topupMethods()[0] || {}).id };
+    TK.go('topup');
+  };
+  acts.txOpen = (id) => {
+    const e = S().wallet.find((x) => x.id === id);
+    if (!e) return;
+    TK.sheet(() => ui.receipt(e, `<button class="btn secondary block" data-act="txShare" data-arg="${esc(id)}">${icon('share', 18)}هاوبەشکردنی پسوولە</button>`));
+  };
+  acts.txShare = (id) => {
+    const e = S().wallet.find((x) => x.id === id);
+    if (!e) return;
+    const L = TK.txLabel(e);
+    shareText(`یەکسا: ${L.title}\n${e.amount > 0 ? '+' : '−'}${fmt.money(Math.abs(e.amount))}\n${fmt.date(e.at)}، ${fmt.hhmm(e.at)}\n${String(e.id).slice(-10).toUpperCase()}`);
+  };
+  acts.tpOpen = (id) => {
+    const x = (S().topups || []).find((y) => y.id === id);
+    if (!x) return;
+    TK.sheet(() => ui.receipt({ id: x.id, type: x.kind === 'refund' ? 'refund' : 'topup', amount: x.amount, method: x.kind === 'refund' ? null : x.method, ref: x.ref, note: x.note || '', at: x.at, _pending: true }, x.kind === 'refund' ? '' : `<button class="btn secondary block" data-act="tpCancel" data-arg="${esc(id)}">هەڵوەشاندنەوەی داواکاری</button>`));
+  };
+  acts.tpCancel = async (id) => {
+    if (!(await TK.ask('داواکاری پڕکردنەوە هەڵدەوەشێتەوە؟ ئەگەر پارەت ناردووە، هەڵی مەوەشێنەرەوە.'))) return;
+    actions.cancelTopup(id);
+    TK.closeSheet();
+  };
+  /** پڕکردنەوە، هەنگاوی ١: بڕ و شێواز */
+  TK.route('topup', {
+    guard: () => authed() || (W() ? null : 'billing'),
+    render() {
+      const ms = topupMethods();
+      const inv = dueInv();
+      const need = Math.max(0, inv.total - myBal());
+      if (!U.tp) U.tp = { amount: need > 0 ? Math.ceil(need / 1000) * 1000 : 50000, method: (ms[0] || {}).id };
+      if (!ms.some((m) => m.id === U.tp.method)) U.tp.method = (ms[0] || {}).id;
+      const chips = [25000, 50000, 100000].concat(need > 0 && ![25000, 50000, 100000].includes(Math.ceil(need / 1000) * 1000) ? [Math.ceil(need / 1000) * 1000] : []);
+      return page(`
+        ${ui.header('پڕکردنەوەی جزدان', { back: 'wallet' })}
+        <div class="steps"><i class="on"></i><i></i><i></i></div>
+        <div class="amt-hero"><div class="xs muted">چەند دەخەیتە سەر جزدانەکەت؟</div>
+          <input class="amt-in latin" id="tp-amt" inputmode="numeric" value="${fmt.group(U.tp.amount)}" data-change="tpAmt" aria-label="بڕ"><div class="xs muted">دینار</div></div>
+        <div class="chips" style="justify-content:center">${chips.map((a) => `<button class="chip ${U.tp.amount === a ? 'on' : ''}" data-act="tpPick" data-arg="${a}">${a === Math.ceil(need / 1000) * 1000 && need > 0 ? `بۆ ئەم مانگە ${fmt.group(a)}` : fmt.group(a)}</button>`).join('')}</div>
+        <div class="h3" style="margin-top:6px">بە چی دەینێریت؟</div>
+        ${ms.length ? `<div class="list">${ms.map((m) => `<div class="item tap mth ${U.tp.method === m.id ? 'on' : ''}" data-act="tpMethod" data-arg="${m.id}"><span class="mono">${monoOf(m)}</span><div class="grow"><b>${esc(m.name)}</b><div class="xs muted">${m.account === false ? 'بیدە بە بەڕێوەبەر یان نوێنەری یەکسا' : `لە ئەپی ${esc(m.name)} بنێرە بۆ هەژماری یەکسا`}</div></div><span class="radio ${U.tp.method === m.id ? 'on' : ''}"></span></div>`).join('')}</div>` : '<div class="card note sm">هێشتا هیچ شێوازێکی پارەدان دانەنراوە. پەیوەندی بە یەکسا بکە.</div>'}
+        <button class="btn block lg" data-act="tpNext" ${ms.length ? '' : 'disabled'}>بەردەوام بوون</button>
+        <div class="trust">${icon('lock', 16)}<span>پارەدانی ڕاستەوخۆ لە ناو ئەپ بە FIB و FastPay بەم زووانە دێت.</span></div>`);
+    },
+  });
+  const readAmt = () => {
+    const el = document.getElementById('tp-amt');
+    const v = el ? Number(String(el.value).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[^\d]/g, '')) : 0;
+    if (v) U.tp.amount = v;
+    return U.tp.amount;
+  };
+  acts.tpAmt = () => readAmt() && TK.render();
+  acts.tpPick = (a) => {
+    U.tp.amount = +a;
+    TK.render();
+  };
+  acts.tpMethod = (id) => {
+    readAmt();
+    U.tp.method = id;
+    TK.render();
+  };
+  acts.tpNext = () => {
+    const a = readAmt();
+    if (!(a >= 1000)) return TK.toast('بڕەکە بنووسە');
+    if (a > 5000000) return TK.toast('بڕەکە زۆرە');
+    TK.go('topup/send');
+  };
+  /** پڕکردنەوە، هەنگاوی ٢: ناردن و ژمارەی حەواڵە */
+  TK.route('topup/send', {
+    guard: () => authed() || (W() && U.tp ? null : 'wallet'),
+    render() {
+      const m = TK.payMethod(U.tp.method) || {};
+      const cash = m.account === false;
+      const photo = U.tp.photo ? TK.img(U.tp.photo) : '';
+      return page(`
+        ${ui.header(cash ? 'پارەدان بە کاش' : 'ناردنی پارەکە', { back: 'topup' })}
+        <div class="steps"><i class="on"></i><i class="on"></i><i></i></div>
+        ${cash ? `<div class="card col" style="gap:12px">
+            <div class="row"><span class="mono">${icon('cash', 22)}</span><div class="grow"><b>${fmt.money(U.tp.amount)} بە کاش</b><div class="xs muted">بیدە بە بەڕێوەبەر یان نوێنەری یەکسا</div></div></div>
+            <div class="sm muted">کاتێک پارەکەیان وەرگرت، باڵانسەکەت زیاد دەکەن و ئاگادار دەکرێیتەوە. بۆ کات و شوێن «پەیوەندی» بکە.</div>
+            <button class="btn secondary block sm" data-act="contactUs">${icon('phone', 16)}پەیوەندی بە یەکسا</button>
+          </div>`
+        : `<div class="card col" style="gap:12px">
+            <div class="row"><span class="mono">${monoOf(m)}</span><div class="grow"><div class="xs muted">بنێرە بۆ</div><b>${esc(m.holder || 'یەکسا')}</b></div><span class="badge ok">پشتڕاستکراو</span></div>
+            <div class="acct"><span class="latin" dir="ltr" data-raw>${esc(m.yeksaAccount || '')}</span><button class="btn sm secondary" data-act="copy" data-arg="${esc(m.yeksaAccount || '')}">${icon('copy', 16)}کۆپی</button></div>
+            <div class="row between"><span class="muted">بڕ</span><b>${fmt.money(U.tp.amount)}</b></div>
+          </div>
+          <div class="card col vsteps">
+            <div class="row" style="gap:12px"><span class="vs-n">١</span><div class="grow"><b class="sm">ئەپی ${esc(m.name)} بکەرەوە و ${fmt.group(U.tp.amount)} بنێرە</b><div class="xs muted">بۆ ئەو ژمارەیەی سەرەوە</div></div></div>
+            <div class="row" style="gap:12px"><span class="vs-n">٢</span><div class="grow"><b class="sm">ژمارەی حەواڵەکە لێرە بنووسە</b><div class="xs muted">لە پسوولەی ${esc(m.name)} کۆپی بکە</div></div></div>
+            <div class="row" style="gap:12px"><span class="vs-n">٣</span><div class="grow"><b class="sm">داواکاری بنێرە</b><div class="xs muted">یەکسا دەیپشکنێت و باڵانسەکەت زیاد دەکات</div></div></div>
+          </div>
+          <div class="field"><label for="tp-ref">ژمارەی حەواڵە</label><input class="input ltr latin" id="tp-ref" autocomplete="off" value="${esc(U.tp.ref || '')}"></div>
+          <label class="dash">${photo ? `<img src="${photo}" alt="">` : icon('camera', 20)}<span>${photo ? 'وێنەی پسوولە زیاد کرا، بۆ گۆڕین دابگرە' : 'وێنەی پسوولەکە زیاد بکە (ئارەزوومەندانە)'}</span><input type="file" accept="image/*" data-change="tpPhoto" style="display:none"></label>`}
+        <button class="btn block lg" data-act="tpSend">${icon('send', 18)}${cash ? 'ناردنی داواکاری' : 'پارەم نارد، پشکنین بکە'}</button>
+        <div class="xs muted center">ئاسایی لە ماوەیەکی کورتدا پەسەند دەکرێت و ئاگادار دەکرێیتەوە.</div>`);
+    },
+  });
+  acts.tpPhoto = async (v, el) => {
+    const f = el.files && el.files[0];
+    if (!f) return;
+    U.tp.ref = (document.getElementById('tp-ref') || {}).value || U.tp.ref;
+    try {
+      U.tp.photo = await TK.saveImage(await TK.compressImage(f));
+      TK.render();
+    } catch (e) {
+      TK.toast('ئەم وێنەیە ناخوێندرێتەوە');
+    }
+  };
+  acts.tpSend = () => {
+    const m = TK.payMethod(U.tp.method) || {};
+    const ref = String((document.getElementById('tp-ref') || {}).value || '').trim();
+    if (m.account !== false && ref.length < 3) return TK.toast('ژمارەی حەواڵە بنووسە');
+    actions.requestTopup(U.tp.amount, U.tp.method, ref, U.tp.photo || null);
+    U.tp = null;
+    TK.toast('داواکارییەکەت نێردرا');
+    TK.go('wallet', true);
+  };
+  /** پارەدانی مانگ لە جزدان */
+  TK.route('paymonth', {
+    guard: () => authed() || (W() ? null : 'billing'),
+    render() {
+      const s = S();
+      const inv = dueInv();
+      const bal = myBal();
+      const need = Math.max(0, inv.total - bal);
+      if (!inv.lines.length) return page(`${ui.header('پارەدانی مانگ', { back: 'wallet' })}${ui.empty('receipt', sel.mySubs().length ? 'پارەی ئەم مانگە دراوە' : 'هیچ بەشدارییەکت نییە', sel.mySubs().length ? 'گەشتەکانت بەردەوامن. مانگی داهاتوو لێرە دەردەکەوێت.' : 'بەشدارییەکی مانگانە دروست بکە', '<button class="btn secondary" data-go="wallet">جزدانەکەم</button>')}`);
+      return page(`
+        ${ui.header('پارەدانی مانگ', { back: 'wallet' })}
+        <div class="card col" style="gap:12px">
+          ${inv.lines.map((l) => {
+            const sub = s.subscriptions.find((x) => x.id === l.subId) || {};
+            const d = sel.driver(sub.driverId) || {};
+            return `<div class="row" style="gap:12px">${ui.dAvatar(d, 48)}<div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">${esc(l.label)}</b><div class="xs muted">${esc(fmt.days(sub.days))}${l.note ? '، ' + esc(l.note) : ''}</div></div><b>${fmt.group(l.amount)}</b></div>`;
+          }).join('<div class="hr"></div>')}
+          ${inv.promo || inv.discounts.length ? '<div class="hr"></div>' : ''}
+          ${inv.promo ? `<div class="row between"><span class="muted">داشکاندنی هاوبەش</span><b class="ok">−${fmt.group(inv.promo)}</b></div>` : ''}
+          ${inv.discounts.map((d) => `<div class="row between"><span class="muted">${esc(d.label)}</span><b class="ok">−${fmt.group(d.amount)}</b></div>`).join('')}
+          <div class="hr"></div>
+          <div class="row between"><span class="muted">کۆی پارەی ${esc(s.billing.month)}</span><b>${fmt.money(inv.total)}</b></div>
+          <div class="row between"><span class="muted">باڵانسی جزدانەکەت</span><b class="${bal >= inv.total ? 'ok' : ''}">${fmt.money(bal)}</b></div>
+          ${need ? `<div class="progress"><i style="width:${Math.min(100, Math.round((bal / Math.max(1, inv.total)) * 100))}%"></i></div>
+            <div class="row between sm"><span class="muted">لە جزدانەکەت <b style="color:var(--text)">${fmt.group(Math.max(0, bal))}</b></span><span class="muted">پێویستە <b class="neg">${fmt.group(need)}</b> ی تر</span></div>
+            <button class="btn block lg" data-act="topupNeed" data-arg="${need}">${icon('plus', 20, 'currentColor', 2.4)}پڕکردنەوەی ${fmt.group(need)}</button>`
+          : `<div class="row between"><span class="muted">باڵانس دوای پارەدان</span><b>${fmt.money(bal - inv.total)}</b></div>
+            <button class="btn block lg" data-act="payMonthNow">${icon('check', 20, 'currentColor', 2.4)}پارەدان لە جزدان</button>`}
+          <div class="trust" style="padding:0">${icon('shield', 16, 'var(--ok-text)')}<span>پارەکە لای یەکسا دەمێنێتەوە و ڕۆژ بە ڕۆژ، تەنها دوای تەواوبوونی هەر گەشتێک، دەچێتە سەر حیسابی شۆفێر.</span></div>
+        </div>
+        ${inv.waiting.length ? `<div class="xs muted">${inv.waiting.map((w) => esc(w.label)).join('، ')} بۆ مانگی داهاتوو دەمێنێتەوە.</div>` : ''}`);
+    },
+  });
+  acts.payMonthNow = async (a, el) => {
+    const err = actions.payMonth();
+    if (err) return TK.toast(err);
+    TK.toast('پارەی مانگ درا، گەشتەکان دەست پێدەکەن');
+    TK.go('wallet', true);
+  };
+
   TK.route('billing', {
-    guard: authed,
+    guard: () => authed() || (TK.walletOn() ? 'wallet' : null),
     render() {
       const s = S();
       const b = s.billing;
@@ -1951,7 +2165,7 @@
         </div>
         <div class="plabel">هەژمارەکەم</div>
         <div class="list">
-          ${item('wallet', 'پارەدان و فاتورە', 'billing', !s.billing.paid && invoice().total ? ui.badge('ئامادەیە', 'note') : '')}
+          ${TK.walletOn() ? item('wallet', 'جزدانەکەم', 'wallet', `<span class="cntp">${fmt.money(TK.balance(s, 'me'))}</span>${TK.invoice(s, 'me', { due: true }).lines.length ? ui.badge('پارەی مانگ', 'note') : ''}`) : item('wallet', 'پارەدان و فاتورە', 'billing', !s.billing.paid && invoice().total ? ui.badge('ئامادەیە', 'note') : '')}
           ${item('users', 'خێزان', 'family', s.family.members.length > 1 ? `<span class="cntp">${s.family.members.length}</span>` : '')}
           ${item('calendar', 'بەشدارییەکانم', 'subs', sel.mySubs().length ? `<span class="cntp">${sel.mySubs().length}</span>` : '')}
           ${item('megaphone', 'داواکارییەکانم', 'requests')}
