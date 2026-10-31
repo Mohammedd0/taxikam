@@ -47,7 +47,7 @@
   /** بەڵگەنامەی بەسەرچوو یان نزیک لە بەسەرچوون */
   const expWarn = (d) => TK.expiries(d).filter((e) => e.days <= TK.CONFIG.expiryWarnDays);
   const STATUS = { active: ['چالاک', 'ok'], pending: ['چاوەڕێی پشتڕاستکردنەوە', 'note'], suspended: ['ڕاگیراو', 'danger'] };
-  const TRIP_ST = { scheduled: ['چاوەڕێ', 'note'], active: ['لە ڕێگەیە', 'ok'], done: ['تەواو', 'ok'], skipped: ['نایەن', 'danger'], noshow: ['شۆفێر نەهات', 'danger'], absent: ['سەرنشین نەهات', 'danger'] };
+  const TRIP_ST = { scheduled: ['چاوەڕێ', 'note'], active: ['لە ڕێگەیە', 'ok'], done: ['تەواو', 'ok'], skipped: ['نایەن', 'danger'], noshow: ['شۆفێر نەهات', 'danger'], absent: ['سەرنشین نەهات', 'danger'], missed: ['نەکرا', 'danger'] };
 
   /* ---------- چوارچێوە ---------- */
   function counts() {
@@ -274,7 +274,7 @@
       case 'personal':
         return `${row('ناوی سیانی', esc(d.name))}${row('ڕەگەز', d.woman ? 'مێ' : 'نێر')}${row('ڕۆژی لەدایکبوون', d.birth ? `${fmt.day(d.birth)} (${TK.age(d.birth)} ساڵ)` : '-')}${row('ژمارەی مۆبایل', `<span class="latin">${fmt.phone(d.phone)}</span>`)}
           ${row('شار و قەزا', esc(`${(TK.city(d.city) || {}).name || ''}، ${d.district || ''}`))}${row('گەڕەک', esc(`${d.neighborhood || ''}${d.landmark ? '، ' + d.landmark : ''}`))}
-          ${row('فریاکەوتن', `${esc(d.emergencyName || '')} <span class="latin">${fmt.phone(d.emergencyPhone || '')}</span>`)}
+          ${d.emergencyName || d.emergencyPhone ? row('فریاکەوتن', `${esc(d.emergencyName || '')} <span class="latin">${fmt.phone(d.emergencyPhone || '')}</span>`) : ''}
           <div class="doc-imgs">${imgTile(d.photo, 'وێنەی ڕووخسار')}</div>`;
       case 'id':
         return `${row('ژمارەی کارت', `<span class="latin">${esc(d.idNo || '')}</span>`)}${row('بەسەرچوون', exp('id'))}<div class="doc-imgs">${imgTile(d.idFront, 'پێشەوە')}${imgTile(d.idBack, 'دواوە')}</div>`;
@@ -321,7 +321,7 @@
   TK.route('driver-new', {
     guard,
     render() {
-      if (!U.nd2) U.nd2 = { gender: 'm', city: 'erbil', seats: 4, plateCode: '22', plateLetter: 'A', payMethod: 'cash', licClass: 'گشتی', verified: true };
+      if (!U.nd2) U.nd2 = { gender: 'm', city: 'erbil', seats: 4, plateCode: '', plateLetter: '', payMethod: 'cash', licClass: 'گشتی', verified: true };
       const f = U.nd2;
       const y = new Date().getFullYear();
       const city = TK.city(f.city) || TK.cities()[0];
@@ -333,14 +333,12 @@
             ${input('n-name', 'ناوی سیانی *', f.name || '', { full: true })}
             ${select('n-gender', 'ڕەگەز *', f.gender, [['m', 'نێر'], ['f', 'مێ']])}
             ${date('n-birth', 'ڕۆژی لەدایکبوون *', f.birth, 1940, y - 18)}
-            ${input('n-phone', 'ژمارەی مۆبایل *', f.phone || '', { ltr: true, ph: '750 123 4567', attrs: 'inputmode="tel"' })}
+            ${input('n-phone', 'ژمارەی مۆبایل *', f.phone || '', { ltr: true, ph: '7xx xxx xxxx', attrs: 'inputmode="tel"' })}
             ${input('n-pass', 'وشەی نهێنی (بیدە بە شۆفێر) *', f.pass || '', { ltr: true, ph: 'لانیکەم ٦ پیت' })}
             ${select('n-city', 'شار *', f.city, TK.cities().map((c) => [c.id, c.name]))}
             ${select('n-district', 'قەزا', f.district || '', [['', 'هەڵبژێرە']].concat((city ? city.districts : []).map((d) => [d, d])))}
             ${input('n-neighborhood', 'گەڕەک', f.neighborhood || '')}
             ${input('n-landmark', 'نزیکترین شوێنی ناسراو', f.landmark || '')}
-            ${input('n-ename', 'کەسی نزیک بۆ فریاکەوتن', f.emergencyName || '')}
-            ${input('n-ephone', 'ژمارەی ئەو کەسە', f.emergencyPhone || '', { ltr: true })}
           </div></div>
           <div class="card col"><div class="h3">ئۆتۆمبێل *</div><div class="form-grid">
             ${input('n-make', 'جۆر *', f.carMake || '', { ph: 'تۆیۆتا' })}
@@ -348,8 +346,8 @@
             ${select('n-year', 'ساڵ *', f.carYear || '', [['', 'هەڵبژێرە']].concat(Array.from({ length: y + 2 - 1995 }, (_, i) => [y + 1 - i, y + 1 - i])))}
             ${input('n-color', 'ڕەنگ *', f.carColor || '')}
             ${select('n-seats', 'ژمارەی کورسی *', f.seats, [1, 2, 3, 4, 5, 6, 7].map((n) => [n, n]))}
-            ${input('n-pcode', 'کۆدی تابلۆ *', f.plateCode, { ltr: true })}
-            ${input('n-pletter', 'پیتی تابلۆ *', f.plateLetter, { ltr: true })}
+            ${input('n-pcode', 'کۆدی تابلۆ *', f.plateCode, { ltr: true, ph: '21', attrs: 'inputmode="numeric" maxlength="2"' })}
+            ${input('n-pletter', 'پیتی تابلۆ *', f.plateLetter, { ltr: true, ph: 'A', attrs: 'maxlength="1" style="text-transform:uppercase"' })}
             ${input('n-pno', 'ژمارەی تابلۆ *', f.plateNo || '', { ltr: true, ph: '12345' })}
           </div>
           <div class="h3">کار و موچە</div><div class="form-grid">
@@ -427,8 +425,7 @@
     else if (!f.pass || f.pass.length < 6) err = 'وشەی نهێنی دەبێت لانیکەم ٦ پیت بێت';
     else if (!f.carMake || !f.carModel || !f.carColor || !f.carYear) err = 'جۆر، مۆدێل، ساڵ و ڕەنگی ئۆتۆمبێل بنووسە';
     else if (+f.carYear < c.minCarYear) err = `ساڵی ئۆتۆمبێل دەبێت ${c.minCarYear} یان نوێتر بێت`;
-    else if (!/^\d{2}$/.test(f.plateCode || '') || !/^\d{3,6}$/.test(f.plateNo || '')) err = 'ژمارەی تابلۆ دروست نییە (وەک 22 A 12345)';
-    else if (f.emergencyPhone && !/^7\d{9}$/.test(TK.cleanPhone(f.emergencyPhone))) err = 'ژمارەی فریاکەوتن دروست نییە';
+    else if (!/^\d{2}$/.test(f.plateCode || '') || !/^\d{3,6}$/.test(f.plateNo || '')) err = 'ژمارەی تابلۆ دروست نییە (وەک 21 A 12345)';
     U.ndErr = err;
     if (err) return TK.render();
     // هەژماری چوونەژوورەوەی شۆفێرەکە لە Firebase دروست دەکرێت (بەڕێوەبەر لە ژوورەوە دەمێنێت)
@@ -636,7 +633,7 @@
       footer{margin-top:20px;font-size:11px;color:#5B6B88;border-top:1px solid #DCE3EE;padding-top:8px}
       @media print{body{padding:10mm}h2{break-after:avoid}}</style></head><body>
       <header>${TK.img(d.photo) ? `<img class="ph" src="${TK.img(d.photo)}">` : ''}<div><h1>${esc(d.name)}</h1><div>شۆفێری یەکسا، ${d.woman ? 'مێ' : 'نێر'}، ${STATUS[d.status][0]}</div><div class="latin">${fmt.phone(d.phone)}</div></div></header>
-      <h2>زانیاری کەسی</h2><table>${r('ڕۆژی لەدایکبوون', d.birth ? `${fmt.day(d.birth)} (${TK.age(d.birth)} ساڵ)` : '')}${r('ناونیشان', esc(`${(TK.city(d.city) || {}).name || ''}، ${d.district || ''}، ${d.neighborhood || ''}${d.landmark ? '، ' + d.landmark : ''}`))}${r('فریاکەوتن', `${esc(d.emergencyName || '')} <span class="latin">${fmt.phone(d.emergencyPhone || '')}</span>`)}${r('ناوچەی کار', esc(d.workAreas || ''))}${r('وەرگرتنی موچە', `${PAY[d.payMethod] || ''} <span class="latin">${esc(d.payAccount || '')}</span>`)}${r('تۆمارکراو', fmt.date(d.joinedAt))}</table>
+      <h2>زانیاری کەسی</h2><table>${r('ڕۆژی لەدایکبوون', d.birth ? `${fmt.day(d.birth)} (${TK.age(d.birth)} ساڵ)` : '')}${r('ناونیشان', esc(`${(TK.city(d.city) || {}).name || ''}، ${d.district || ''}، ${d.neighborhood || ''}${d.landmark ? '، ' + d.landmark : ''}`))}${d.emergencyName || d.emergencyPhone ? r('فریاکەوتن', `${esc(d.emergencyName || '')} <span class="latin">${fmt.phone(d.emergencyPhone || '')}</span>`) : ''}${r('ناوچەی کار', esc(d.workAreas || ''))}${r('وەرگرتنی موچە', `${PAY[d.payMethod] || ''} <span class="latin">${esc(d.payAccount || '')}</span>`)}${r('تۆمارکراو', fmt.date(d.joinedAt))}</table>
       <h2>بەڵگەنامەکان</h2><table>
         ${r('کارتی نیشتمانی', `<span class="latin">${esc(d.idNo || '')}</span>، بەسەرچوون ${d.idExpiry ? fmt.day(d.idExpiry) : '-'}`)}
         ${r('مۆڵەتی شۆفێری', `<span class="latin">${esc(d.licNo || '')}</span>، ${esc(d.licClass || '')}، بەسەرچوون ${d.licExpiry ? fmt.day(d.licExpiry) : '-'}`)}
@@ -1909,7 +1906,7 @@
         ${select('p-type', 'جۆر', p.type, Object.keys(PT_TYPE).map((k) => [k, PT_TYPE[k][0]]))}
         ${input('p-code', 'کۆد (پیتی ئینگلیزی)', p.code, { ltr: true, ph: 'SCHOOL1' })}
         ${input('p-contact', 'کەسی پەیوەندی', p.contact)}
-        ${input('p-phone', 'ژمارەی مۆبایل', p.phone, { ltr: true, ph: '7501234567' })}
+        ${input('p-phone', 'ژمارەی مۆبایل', p.phone, { ltr: true, ph: '7xx xxx xxxx' })}
         ${input('p-pct', 'ڕێژە بۆ هەر سەرنشینێک', p.pct, { unit: '٪' })}
         ${input('p-months', 'ماوەی پشک بۆ هەر سەرنشینێک', p.months, { unit: 'مانگ', hint: '٠ = هەمیشە' })}
         ${select('p-pay', 'شێوازی پێدان', p.payMethod, Object.keys(PT_PAY).map((k) => [k, PT_PAY[k]]))}
@@ -2287,7 +2284,7 @@
   acts.ctForm = (id) => {
     const x = (id && (TK.CONFIG.contacts || []).find((y) => y.id === id)) || { phone: '', label: '', aud: 'all' };
     TK.sheet(() => `<div class="h2">${id ? 'دەستکاری ژمارە' : 'ژمارەی نوێ'}</div>
-      <div class="field"><label for="ct-phone">ژمارەی مۆبایل</label><div class="input-wrap"><span class="prefix latin">+964</span><input class="input ltr latin" id="ct-phone" inputmode="tel" value="${esc(x.phone)}" placeholder="750 123 4567"></div></div>
+      <div class="field"><label for="ct-phone">ژمارەی مۆبایل</label><div class="input-wrap"><span class="prefix latin">+964</span><input class="input ltr latin" id="ct-phone" inputmode="tel" value="${esc(x.phone)}" placeholder="7xx xxx xxxx"></div></div>
       ${input('ct-label', 'ناونیشان (ئارەزوومەندانە)', x.label || '', { ph: 'بۆ نموونە: پشتیوانی، واتسئاپ، شۆفێران' })}
       ${select('ct-aud', 'بۆ کێ دەردەکەوێت', x.aud || 'all', [['all', 'هەردووکیان'], ['p', 'سەرنشین'], ['d', 'شۆفێر']])}
       <button class="btn block" data-act="ctSave" data-arg="${id || ''}">پاشەکەوت</button>
@@ -2295,7 +2292,7 @@
   };
   acts.ctSave = (id) => {
     const phone = TK.cleanPhone(val('ct-phone'));
-    if (!/^7\d{9}$/.test(phone)) return TK.toast('ژمارەی مۆبایل دروست نییە (وەک 750 123 4567)');
+    if (!/^7\d{9}$/.test(phone)) return TK.toast('ژمارەی مۆبایل دروست نییە (وەک 7xx xxx xxxx)');
     const label = String(val('ct-label') || '').trim();
     const aud = ['p', 'd', 'all'].includes(val('ct-aud')) ? val('ct-aud') : 'all';
     TK.update((s) => {
@@ -2611,7 +2608,8 @@
           <div class="list">${TK.payMethods().map((m) => `<div class="item"><div class="ico-box">${icon('wallet', 18, 'var(--brand)')}</div><div class="grow"><b class="sm">${esc(m.name)}</b><div class="xs muted">${m.account === false ? 'بێ ژمارەی حیساب' : 'ژمارەی حیساب پێویستە'}، ${S().drivers.filter((d) => d.payMethod === m.id).length} شۆفێر</div></div>${ui.toggle('payMethodOn', m.on !== false, m.id)}</div>`).join('')}</div>
           <div class="row wrap" style="gap:8px"><input class="input grow" id="pm-name" style="min-height:42px;min-width:160px" placeholder="ناوی شێوازی نوێ، بۆ نموونە: Zain Cash"><label class="row sm" style="gap:6px"><input type="checkbox" id="pm-acc" checked>ژمارەی حیساب پێویستە</label><button class="btn sm" data-act="addPayMethod">${icon('plus', 16)}زیادکردن</button></div>
         </div>
-        <div class="card col"><div class="row between"><div class="h3">جزدان و پڕکردنەوەی سەرنشین</div>${TK.walletOn() ? `<button class="btn sm danger" data-act="walletDisable">ناچالاککردنی جزدان</button>` : `<button class="btn sm" data-act="walletEnable">${icon('check', 16, 'currentColor', 2.4)}چالاککردنی جزدان</button>`}</div>
+        <div class="card row"><div class="ico-box">${icon('camera', 18, 'var(--brand)')}</div><div class="grow"><b class="sm">وێنەی بەڵگەنامەکانی شۆفێر ئیجبارییە</b><div class="xs muted">${TK.CONFIG.photosRequired === true ? 'شۆفێری نوێ بێ وێنەی ڕووخسار، کارت، مۆڵەت، ئۆتۆمبێل و ساڵانە تۆمار نابێت.' : 'ئێستا ئارەزوومەندانەیە (بۆ تاقیکردنەوە). پێش دەستپێکردنی ڕاستەقینە چالاکی بکە.'}</div></div>${ui.toggle('photosReq', TK.CONFIG.photosRequired === true)}</div>
+        <div class="card col"><div class="row between"><div class="h3">جزدان و زیادکردنی پارەی سەرنشین</div>${TK.walletOn() ? `<button class="btn sm danger" data-act="walletDisable">ناچالاککردنی جزدان</button>` : `<button class="btn sm" data-act="walletEnable">${icon('check', 16, 'currentColor', 2.4)}چالاککردنی جزدان</button>`}</div>
           <div class="xs muted">ئەو شێوازانەی سەرنشین دەتوانێت جزدانەکەی پێ پڕ بکاتەوە. ژمارەی حیسابی یەکسا و ناوی خاوەنەکەی بە سەرنشین پیشان دەدرێت.</div>
           <div class="list">${TK.payMethods().map((m) => `<div class="item"><div class="ico-box">${icon(m.id === 'cash' ? 'cash' : 'wallet', 18, 'var(--brand)')}</div><div class="grow"><b class="sm">${esc(m.name)}</b><div class="xs muted">${m.id === 'cash' ? 'لە ئۆفیسی یەکسا' : m.yeksaAccount ? `<span class="latin" dir="ltr">${esc(m.yeksaAccount)}</span>${m.holder ? ` · ${esc(m.holder)}` : ''}` : '<span style="color:var(--danger-text)">ژمارەی حیساب دانەنراوە</span>'}</div></div>
             ${m.id !== 'cash' ? `<button class="icon-btn" data-act="pmEdit" data-arg="${m.id}" aria-label="دەستکاری">${icon('edit', 16)}</button>` : ''}${/^pm/.test(m.id) ? `<button class="icon-btn" data-act="pmDel" data-arg="${m.id}" aria-label="سڕینەوە">${icon('trash', 16)}</button>` : ''}${ui.toggle('pmTopup', m.topup !== false && m.on !== false, m.id)}</div>`).join('')}</div>
@@ -2694,6 +2692,12 @@
     });
     TK.toast('زیاد کرا');
   };
+  acts.photosReq = () => {
+    TK.update((s) => {
+      s.config = Object.assign({}, s.config, { photosRequired: !(s.config && s.config.photosRequired === true) });
+    });
+    TK.toast(TK.CONFIG.photosRequired === true ? 'وێنەکان ئیجبارین' : 'وێنەکان ئارەزوومەندانەن');
+  };
   acts.pmTopup = (id) => {
     TK.update((s) => {
       const x = ensurePay(s).find((y) => y.id === id);
@@ -2707,7 +2711,7 @@
     const m = TK.payMethod(id) || {};
     TK.sheet(() => `<div class="h2">${esc(m.name || '')}</div>
       <div class="form-grid">
-        ${input('pm-acc2', 'ژمارەی حیسابی یەکسا', m.yeksaAccount || '', { ltr: true, full: true, ph: '0750 000 0000' })}
+        ${input('pm-acc2', 'ژمارەی حیسابی یەکسا', m.yeksaAccount || '', { ltr: true, full: true, ph: '07xx xxx xxxx' })}
         ${input('pm-holder', 'ناوی خاوەنی حیساب', m.holder || '', { full: true, ph: 'Yeksa Taxi' })}
       </div>
       <div class="xs muted">سەرنشین ئەم ژمارەیە کۆپی دەکات و پارەکەی بۆ دەنێرێت. باش دڵنیا بەرەوە لە دروستی.</div>

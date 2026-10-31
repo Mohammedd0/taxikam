@@ -141,6 +141,11 @@ try {
       await F.terminate(db);
       await F.clearIndexedDbPersistence(db);
     },
+    /** پەیوەندی بە Firebase ـەوە دەپچڕێنرێت و دووبارە دەبەسترێتەوە (refresh): گوێگرەکان دەمێننەوە و هەموو شتێک لە سێرڤەرەوە دووبارە دێت */
+    async reconnect() {
+      await F.disableNetwork(db);
+      await F.enableNetwork(db);
+    },
     async get(path) {
       const s = await F.getDoc(ref(path));
       return s.exists() ? s.data() : null;

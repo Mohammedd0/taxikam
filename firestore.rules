@@ -125,10 +125,18 @@ service cloud.firestore {
       allow update: if isAdmin() || (inR() && !changed().hasAny(['price', 'owner']));
       allow create: if isAdmin() || inNewR();
     }
+    // گۆڕینی دۆخی گەشت: سەرنشین تەنها پێش دەستپێکردن (نایەم، شۆفێر نەهات، هەڵوەشاندنەوەی نایەم)، شۆفێر تەنها بەرەو پێش (دەستپێکردن ← تەواو/نەهات/نەکرا)
+    function tripStatusOk() {
+      let o = resource.data.status;
+      let n = request.resource.data.status;
+      return n == o
+        || (isPax() && ((o == 'scheduled' && n in ['skipped', 'noshow']) || (o == 'skipped' && n == 'scheduled')))
+        || (isDriver() && ((o == 'scheduled' && n == 'active') || (o == 'active' && n in ['done', 'absent', 'missed'])));
+    }
     match /trips/{id} {
       // کاتێک شۆفێرێک جێگرەوەی دەوێت، شۆفێرانی تر گەشتەکە دەبینن و دەتوانن وەریبگرن
       allow read: if resource == null || isAdmin() || inR() || (isDriver() && resource.data.swapOpen == true);
-      allow update: if isAdmin() || inR() || (isDriver() && resource.data.swapOpen == true);
+      allow update: if isAdmin() || ((inR() || (isDriver() && resource.data.swapOpen == true)) && tripStatusOk());
       allow create: if isAdmin() || inNewR();
       allow delete: if isAdmin() || inR();
     }

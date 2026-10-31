@@ -1976,3 +1976,15 @@ html.kb-open .screen.auth { justify-content: flex-start; }
 .rcp { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--chip); }
 
 :root[data-theme="dark"] .ts-state.due { color: #FCD34D; }
+
+/* ژمارەی سوور (وەک زەنگی پەڕەی سەرەکی): ئاگادارکردنەوەکان و داواکاری لە شریتی خوارەوەی شۆفێر */
+.badge.red { background: var(--danger); color: #fff; }
+.bottom-nav .nb.red { background: var(--danger); color: #fff; }
+
+/* ---------- ڕاکێشانی پەڕە بۆ نوێکردنەوە ---------- */
+#ptr { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; opacity: 0; transform: translateY(-56px); }
+#ptr .ptr-bub { width: 46px; height: 46px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(16, 24, 40, .14); color: var(--text); display: flex; align-items: center; justify-content: center; }
+#ptr .ptr-lbl { font-size: .74rem; color: var(--muted); font-weight: 600; background: var(--bg); padding: 2px 10px; border-radius: 999px; }
+#ptr .ptr-lbl:empty { display: none; }
+:root[data-theme="dark"] #ptr .ptr-bub { background: #23262E; border-color: rgba(255, 255, 255, .08); box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
+#ptr.ptr-anim, .screen.ptr-anim { transition: transform .22s ease, opacity .22s ease; }

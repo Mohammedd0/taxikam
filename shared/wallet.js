@@ -137,7 +137,7 @@
         return page(`
           ${ui.header(`ناردن بۆ ${who}`, { back: C.home })}
           ${x.peer ? `<div class="rcp">${ui.personAv(null, 44)}<div class="grow"><b>${esc(x.peer.name)}</b><div class="xs muted"><span class="latin" dir="ltr">${fmt.phone(x.peer.phone)}</span> · ${who}ی یەکسا</div></div><button class="btn sm secondary" data-act="xfClear">گۆڕین</button></div>`
-          : `<div class="field"><label for="xf-ph">ژمارەی مۆبایلی ${who}ی وەرگر</label><div class="row" style="gap:8px"><input class="input ltr latin grow" id="xf-ph" inputmode="tel" autocomplete="off" placeholder="0750 123 4567" value="${esc(x.phone)}" data-input="xfPhone"><button class="btn secondary" data-act="xfFind" style="flex:none">${icon('search', 18)}دۆزینەوە</button></div></div>
+          : `<div class="field"><label for="xf-ph">ژمارەی مۆبایلی ${who}ی وەرگر</label><div class="row" style="gap:8px"><input class="input ltr latin grow" id="xf-ph" inputmode="tel" autocomplete="off" placeholder="7xx xxx xxxx" value="${esc(x.phone)}" data-input="xfPhone"><button class="btn secondary" data-act="xfFind" style="flex:none">${icon('search', 18)}دۆزینەوە</button></div></div>
             <div class="xs muted">${C.role === 'd' ? 'تەنها دەتوانیت بۆ شۆفێرێکی تری یەکسا بنێریت.' : 'تەنها دەتوانیت بۆ سەرنشینێکی تری یەکسا بنێریت.'}</div>`}
           ${x.err ? `<div class="err">${esc(x.err)}</div>` : ''}
           ${x.peer ? `<div class="amt-hero"><div class="xs muted">بڕ</div>

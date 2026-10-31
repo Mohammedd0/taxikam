@@ -24,7 +24,8 @@
     rewards: null, // لیستی پاداشتەکان (null = بنەڕەت)
     faq: null, // پرسیارە باوەکان (null = بنەڕەت)
     contacts: [], // ژمارەکانی پەیوەندی بە یەکسا: { id, phone, label, aud: p|d|all }
-    walletOn: false, // جزدان: سەرنشین پێش یەکەم گەشتی هەر مانگێک لە جزدانەوە پارە دەدات، شۆفێر ڕۆژانە داهات وەردەگرێت
+    walletOn: false,
+    photosRequired: false, // وێنەی بەڵگەنامەکانی شۆفێر ئیجبارین؟ (بۆ تاقیکردنەوە ناچالاکە؛ پێش دەستپێکردنی ڕاستەقینە لە پانێڵ چالاکی بکە) // جزدان: سەرنشین پێش یەکەم گەشتی هەر مانگێک لە جزدانەوە پارە دەدات، شۆفێر ڕۆژانە داهات وەردەگرێت
     skipEvery: 5, // جزدان: بۆ هەر ئەوەندە ڕۆژ «نایەم» لە یەک مانگدا...
     skipRefundDays: 1, // ...پارەی ئەوەندە ڕۆژ لە شۆفێرەوە بۆ سەرنشین دەگەڕێتەوە
     noShowComp: 5000, // جزدان: لە سزای «شۆفێر نەهات» ئەوەندە دەچێتە سەر باڵانسی سەرنشین
@@ -1091,8 +1092,9 @@
       else cloud.docs.set(op.path, { data: applyFields(e ? e.data : {}, op.data), holders: e ? e.holders : new Set(), opt: true });
     });
     // سڕینەوەکان دوای نووسینەکان دەنێردرێن: هەندێک یاسای ئاسایش (بۆ نموونە دێڕی جزدان) گەشتەکە دەخوێننەوە کە لە هەمان کاتدا دەسڕدرێتەوە
-    const dels = ops.filter((op) => op.op === 'delete');
-    cloud.pending = Promise.all(ops.filter((op) => op.op !== 'delete').map(send)).then(() => Promise.all(dels.map(send)));
+    // ڕیزبەندی: سەرەتا نوێکردنەوەکان (بۆ نموونە دۆخی گەشت ← تەواو)، پاشان دروستکردنەکان (دێڕی جزدان کە یاساکان گەشتەکە دەخوێننەوە)، لە کۆتاییدا سڕینەوەکان
+    const phase = (k) => Promise.allSettled(ops.filter((op) => k.includes(op.op)).map(send));
+    cloud.pending = phase(['set', 'update']).then(() => phase(['create'])).then(() => phase(['delete']));
   }
   const send = (op) => Promise.resolve().then(() => window.TKFB.write(op)).then(() => cloud.retry.delete(op.path), (err) => writeFailed(op, err));
   /** «create»ـەکانی کاتی بێ ئینتەرنێت دووبارە دەنێردرێنەوە */
@@ -1395,6 +1397,45 @@
     }
   }
   TK.reconcile = reconcile;
+  /** نوێکردنەوەی دەستی (ڕاکێشانی پەڕە): پەیوەندی دووبارە دەبەسترێتەوە، پاشان ڕێکخستنەوە و پیشاندانەوە */
+  TK.refresh = async function () {
+    try {
+      if (window.TKFB && window.TKFB.reconnect) await Promise.race([window.TKFB.reconnect(), new Promise((r) => setTimeout(r, 4000))]);
+    } catch (e) {
+      /* هیچ */
+    }
+    try {
+      reconcile();
+      if (TK.imgPump) TK.imgPump();
+    } catch (e) {
+      /* هیچ */
+    }
+    scheduleCompose();
+  };
+  /* ---------- «نوێ» لە لیستی ئاگادارکردنەوەکان ----------
+   * ئەوەی کراوەتەوە یەکسەر شین نامێنێت. کاتێک لە ئاگادارکردنەوەیەکەوە دەگەڕێیتەوە، ئەوانی تر هێشتا نوێن؛
+   * کاتێک دواتر لە شوێنێکی ترەوە دێیتەوە، هەموویان وەک خوێندراوە دەردەکەون */
+  const ntOpened = new Set();
+  let ntReturn = false;
+  let ntVisit = null;
+  let ntRead = 0;
+  TK.noticeReadAt = (stored) => {
+    if (ntVisit !== app.current) {
+      ntVisit = app.current;
+      if (ntReturn) ntReturn = false;
+      else ntRead = stored || 0;
+    }
+    return ntRead;
+  };
+  document.addEventListener('click', (e) => {
+    const row = e.target.closest && e.target.closest('.nt-row[data-nt]');
+    if (!row) return;
+    ntOpened.add(row.getAttribute('data-nt'));
+    if (row.hasAttribute('data-go')) ntReturn = true;
+    row.classList.remove('nt-new');
+    const dot = row.querySelector('.nt-dot');
+    if (dot) dot.remove();
+  }, true);
   /** تۆماری ژمارەکەم لە pdir/ddir (بۆ ئەوەی کەسانی تر بە ژمارە بمدۆزنەوە و پارەم بۆ بنێرن). یەک جار لە هەر کردنەوەیەک */
   let dirDone = false;
   async function ensureDir() {
@@ -1419,9 +1460,9 @@
   /** کورتەی گەشتێکی هاوبەش بۆ شۆفێر: سەرەکی (lead)، وێستگەکان، دۆخ، کات */
   function runView(trips) {
     const pick = (st) => trips.find((t) => t.status === st);
-    const lead = pick('active') || pick('scheduled') || pick('done') || pick('absent') || trips[0];
-    const status = pick('active') ? 'active' : pick('scheduled') ? 'scheduled' : pick('done') || pick('absent') ? 'done' : 'skipped';
-    const riding = trips.filter((t) => t.status !== 'skipped' && t.status !== 'noshow');
+    const lead = pick('active') || pick('scheduled') || pick('done') || pick('absent') || pick('missed') || trips[0];
+    const status = pick('active') ? 'active' : pick('scheduled') ? 'scheduled' : pick('done') || pick('absent') || pick('missed') ? 'done' : 'skipped';
+    const riding = trips.filter((t) => !['skipped', 'noshow', 'missed'].includes(t.status));
     return {
       key: lead.runId || lead.id, id: lead.id, lead, trips, status, pooled: !!lead.runId,
       stops: lead.stops, time: (lead.stops[0] && lead.stops[0].time) || lead.time,
@@ -1460,8 +1501,9 @@
         if (!groups.has(k)) groups.set(k, []);
         groups.get(k).push(t);
       });
-      const rank = { active: 0, scheduled: 1, done: 2, skipped: 3 };
-      return [...groups.values()].map(runView).sort((a, b) => rank[a.status] - rank[b.status] || a.time.localeCompare(b.time));
+      const rank = { active: 0, scheduled: 1, done: 2, missed: 2, skipped: 3 };
+      const rk = (x) => (x.status in rank ? rank[x.status] : 2);
+      return [...groups.values()].map(runView).sort((a, b) => rk(a) - rk(b) || a.time.localeCompare(b.time));
     },
     run: (tripId) => {
       const t = sel.trip(tripId);
@@ -1971,7 +2013,9 @@
   /** گەشتەکانی ڕۆژانی پێشوو (جگە لە گەشتی چالاک) لە مێژووی شۆفێر تۆمار دەکرێن و لادەبرێن */
   function closeOldTrips(s, pick) {
     const today = TODAY();
-    const old = s.trips.filter((t) => pick(t) && t.day && t.day !== today && t.status !== 'active');
+    // ڕۆتێک کە هێشتا گەشتێکی چالاکی تێدایە دەست لێنادرێت (دەنا تەنها بەشێکی حیساب دەکرێت)
+    const busy = new Set(s.trips.filter((t) => t.status === 'active').map((t) => t.runId || t.id));
+    const old = s.trips.filter((t) => pick(t) && t.day && t.day !== today && t.status !== 'active' && !busy.has(t.runId || t.id));
     if (!old.length) return;
     const groups = {};
     old.forEach((t) => (groups[t.runId || t.id] = groups[t.runId || t.id] || []).push(t));
@@ -2144,7 +2188,7 @@
     /** چوونەژوورەوە بە ژمارە و وشەی نهێنی. Promise: هەڵە یان null */
     async login(phone, pass) {
       const p = cleanPhone(phone);
-      if (!/^7\d{9}$/.test(p)) return 'ژمارەی مۆبایل دروست نییە (وەک 750 123 4567)';
+      if (!/^7\d{9}$/.test(p)) return 'ژمارەی مۆبایل دروست نییە (وەک 7xx xxx xxxx)';
       if (!pass) return 'وشەی نهێنی بنووسە';
       const nc = needCloud();
       if (nc) return nc;
@@ -2171,7 +2215,7 @@
     async register(name, phone, pass, ref, city, gender) {
       const p = cleanPhone(phone);
       if (name.trim().split(/\s+/).length < 2) return 'ناوی تەواوت بنووسە (ناو و ناوی باوک)';
-      if (!/^7\d{9}$/.test(p)) return 'ژمارەی مۆبایل دروست نییە (وەک 750 123 4567)';
+      if (!/^7\d{9}$/.test(p)) return 'ژمارەی مۆبایل دروست نییە (وەک 7xx xxx xxxx)';
       if (pass.length < 6) return 'وشەی نهێنی دەبێت لانیکەم ٦ پیت یان ژمارە بێت';
       if (gender !== 'm' && gender !== 'f') return 'ڕەگەز هەڵبژێرە (نێر یان مێ)';
       const nc = needCloud();
@@ -2936,6 +2980,10 @@
     },
     /** سەرنشین ڕاپۆرت دەکات کە شۆفێر نەهات: قەرەبوو و سزا خۆکار جێبەجێ دەکرێن */
     reportNoShow(tripId, note) {
+      const t0 = state.trips.find((x) => x.id === tripId);
+      // تەنها دوای ئەوەی ١٠ خولەک لە کاتی گەشتەکە تێپەڕی (شۆفێر دوا کەوتووە و هێشتا دەستی پێنەکردووە)
+      if (!t0 || t0.status !== 'scheduled') return 'ئەم گەشتە ناتوانرێت ڕاپۆرت بکرێت';
+      if (TK.minutesUntil(t0.time) > -10) return `دەتوانیت ١٠ خولەک دوای کاتی گەشتەکە (${fmt.clock(fmt.addMin(t0.time, 10))}) ڕاپۆرت بکەیت`;
       update((s) => {
         const t = s.trips.find((x) => x.id === tripId);
         if (!t || t.status !== 'scheduled') return;
@@ -2963,6 +3011,7 @@
         dnotice(s, t.driverId, { kind: 'info', red: true, title: 'ڕاپۆرتی نەهاتن', body: `${t.title}، ${fmt.money(c.noShowPenalty)} سزا. ئەگەر هەڵەیە پەیوەندی بە پشتگیری بکە`, link: 'earnings' });
         anotice(s, { kind: 'report', red: true, title: `ڕاپۆرتی «شۆفێر نەهات» لە ${s.passenger.name}`, body: t.title, link: 'reports' });
       });
+      return null;
     },
     /** سەرنشین ڕادەگەیەنێت کە بۆ گەشتێکی ئەمڕۆ نایەت (چوون، هاتنەوە یان هەردووکیان) */
     skipTrips(ids, reason) {
@@ -3058,7 +3107,7 @@
     },
     async driverLogin(phone, pass) {
       const p = cleanPhone(phone);
-      if (!/^7\d{9}$/.test(p)) return 'ژمارەی مۆبایل دروست نییە (وەک 750 123 4567)';
+      if (!/^7\d{9}$/.test(p)) return 'ژمارەی مۆبایل دروست نییە (وەک 7xx xxx xxxx)';
       if (!pass) return 'وشەی نهێنی بنووسە';
       const nc = needCloud();
       if (nc) return nc;
@@ -3308,7 +3357,7 @@
       if (!d0 || d0.status !== 'active') return 'هەژمارەکەت هێشتا چالاک نییە';
       const wait = TK.startWait(t0);
       if (wait > 0) return `هێشتا زووە. لە ${fmt.clock(fmt.addMin(t0.stops[0].time, -cfg().startEarlyMin))}ەوە دەتوانیت دەست پێبکەیت`;
-      if (state.trips.some((x) => x.driverId === t0.driverId && x.status === 'active' && x.runId !== t0.runId)) return 'سەرەتا گەشتی ئێستات تەواو بکە';
+      if (state.trips.some((x) => x.driverId === t0.driverId && x.status === 'active' && (x.runId || x.id) !== (t0.runId || t0.id))) return 'سەرەتا گەشتی ئێستات تەواو بکە';
       update((s) => {
         const t = s.trips.find((x) => x.id === tripId);
         const d = s.drivers.find((x) => x.id === (t && t.driverId));
@@ -3382,11 +3431,13 @@
       return finished;
     },
     /** سەرنشین لە وێستگەکەی نەهات (شۆفێر چاوەڕێی کرد). true ئەگەر گەشتەکە تەواو بوو */
-    riderAbsent(tripId) {
+    riderAbsent(tripId, stopId) {
       let finished = false;
       const t0 = state.trips.find((x) => x.id === tripId);
       const st0 = t0 && t0.stops.find((x) => !x.done);
       if (!st0 || st0.kind !== 'pickup' || !st0.arrivedAt || Date.now() < TK.absentAt(st0)) return false;
+      // دوگمەکە بۆ وێستگەیەکی دیاریکراو بوو: ئەگەر لەم ماوەیەدا وێستگەکە گۆڕا (ئامێرێکی تر)، هیچ ناکرێت
+      if (stopId && st0.id !== stopId) return false;
       update((s) => {
         const t = s.trips.find((x) => x.id === tripId);
         if (!t || t.status !== 'active') return;
@@ -3403,7 +3454,7 @@
           x.absentAt = now;
           const mins = Math.max(1, Math.round((now - stop.arrivedAt) / 60000));
           // سەرنشین پێشتر ئاگاداری نەکردبووەوە: گەشتەکە وەک کراو حیساب دەکرێت (پارەی ئەو ڕۆژە دەچێت بۆ شۆفێر)
-          notice(s, { kind: 'info', red: true, title: `${stop.riders} سوار نەبوون`, body: `${d ? d.name : 'شۆفێر'} ${mins} خولەک لە ${stop.place} چاوەڕێی کرد. چونکە پێشتر «نایەم»ت نەکردبوو، ئەم گەشتە وەک کراو حیساب دەکرێت`, link: `track/${x.id}` }, x.owner);
+          notice(s, { kind: 'info', red: true, title: `${stop.riders} سوار ${/\sو\s|،/.test(stop.riders || '') ? 'نەبوون' : 'نەبوو'}`, body: `${d ? d.name : 'شۆفێر'} ${mins} خولەک لە ${stop.place} چاوەڕێی کرد. چونکە پێشتر «نایەم»ت نەکردبوو، ئەم گەشتە وەک کراو حیساب دەکرێت`, link: `track/${x.id}` }, x.owner);
           s.messages.push({ id: uid(), driverId: x.driverId, peer: x.owner || 'me', fromDriver: true, system: true, text: `${fmt.clock(fmt.hhmm(now))}: ${mins} خولەک لە ${stop.place} چاوەڕێم کرد، کەس نەهات`, at: now, readP: false, readD: true });
           const ps = pslice(s, x.owner);
           if (ps) {
@@ -3424,6 +3475,9 @@
         // وێستگەی نەهاتووەکان لە گەشتی خۆیان وەک تەواو دیار دەبێت
         gone.forEach((x) => (x.stops = x.stops.map((st, i) => (i === idx ? Object.assign({}, st, { done: true, doneAt: now, absent: true, absentIds: ids }) : st))));
         const live = rest.filter((x) => x.status === 'active');
+        // سەرنشینی وێستگەی داهاتوو: نۆرەی ئەوە
+        const nx = live[0] && live[0].stops.find((st) => !st.done);
+        if (nx && nx.kind === 'pickup') live.filter((x) => ownStop(x, nx)).forEach((x) => notice(s, { kind: 'driver', title: 'ئێستا نۆرەی تۆیە', body: `${d ? d.name : 'شۆفێر'} بەرەو ${nx.place} دێت`, link: `track/${x.id}` }, x.owner));
         if (!live.length) {
           // هەموو سەرنشینەکان نەهاتن یان پێشتر گەیشتبوون: گەشتەکە بۆ شۆفێر حیساب دەکرێت
           finished = true;
@@ -3511,10 +3565,12 @@
     rateRiders(tripId, scores) {
       update((s) => {
         const t = s.trips.find((x) => x.id === tripId);
+        if (!t) return;
         const run = runOf(s, t);
         if (scores) {
+          // هەمان ڕیزبەندی پەڕەی هەڵسەنگاندن: وێستگەکانی گەشتی سەرەکی (هەر گەشتێکی ڕۆت هەموو وێستگەکانی تێدایە)
           const names = [];
-          run.forEach((x) => (x.stops || []).filter((st) => st.kind === 'pickup' && !st.absent).forEach((st) => (st.parts || [{ riders: st.riders, owner: x.owner }]).forEach((p) => names.push({ name: p.riders, owner: p.owner || x.owner }))));
+          (t.stops || []).filter((st) => st.kind === 'pickup' && !st.absent).forEach((st) => (st.parts || [{ riders: st.riders, owner: t.owner }]).forEach((p) => names.push({ name: p.riders, owner: p.owner || t.owner })));
           // لە تۆماری شۆفێر (driverLog) پاشەکەوت دەکرێت: سەرنشین نایبینێت، بەڕێوەبەر دەیبینێت
           const lead = run.find((x) => x.status === 'done') || run[0];
           const key = (lead.runId || lead.id) + ':' + (lead.day || s.day);
@@ -4164,18 +4220,31 @@
       if (!expired.length && !stale.length) return;
       update((s) => {
         // گەشتێک کە شۆفێر لەبیری چووە تەواوی بکات خۆکار دادەخرێت
+        // هەموو گەشتەکانی هەمان ڕۆت پێکەوە دادەخرێن (نەک یەک یەک)، پاشان یەک جار حیساب دەکرێت
         const closed = new Set();
         s.trips.filter((t) => stale.includes(t.id) && t.status === 'active').forEach((t) => {
-          t.stops.forEach((st) => {
-            if (!st.done) Object.assign(st, { done: true, doneAt: now, auto: true });
-          });
-          t.autoClosed = true;
-          finishTrip(s, t, now);
           const k = t.runId || t.id;
           if (closed.has(k)) return;
           closed.add(k);
-          finishRun(s, runOf(s, t));
           const d = s.drivers.find((x) => x.id === t.driverId);
+          runOf(s, t).filter((x) => x.status === 'active').forEach((x) => {
+            const picked = x.stops.filter((st) => st.kind === 'pickup' && ownStop(x, st)).every((st) => st.done);
+            x.autoClosed = true;
+            if (picked) {
+              // سوار کرابوو: وەک گەیەنراو دادەنرێت
+              x.stops.forEach((st) => {
+                if (!st.done) Object.assign(st, { done: true, doneAt: now, auto: true });
+              });
+              finishTrip(s, x, now);
+            } else {
+              // هەرگیز سوار نەکرا: پارەی بۆ شۆفێر نییە، سەرنشین ئاگادار دەکرێتەوە
+              x.status = 'missed';
+              x.missedAt = now;
+              notice(s, { kind: 'info', red: true, title: 'گەشتەکە نەکرا', body: `${x.title}. شۆفێر دەستی پێکرد بەڵام سواری نەکردیت. ئەگەر کێشەیەک هەبوو «سکاڵا» بنێرە`, link: 'support' }, x.owner);
+            }
+          });
+          finishRun(s, runOf(s, t));
+          if (ROLE === 'admin' && window.TKFB && window.TKFB.write) window.TKFB.write({ op: 'delete', path: 'live/' + t.driverId }).catch(() => {});
           anotice(s, { kind: 'report', title: 'گەشتێک خۆکار داخرا', body: `${t.runTitle || t.title}، ${d ? d.name : ''}، دوای ${cfg().autoCloseMin} خولەک بێ جووڵە`, link: 'trips' });
           dnotice(s, t.driverId, { kind: 'info', title: 'گەشتەکەت خۆکار داخرا', body: `${t.runTitle || t.title}. تکایە دوای گەیاندن «گەیاندم» دابگرە`, link: 'today' });
         });
@@ -4243,44 +4312,44 @@
     const c = cfg();
     const today = TODAY();
     const need = (v) => v != null && String(v).trim() !== '';
+    // وێنەکان تەنها کاتێک ئیجبارین کە بەڕێوەبەر «وێنە ئیجبارییە» چالاک کردبێت
+    const pic = (v) => c.photosRequired !== true || need(v);
     if (full) {
       if (!need(f.name) || f.name.trim().split(/\s+/).length < 3) return 'ناوی سیانی وەک کارتی نیشتمانی بنووسە';
       if (!['m', 'f'].includes(f.gender)) return 'ڕەگەز هەڵبژێرە';
-      if (!/^7\d{9}$/.test(cleanPhone(f.phone))) return 'ژمارەی مۆبایل دروست نییە (وەک 750 123 4567)';
+      if (!/^7\d{9}$/.test(cleanPhone(f.phone))) return 'ژمارەی مۆبایل دروست نییە (وەک 7xx xxx xxxx)';
       if (!f.pass || f.pass.length < 6) return 'وشەی نهێنی دەبێت لانیکەم ٦ پیت بێت';
       if (f.pass !== f.pass2) return 'وشە نهێنییەکان وەک یەک نین';
       if (!need(f.birth)) return 'ڕۆژی لەدایکبوون بنووسە';
       if (TK.age(f.birth) < c.minDriverAge) return `تەمەنی شۆفێر دەبێت لانیکەم ${c.minDriverAge} ساڵ بێت`;
-      if (!need(f.emergencyName) || !/^7\d{9}$/.test(cleanPhone(f.emergencyPhone))) return 'ناو و ژمارەی کەسێکی نزیک بۆ فریاکەوتن بنووسە';
-      if (cleanPhone(f.emergencyPhone) === cleanPhone(f.phone)) return 'ژمارەی فریاکەوتن دەبێت جیا بێت لە ژمارەکەی خۆت';
       if (!need(f.city) || !need(f.district) || !need(f.neighborhood)) return 'شار، قەزا و گەڕەک بنووسە';
-      if (!need(f.photo)) return 'وێنەی ڕووخسار بار بکە';
+      if (!pic(f.photo)) return 'وێنەی ڕووخسار بار بکە';
     }
     if (full || 'idNo' in f) {
       if (!/^[0-9A-Za-z]{6,20}$/.test(String(f.idNo || '').trim())) return 'ژمارەی کارتی نیشتمانی دروست نییە';
       if (!need(f.idExpiry) || f.idExpiry <= today) return 'کارتی نیشتمانی بەسەرچووە یان بەروارەکەی نەنووسراوە';
-      if (!need(f.idFront) || !need(f.idBack)) return 'وێنەی هەردوو ڕووی کارتی نیشتمانی بار بکە';
+      if (!pic(f.idFront) || !pic(f.idBack)) return 'وێنەی هەردوو ڕووی کارتی نیشتمانی بار بکە';
     }
     if (full || 'licNo' in f) {
       if (!need(f.licNo)) return 'ژمارەی مۆڵەتی شۆفێری بنووسە';
       if (!need(f.licExpiry) || f.licExpiry <= today) return 'مۆڵەتی شۆفێری بەسەرچووە یان بەروارەکەی نەنووسراوە';
-      if (!need(f.licFront) || !need(f.licBack)) return 'وێنەی هەردوو ڕووی مۆڵەتی شۆفێری بار بکە';
+      if (!pic(f.licFront) || !pic(f.licBack)) return 'وێنەی هەردوو ڕووی مۆڵەتی شۆفێری بار بکە';
     }
     if (full || 'carMake' in f) {
       if (!need(f.carMake) || !need(f.carModel) || !need(f.carColor)) return 'جۆر، مۆدێل و ڕەنگی ئۆتۆمبێل بنووسە';
       const y = +f.carYear;
       if (!y || y < c.minCarYear || y > new Date().getFullYear() + 1) return `ساڵی دروستکردنی ئۆتۆمبێل دەبێت ${c.minCarYear} یان نوێتر بێت`;
       if (!(+f.seats >= 1 && +f.seats <= 8)) return 'ژمارەی کورسی سەرنشین دروست نییە';
-      if (!/^\d{2}$/.test(String(f.plateCode || '')) || !/^\d{3,6}$/.test(String(f.plateNo || ''))) return 'ژمارەی تابلۆ دروست نییە (وەک 22 A 12345)';
-      if (!['carFront', 'carBack', 'carLeft', 'carRight', 'carInside'].every((k) => need(f[k]))) return 'هەر پێنج وێنەی ئۆتۆمبێل بار بکە';
+      if (!/^\d{2}$/.test(String(f.plateCode || '')) || !/^\d{3,6}$/.test(String(f.plateNo || ''))) return 'ژمارەی تابلۆ دروست نییە (وەک 21 A 12345)';
+      if (!['carFront', 'carBack', 'carLeft', 'carRight', 'carInside'].every((k) => pic(f[k]))) return 'هەر پێنج وێنەی ئۆتۆمبێل بار بکە';
     }
     if (full || 'regNo' in f) {
       if (!need(f.regNo)) return 'ژمارەی ساڵانەی ئۆتۆمبێل بنووسە';
       if (!need(f.regExpiry) || f.regExpiry <= today) return 'ساڵانەی ئۆتۆمبێل بەسەرچووە یان بەروارەکەی نەنووسراوە';
-      if (!need(f.regPhoto)) return 'وێنەی ساڵانە بار بکە';
+      if (!pic(f.regPhoto)) return 'وێنەی ساڵانە بار بکە';
     }
     if (full || 'secPhoto' in f) {
-      if (!need(f.secPhoto) || !need(f.secDate)) return 'وێنە و بەرواری کۆدی ئاسایش بار بکە';
+      if (!pic(f.secPhoto) || !need(f.secDate)) return 'وێنە و بەرواری کۆدی ئاسایش بار بکە';
       if (f.secDate > today) return 'بەرواری کۆدی ئاسایش لە داهاتوودایە';
     }
     if (full) {
@@ -5536,7 +5605,7 @@
       return `<nav class="bottom-nav">${items
         .map(
           (it) => `<a href="#/${it.path}" class="${it.key === active ? 'on' : ''}" ${it.key === active ? 'aria-current="page"' : ''}>
-            <span class="ni">${TK.icon(it.icon, 25, 'currentColor', it.key === active ? 2.3 : 1.9)}${it.badge ? `<span class="nb">${it.badge}</span>` : ''}</span><span class="nl">${esc(it.label)}</span>
+            <span class="ni">${TK.icon(it.icon, 25, 'currentColor', it.key === active ? 2.3 : 1.9)}${it.badge ? `<span class="nb${it.red ? ' red' : ''}">${it.badge}</span>` : ''}</span><span class="nl">${esc(it.label)}</span>
           </a>`
         )
         .join('')}</nav>`;
@@ -5592,7 +5661,7 @@
       const opt = (v, l, on) => `<option value="${v}" ${on ? 'selected' : ''}>${l}</option>`;
       return `<div class="date3" id="${id}">
         <select class="input" id="${id}-d" aria-label="ڕۆژ">${opt('', 'ڕۆژ', !d)}${Array.from({ length: 31 }, (_, i) => opt(i + 1, i + 1, d === i + 1)).join('')}</select>
-        <select class="input" id="${id}-m" aria-label="مانگ">${opt('', 'مانگ', !m)}${fmt.MONTHS.map((n, i) => opt(i + 1, n, m === i + 1)).join('')}</select>
+        <select class="input" id="${id}-m" aria-label="مانگ">${opt('', 'مانگ', !m)}${Array.from({ length: 12 }, (_, i) => opt(i + 1, i + 1, m === i + 1)).join('')}</select>
         <select class="input" id="${id}-y" aria-label="ساڵ">${opt('', 'ساڵ', !y)}${years.map((k) => opt(k, k, y === k)).join('')}</select>
       </div>`;
     },
@@ -5755,6 +5824,7 @@
     },
     /** لیستی ئاگادارکردنەوەکان وەک فەیسبووک: «نوێ» (نەخوێندراوە)، «ئەمڕۆ»، «دوێنێ»، «پێشتر»، و کاتی کورت (٥ خولەک، ٣ کاتژمێر) */
     noticeList(list, readAt) {
+      const isNew = (n) => n.at > readAt && !ntOpened.has(n.id);
       if (!list.length) return ui.empty('bell', 'هیچ ئاگادارکردنەوەیەک نییە', 'کاتێک شتێکی نوێ ڕوو بدات لێرە دەردەکەوێت');
       const day0 = new Date();
       day0.setHours(0, 0, 0, 0);
@@ -5762,12 +5832,12 @@
       const yest = today - 864e5;
       const groups = [['نوێ', []], ['ئەمڕۆ', []], ['دوێنێ', []], ['پێشتر', []]];
       list.slice().sort((a, b) => (b.at || 0) - (a.at || 0)).forEach((n) => {
-        const g = n.at > readAt ? 0 : n.at >= today ? 1 : n.at >= yest ? 2 : 3;
+        const g = isNew(n) ? 0 : n.at >= today ? 1 : n.at >= yest ? 2 : 3;
         groups[g][1].push(n);
       });
       const row = (n, fresh) => {
         const [ic, tone] = ui.noticeIcon(n.kind);
-        return `<div class="item nt-row ${fresh ? 'nt-new' : ''} ${n.link ? 'tap' : ''}" ${n.link ? `data-go="${esc(n.link)}"` : ''}>
+        return `<div class="item nt-row ${fresh ? 'nt-new' : ''} ${n.link ? 'tap' : ''}" data-nt="${esc(n.id)}" ${n.link ? `data-go="${esc(n.link)}"` : ''}>
             <div class="ico-box ${tone}">${TK.icon(ic, 20, 'var(--brand)')}</div>
             <div class="grow"><div class="bold" style="font-size:.95rem">${esc(n.title)}</div><div class="sm muted">${esc(noticeBody(n))}</div><div class="xs nt-when">${fmt.noticeWhen(n.at)}</div></div>
             ${fresh ? '<span class="nt-dot" aria-label="نوێ"></span>' : ''}
@@ -5802,6 +5872,119 @@
     },
   };
   TK.ui = ui;
+
+  /* =========================================================
+   * ڕاکێشانی پەڕە بۆ نوێکردنەوە (pull to refresh)
+   * خاڵە زەردەکەی لۆگۆی Y دێتە خوارەوە و بە دەوری بازنەکەدا هێڵ دەکێشێت؛ لە کاتی نوێکردنەوەدا دەسوڕێتەوە.
+   * هەر ئەپێک بە TK.enablePtr([...]) دیاری دەکات لە کام پەڕانەدا کار بکات.
+   * ======================================================= */
+  const ptrRoutes = new Set();
+  TK.enablePtr = (list) => list.forEach((x) => ptrRoutes.add(x));
+  const PTR_MAX = 120; // زۆرترین ڕاکێشان (پیکسڵ)
+  const PTR_GO = 84; // لێرەوە نوێکردنەوە دەست پێدەکات
+  let ptr = null;
+  function ptrSvg(o) {
+    const R = 20, C = 24, L = 2 * Math.PI * R;
+    const ang = o.angle != null ? o.angle : 90;
+    let dx = C, dy;
+    if (o.drop < 1) dy = 31 + (C + R - 31) * o.drop;
+    else {
+      dx = C + R * Math.cos((ang * Math.PI) / 180);
+      dy = C + R * Math.sin((ang * Math.PI) / 180);
+    }
+    const len = (o.arc || 0) * L;
+    const arc = len > 0.5 ? `<circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="#F5A623" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="${len.toFixed(1)} ${L.toFixed(1)}" transform="rotate(${(ang - (o.arc || 0) * 360).toFixed(1)} ${C} ${C})"/>` : '';
+    return `<svg viewBox="0 0 48 48" width="46" height="46" aria-hidden="true"><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="var(--line)" stroke-width="2.2"/>${arc}<path d="M16.5 13.5 L24 23.5 L31.5 13.5 M24 23.5 L24 28" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="3.6" fill="#F5A623"/></svg>`;
+  }
+  function ptrEl() {
+    let el = document.getElementById('ptr');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'ptr';
+      el.innerHTML = '<div class="ptr-bub"></div><span class="ptr-lbl"></span>';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function ptrDraw(pull, spinAngle) {
+    const el = ptrEl();
+    const p = Math.min(1, pull / PTR_GO);
+    // یەکەم بەش: خاڵەکە دێتە خوارەوە؛ دووەم بەش: بە دەوری بازنەکەدا هێڵ دەکێشێت
+    const o = spinAngle != null ? { drop: 1, arc: 0.3, angle: spinAngle } : p < 0.35 ? { drop: p / 0.35, arc: 0 } : { drop: 1, arc: ((p - 0.35) / 0.65) * 0.9, angle: 90 + ((p - 0.35) / 0.65) * 0.9 * 360 };
+    el.querySelector('.ptr-bub').innerHTML = ptrSvg(o);
+    el.querySelector('.ptr-lbl').textContent = spinAngle != null ? '' : p >= 1 ? 'بەری بدە بۆ نوێکردنەوە' : 'ڕابکێشە بۆ نوێکردنەوە';
+    el.style.transform = `translateY(${Math.max(0, pull - 64) / 2 + Math.min(pull, 64) - 56}px)`;
+    el.style.opacity = String(Math.min(1, pull / 30));
+    el.classList.toggle('on', pull > 0);
+    const sc = app.root && app.root.querySelector('.screen');
+    if (sc) sc.style.transform = pull ? `translateY(${pull}px)` : '';
+  }
+  function ptrReset() {
+    const el = document.getElementById('ptr');
+    const sc = app.root && app.root.querySelector('.screen');
+    [el, sc].forEach((x) => x && x.classList.add('ptr-anim'));
+    ptrDraw(0);
+    setTimeout(() => {
+      [document.getElementById('ptr'), app.root && app.root.querySelector('.screen')].forEach((x) => x && x.classList.remove('ptr-anim'));
+      if (el) el.classList.remove('on');
+    }, 260);
+  }
+  const ptrOk = (e) => {
+    const r = app.current;
+    if (!r || !ptrRoutes.has(r.path) || window.scrollY > 0 || document.querySelector('.sheet')) return false;
+    const t = e.target;
+    return !(t.closest && t.closest('input, textarea, select, .gmap, .map, .mapbox, [data-noptr], .carousel, .fchips, .tabs'));
+  };
+  document.addEventListener('touchstart', (e) => {
+    if (ptr && ptr.busy) return;
+    ptr = e.touches.length === 1 && ptrOk(e) ? { y0: e.touches[0].clientY, x0: e.touches[0].clientX, pull: 0, live: false } : null;
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!ptr || ptr.busy) return;
+    const dy = e.touches[0].clientY - ptr.y0;
+    const dx = Math.abs(e.touches[0].clientX - ptr.x0);
+    if (!ptr.live) {
+      if (dy < 8 || dx > dy || window.scrollY > 0) {
+        if (dy < -4 || dx > 12) ptr = null;
+        return;
+      }
+      ptr.live = true;
+    }
+    e.preventDefault(); // ڕاکێشانی خۆماڵی وێبگەڕ (و بازدانی ئایفۆن) ڕادەگیرێت
+    ptr.pull = Math.min(PTR_MAX, Math.max(0, dy - 8) * 0.55);
+    ptrDraw(ptr.pull);
+  }, { passive: false });
+  document.addEventListener('touchend', async () => {
+    if (!ptr || ptr.busy) return;
+    const st = ptr;
+    if (!st.live || st.pull < PTR_GO) {
+      ptr = null;
+      if (st.live) ptrReset();
+      return;
+    }
+    st.busy = true;
+    // دەوەستێت لە شوێنی خۆی و دەسوڕێتەوە تا نوێکردنەوە تەواو دەبێت
+    const el = ptrEl();
+    const sc = app.root && app.root.querySelector('.screen');
+    [el, sc].forEach((x) => x && x.classList.add('ptr-anim'));
+    let ang = 90 + 0.9 * 360;
+    ptrDraw(70, ang);
+    setTimeout(() => [el, sc].forEach((x) => x && x.classList.remove('ptr-anim')), 220);
+    let spin = true;
+    const tick = () => {
+      if (!spin) return;
+      ang += 9;
+      ptrDraw(70, ang);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    const t0 = Date.now();
+    await TK.refresh();
+    await new Promise((r) => setTimeout(r, Math.max(0, 800 - (Date.now() - t0))));
+    spin = false;
+    ptrReset();
+    ptr = null;
+  });
 
   /* ---------- کارۆسێلی هەواڵ: جووڵەی خۆکار و خاڵەکان ---------- */
   let carIdx = 0;
