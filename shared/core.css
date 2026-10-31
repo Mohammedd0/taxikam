@@ -1396,7 +1396,9 @@ html.drv .btn.sm { border-radius: 14px; }
 .hnav, .hsq { border-radius: 18px; }
 .rbtn.ok { background: var(--success); color: #fff; border: 0; }
 .fab-msg, html.drv .fab-msg { background: var(--act-grad); color: var(--act-text); box-shadow: var(--act-shadow); -webkit-backdrop-filter: none; backdrop-filter: none; }
-.fab-msg .nb, .bottom-nav .nb { background: var(--amber); color: #0B1733; border-color: var(--bg); }
+.fab-msg .nb { background: var(--amber); color: #0B1733; border-color: var(--bg); }
+/* هەموو ژمارەی ئاگادارکردنەوەی ناو شریتی خوارەوە سوورن (شۆفێر و سەرنشین) */
+.bottom-nav .nb { background: var(--danger); color: #fff; border-color: var(--bg); }
 /* دوگمە گەورەکەی شۆفێر */
 .bigact, html.drv .bigact, html.drv .bigact.go { border-radius: 26px; background: var(--act-grad); color: var(--act-text); border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
 html.drv .bigact.go { animation: actGlow 2.6s ease-in-out infinite; }
@@ -1988,3 +1990,13 @@ html.kb-open .screen.auth { justify-content: flex-start; }
 #ptr .ptr-lbl:empty { display: none; }
 :root[data-theme="dark"] #ptr .ptr-bub { background: #23262E; border-color: rgba(255, 255, 255, .08); box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
 #ptr.ptr-anim, .screen.ptr-anim { transition: transform .22s ease, opacity .22s ease; }
+
+/* لیستەکانی سەرنشین و شۆفێر (ستایلی ئایفۆن): ئایکۆن بێ چوارگۆشە، خەتی نێوان لە سەرەتای نووسینەوە، ڕیزی نزمتر، نووسینی ٤٥٠ */
+.list .item > .ico-box.navy,
+html.pas .list .item > .ico-box.navy,
+html.pas[data-theme="dark"] .list .item > .ico-box.navy { background: transparent; width: 28px; height: 28px; }
+html.drv .list .item { border-bottom: none; position: relative; min-height: 48px; padding: 10px 16px; gap: 14px; }
+html.drv .list .item:not(:last-child)::after { content: ""; position: absolute; bottom: 0; left: 0; right: 16px; height: 1px; background: var(--line); pointer-events: none; }
+html.drv .list .item:has(> .ico-box):not(:last-child)::after { right: 58px; }
+html.drv .list .item > b.grow { font-weight: 450; font-size: 1.02rem; }
+html.drv .list .item > .ico-box.navy svg { width: 24px; height: 24px; stroke-width: 1.7; }

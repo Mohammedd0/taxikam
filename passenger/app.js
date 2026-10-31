@@ -716,7 +716,7 @@
       // ئەو شۆفێرانەی بەشداریت لەگەڵیان هەیە بەڵام هێشتا نامەت نەناردووە
       const subDrivers = [...new Set(sel.mySubs().map((x) => x.driverId))].filter((id) => !threads.some((t) => t.driverId === id));
       return page(`
-        <div class="topbar"><div class="h1">نامەکان</div><div class="row" style="gap:8px">${sel.unreadMsgsP() ? ui.badge(`${sel.unreadMsgsP()} نەخوێندراوە`, 'amber') : ''}${TK.helpBtn('inbox')}</div></div>
+        <div class="topbar"><div class="h1">نامەکان</div><div class="row" style="gap:8px">${sel.unreadMsgsP() ? ui.badge(`${sel.unreadMsgsP()} نەخوێندراوە`, 'red') : ''}${TK.helpBtn('inbox')}</div></div>
         ${ui.threads(threads, false, (t) => {
           const d = sel.driver(t.driverId) || { id: t.driverId, name: 'شۆفێر' };
           return { name: d.name, link: `chat/${d.id}`, avatar: ui.dAvatar(d, 54), online: !!d.online };
@@ -1375,7 +1375,7 @@
     if (r.status === 'matched') return ui.badge('ڕێککەوتن', 'ok');
     if (r.status === 'closed') return ui.badge(r.closedReason === 'expired' ? 'کاتی تەواو بوو' : r.closedReason === 'declined' ? 'ڕەتکرایەوە' : 'هەڵوەشێنرایەوە', 'danger');
     const n = r.offers.filter((o) => o.status === 'pending').length;
-    return n ? ui.badge(`${n} نرخ هات`, 'amber') : ui.badge('چاوەڕێ', 'note');
+    return n ? ui.badge(`${n} نرخ هات`, 'red') : ui.badge('چاوەڕێ', 'note');
   }
   function reqCard(r) {
     const tgt = r.target === 'all' ? 'بڵاوکراوە بۆ هەمووان' : `ڕاستەوخۆ بۆ ${(sel.driver(r.target) || {}).name || ''}`;

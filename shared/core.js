@@ -5349,6 +5349,9 @@
     if (fn) {
       e.preventDefault();
       fn(el.getAttribute('data-arg'), el, e);
+      // کرتەکە تەواو بوو: ئەنجامەکەی ڕاستەوخۆ پیشان دەدرێت (نەک ٣٨٠ms دوای هەڵگرتنی پەنجە)
+      touching = false;
+      flush();
     } else console.warn('کردار نەدۆزرایەوە:', name);
   });
   document.addEventListener('input', (e) => {

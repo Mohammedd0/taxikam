@@ -1196,7 +1196,7 @@
     render() {
       const threads = sel.threadsD();
       return page(`
-        ${ui.header('نامەکان', { back: 'more', right: sel.unreadMsgsD() ? ui.badge(`${sel.unreadMsgsD()} نوێ`, 'amber') : '' })}
+        ${ui.header('نامەکان', { back: 'more', right: sel.unreadMsgsD() ? ui.badge(`${sel.unreadMsgsD()} نوێ`, 'red') : '' })}
         ${ui.threads(threads, true, (t) => {
           const name = sel.peerName(t.peer);
           return { name, link: `chat/${encodeURIComponent(t.peer)}`, avatar: ui.personAv(sel.peerPhoto(t.peer), 54) };
@@ -1516,7 +1516,7 @@
         <div class="list">
           ${item('settings', 'ڕێکخستنەکان', 'settings')}
           ${item('help', 'پرسیارە باوەکان', 'faq')}
-          ${item('flag', 'یارمەتی و سکاڵاکان', 'support', (me.tickets || []).some((t) => t.reply && !t.seen) ? ui.badge('وەڵام', 'amber') : '')}
+          ${item('flag', 'یارمەتی و سکاڵاکان', 'support', (me.tickets || []).some((t) => t.reply && !t.seen) ? ui.badge('وەڵام', 'red') : '')}
           ${item('phone', 'پەیوەندی', '', '', 'contactUs')}
           ${item('play', 'فێرکاری ئەپ', '', '', 'showIntro')}
           ${item('doc', 'مەرج و ڕێساکان', '', '', 'showTerms')}
