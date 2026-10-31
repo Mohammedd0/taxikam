@@ -4772,6 +4772,7 @@
       history.replaceState(null, '', target);
       onRoute();
     } else {
+      app.navDir = app.navDir || 'push';
       location.hash = target;
     }
   };
@@ -4782,6 +4783,7 @@
     while (app.stack.length && !ok(app.stack[app.stack.length - 1])) app.stack.pop();
     const target = app.stack.length ? app.stack.pop() : fallback || app.home;
     app.pushOnReplace = true;
+    if (app.navDir !== 'none') app.navDir = 'back';
     TK.go(target, true);
   };
 
@@ -4853,7 +4855,7 @@
     }
     if (html == null) return; // ڕاوتەکە ئاراستەی گۆڕی
     // جووڵەی هاتنە ژوورەوە تەنها کاتی گۆڕینی شاشە، نەک لە هەر نوێکردنەوەیەک
-    if (sameScreen) app.root.removeAttribute('data-enter');
+    if (sameScreen || app.sliding) app.root.removeAttribute('data-enter');
     else app.root.setAttribute('data-enter', '');
     app.root.innerHTML = html;
     labelTables(app.root);
@@ -4866,6 +4868,7 @@
     if (route.after) route.after(params, query);
     live();
     navFx();
+    barBuild();
     runHooks('paint');
   }
   TK.render = () => render(true);
@@ -4968,10 +4971,14 @@
   function onRoute() {
     const { path, query } = parseHash();
     const st = app.stack;
+    let popped = false;
     if (app.replacing) {
       if (app.pushOnReplace || !st.length) st.push(path);
       else st[st.length - 1] = path;
-    } else if (st.length >= 2 && st[st.length - 2] === path) st.pop(); // دوگمەی گەڕانەوەی وێبگەڕ
+    } else if (st.length >= 2 && st[st.length - 2] === path) {
+      st.pop(); // دوگمەی گەڕانەوەی وێبگەڕ
+      popped = true;
+    }
     else if (st[st.length - 1] !== path) st.push(path);
     if (st.length > 40) st.splice(0, st.length - 40);
     app.replacing = false;
@@ -4993,10 +5000,25 @@
       const b = document.getElementById('inbanner');
       if (b) b.classList.remove('show');
     }
+    // جووڵەی گواستنەوە وەک ئایفۆن: پەڕەی نوێ لە لاوە دێت، گەڕانەوە بە پێچەوانە
+    // گەڕانەوەی وێبگەڕ (Safari خۆی جووڵەی هەیە): تەنها لە ئەپی دامەزراو (Home Screen) جووڵەی ئێمە پیشان دەدرێت
+    const standalone = navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    const dir = app.navDir || (popped && standalone ? 'back' : null);
+    app.navDir = null;
+    const oldPath = app.current && app.current.path;
+    const hadNav = !!(app.root && app.root.querySelector('.bottom-nav'));
+    const ghost = !same && oldPath && (dir === 'push' || dir === 'back') && slideOk() ? snapPage() : null;
     app.current = { route: m.route, params: m.params, query, path };
     // پێش پیشاندان دەچێتە سەرەوە، تا after() بتوانێت شوێنی خۆی دیاری بکات (بۆ نموونە نامەکان: دوا نامە)
     if (!same) window.scrollTo(0, 0);
+    app.sliding = !!ghost;
     render(same);
+    app.sliding = false;
+    if (!ghost) return;
+    // گۆڕینی تابەکانی خوارەوە (هەردوو پەڕە شریتی خوارەوەیان هەیە) جووڵەی لاوەکی نییە
+    if (hadNav && app.root.querySelector('.bottom-nav')) return;
+    if (dir === 'push') saveSnap(oldPath, ghost);
+    slidePages(dir, ghost);
   }
 
   /* ---------- شیت ---------- */
@@ -5039,6 +5061,242 @@
     renderSheet();
   };
   TK.sheet.refresh = renderSheet;
+
+  /* =========================================================
+   * ستایلی ئایفۆن (سەرنشین و شۆفێر):
+   * ١. گەڕانەوە بە ڕاکێشانی پەنجە لە لێواری ڕاستی شاشەوە (RTL)
+   * ٢. پەڕەی نوێ لە لای چەپەوە دێت، گەڕانەوە بە پێچەوانە
+   * ٣. داخستنی شیت بە ڕاکێشانی بۆ خوارەوە
+   * ٤. ناونیشانی بچووک لە شریتێکی تەم‌داری سەرەوە کاتێک ناونیشانە گەورەکە دەڕوات
+   * ======================================================= */
+  const iosOn = () => document.documentElement.classList.contains('drv');
+  const calm = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function slideOk() {
+    return iosOn() && !calm() && !!app.root && !!document.body.animate;
+  }
+  const EASE = 'cubic-bezier(.32, .72, 0, 1)';
+  /** وێنەیەکی زیندووی پەڕەی ئێستا (کۆپی DOM) بۆ جووڵەی گواستنەوە */
+  function snapPage() {
+    const g = document.createElement('div');
+    g.className = 'nav-ghost';
+    g.setAttribute('aria-hidden', 'true');
+    const c = app.root.cloneNode(true);
+    c.removeAttribute('id');
+    c.removeAttribute('data-enter');
+    c.className = (c.className + ' app-clone').trim();
+    c.querySelectorAll('[id]').forEach((e) => e.removeAttribute('id'));
+    c.style.marginTop = -window.scrollY + 'px';
+    g.appendChild(c);
+    return g;
+  }
+  const snaps = new Map();
+  function saveSnap(path, g) {
+    snaps.delete(path);
+    snaps.set(path, g);
+    while (snaps.size > 8) snaps.delete(snaps.keys().next().value);
+  }
+  function dimEl(z) {
+    const d = document.createElement('div');
+    d.className = 'nav-dim';
+    d.style.zIndex = z;
+    return d;
+  }
+  function cleanSlide(...els) {
+    els.forEach((e) => e && e.remove());
+    if (app.root) {
+      app.root.style.zIndex = '';
+      app.root.style.transform = '';
+      app.root.classList.remove('nav-top');
+    }
+  }
+  function slidePages(dir, ghost) {
+    const root = app.root;
+    const T = { duration: 380, easing: EASE };
+    const W = '100%';
+    if (dir === 'push') {
+      // پەڕەی نوێ لە سەرەوە لە چەپەوە دێت، پەڕەی کۆن کەمێک بەرەو ڕاست دەڕوات و تاریک دەبێت
+      ghost.style.zIndex = '0';
+      const dim = dimEl(1);
+      document.body.append(ghost, dim);
+      root.style.zIndex = '2';
+      root.classList.add('nav-top');
+      root.animate([{ transform: `translateX(-${W})` }, { transform: 'none' }], T);
+      ghost.firstChild.animate([{ transform: 'none' }, { transform: 'translateX(30%)' }], T);
+      dim.animate([{ opacity: 0 }, { opacity: 1 }], T).onfinish = () => cleanSlide(ghost, dim);
+    } else {
+      // پەڕەی ئێستا لە سەرەوە بەرەو چەپ دەڕوات، پەڕەی پێشوو لە ژێرەوە دەگەڕێتەوە شوێنی خۆی
+      ghost.style.zIndex = '3';
+      ghost.classList.add('nav-top');
+      const dim = dimEl(2);
+      document.body.append(dim, ghost);
+      root.animate([{ transform: 'translateX(30%)' }, { transform: 'none' }], T);
+      dim.animate([{ opacity: 1 }, { opacity: 0 }], T);
+      ghost.animate([{ transform: 'none' }, { transform: 'translateX(-100%)' }], T).onfinish = () => cleanSlide(ghost, dim);
+    }
+  }
+
+  /* ---------- ١. ڕاکێشانی پەنجە لە لێواری ڕاستەوە بۆ گەڕانەوە ---------- */
+  let sw = null;
+  const backBtn = () => app.root && app.root.querySelector('.screen .header [data-back]');
+  document.addEventListener('touchstart', (e) => {
+    sw = null;
+    if (!slideOk() || e.touches.length !== 1 || app.sheetFn || document.getElementById('sheet')) return;
+    const t = e.touches[0];
+    if (t.clientX < window.innerWidth - 24) return;
+    const btn = backBtn();
+    if (!btn) return;
+    sw = { x0: t.clientX, y0: t.clientY, t0: Date.now(), live: false, dx: 0, fallback: btn.getAttribute('data-back') || '' };
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!sw) return;
+    const t = e.touches[0];
+    const dx = t.clientX - sw.x0;
+    const dy = t.clientY - sw.y0;
+    if (!sw.live) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) return (sw = null);
+      if (dx > -8) return;
+      sw.live = true;
+      const prev = app.stack[app.stack.length - 2];
+      const snap = prev && snaps.get(prev);
+      sw.under = snap || (() => { const g = document.createElement('div'); g.className = 'nav-ghost'; g.appendChild(document.createElement('div')); return g; })();
+      sw.under.style.zIndex = '0';
+      sw.dim = dimEl(1);
+      document.body.append(sw.under, sw.dim);
+      app.root.style.zIndex = '2';
+      app.root.classList.add('nav-top');
+      barHide();
+    }
+    e.preventDefault();
+    const w = window.innerWidth;
+    sw.dx = Math.min(0, dx);
+    const p = Math.min(1, -sw.dx / w);
+    app.root.style.transform = `translateX(${sw.dx}px)`;
+    sw.under.firstChild.style.transform = `translateX(${30 * (1 - p)}%)`;
+    sw.dim.style.opacity = String(1 - p);
+  }, { passive: false });
+  const swEnd = () => {
+    const s = sw;
+    sw = null;
+    if (!s || !s.live) return;
+    const w = window.innerWidth;
+    const v = s.dx / Math.max(1, Date.now() - s.t0);
+    const go = -s.dx > w * 0.35 || v < -0.45;
+    const root = app.root;
+    const from = s.dx;
+    const T = { duration: 260, easing: EASE };
+    const pFrom = Math.min(1, -from / w);
+    if (go) {
+      root.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(-100%)' }], T);
+      s.under.firstChild.animate([{ transform: `translateX(${30 * (1 - pFrom)}%)` }, { transform: 'none' }], T);
+      s.dim.animate([{ opacity: 1 - pFrom }, { opacity: 0 }], T).onfinish = () => {
+        s.under.firstChild.style.transform = '';
+        root.style.transform = 'translateX(-100%)';
+        app.navDir = 'none';
+        TK.back(s.fallback);
+        app.navDir = null;
+        cleanSlide(s.under, s.dim);
+      };
+    } else {
+      root.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], T);
+      s.under.firstChild.animate([{ transform: `translateX(${30 * (1 - pFrom)}%)` }, { transform: 'translateX(30%)' }], T);
+      s.dim.animate([{ opacity: 1 - pFrom }, { opacity: 1 }], T).onfinish = () => {
+        s.under.firstChild.style.transform = '';
+        cleanSlide(s.under, s.dim);
+        barSync();
+      };
+    }
+  };
+  document.addEventListener('touchend', swEnd, { passive: true });
+  document.addEventListener('touchcancel', swEnd, { passive: true });
+
+  /* ---------- ٣. ڕاکێشانی شیت بۆ خوارەوە بۆ داخستن ---------- */
+  let sd = null;
+  document.addEventListener('touchstart', (e) => {
+    sd = null;
+    if (!iosOn() || e.touches.length !== 1) return;
+    const sh = e.target.closest && e.target.closest('#sheet .sheet');
+    if (!sh || e.target.closest('input,textarea,select')) return;
+    const t = e.touches[0];
+    sd = { sh, back: sh.parentElement, x0: t.clientX, y0: t.clientY, t0: Date.now(), live: false, dy: 0 };
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!sd) return;
+    const t = e.touches[0];
+    const dy = t.clientY - sd.y0;
+    const dx = t.clientX - sd.x0;
+    if (!sd.live) {
+      if (sd.sh.scrollTop > 0 || dy < -4 || Math.abs(dx) > 12) return (sd = null);
+      if (dy < 8 || Math.abs(dx) > dy) return;
+      sd.live = true;
+      sd.y0 = t.clientY;
+      sd.h = sd.sh.offsetHeight;
+    }
+    e.preventDefault();
+    sd.dy = Math.max(0, t.clientY - sd.y0);
+    const p = Math.min(1, sd.dy / Math.max(1, sd.h));
+    sd.sh.style.animation = 'none';
+    sd.sh.style.transform = `translateY(${sd.dy}px)`;
+    sd.back.style.backgroundColor = `rgba(16, 24, 40, ${(0.4 * (1 - p)).toFixed(3)})`;
+  }, { passive: false });
+  const sdEnd = () => {
+    const s = sd;
+    sd = null;
+    if (!s || !s.live) return;
+    const v = s.dy / Math.max(1, Date.now() - s.t0);
+    if (s.dy > Math.min(140, s.h * 0.35) || v > 0.6) {
+      const a = s.sh.animate([{ transform: `translateY(${s.dy}px)` }, { transform: `translateY(${s.h + 40}px)` }], { duration: 200, easing: 'ease-in' });
+      s.back.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200 });
+      a.onfinish = () => {
+        s.sh.style.transform = `translateY(${s.h + 40}px)`;
+        if (document.getElementById('sheet') === s.back) closeSheet();
+      };
+    } else {
+      s.sh.animate([{ transform: `translateY(${s.dy}px)` }, { transform: 'none' }], { duration: 220, easing: EASE });
+      s.sh.style.transform = '';
+      s.back.style.backgroundColor = '';
+    }
+  };
+  document.addEventListener('touchend', sdEnd, { passive: true });
+  document.addEventListener('touchcancel', sdEnd, { passive: true });
+
+  /* ---------- ٤. شریتی ناونیشانی بچووک (تەم‌دار) لە سەرەوە ---------- */
+  let bar = null;
+  let barTitle = null;
+  function barEl() {
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'tbar';
+      bar.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(bar);
+    }
+    return bar;
+  }
+  function barHide() {
+    if (bar) bar.classList.remove('on');
+  }
+  function barBuild() {
+    if (!iosOn() || !app.root) return;
+    barTitle = app.root.querySelector('.screen > .header:not(.chathead) .titles .h2, .screen > .topbar .h1, .screen > .h1');
+    const b = barEl();
+    b.classList.remove('on');
+    if (!barTitle) return (b.innerHTML = '');
+    const bk = barTitle.closest('.header') && barTitle.closest('.header').querySelector('[data-back]');
+    b.innerHTML = `<div class="tb-in">${bk ? `<button class="tb-back" data-back="${esc(bk.getAttribute('data-back') || '')}" aria-label="گەڕانەوە">${TK.icon('back', 22)}</button>` : ''}<b>${esc(barTitle.textContent.trim())}</b></div>`;
+    barSync();
+  }
+  function barSync() {
+    if (!bar || !barTitle || !barTitle.isConnected || sw) return barHide();
+    const r = barTitle.getBoundingClientRect();
+    bar.classList.toggle('on', r.bottom < bar.offsetHeight - 4);
+  }
+  let barRaf = 0;
+  window.addEventListener('scroll', () => {
+    if (barRaf) return;
+    barRaf = requestAnimationFrame(() => {
+      barRaf = 0;
+      barSync();
+    });
+  }, { passive: true });
 
   /** پرسیاری «دڵنیایت؟» لەناو ئەپ (لە جیاتی پەنجەرەی ئامادەی وێبگەڕ). Promise<boolean> دەگەڕێنێتەوە */
   TK.ask = function (message, opts = {}) {

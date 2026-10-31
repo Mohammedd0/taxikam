@@ -2000,3 +2000,23 @@ html.drv .list .item:not(:last-child)::after { content: ""; position: absolute; 
 html.drv .list .item:has(> .ico-box):not(:last-child)::after { right: 58px; }
 html.drv .list .item > b.grow { font-weight: 450; font-size: 1.02rem; }
 html.drv .list .item > .ico-box.navy svg { width: 24px; height: 24px; stroke-width: 1.7; }
+
+/* ---------- ستایلی ئایفۆن: گواستنەوەی پەڕە، ڕاکێشان بۆ گەڕانەوە، شریتی ناونیشان ---------- */
+.nav-ghost { position: fixed; inset: 0; overflow: hidden; pointer-events: none; background: var(--app-bg); }
+.nav-ghost > * { max-width: 480px; margin-left: auto; margin-right: auto; min-height: 100vh; position: relative; background: var(--app-bg); will-change: transform; }
+.nav-dim { position: fixed; inset: 0; background: rgba(0, 0, 0, .14); pointer-events: none; }
+html[data-theme="dark"] .nav-dim { background: rgba(0, 0, 0, .4); }
+#app.nav-top, .nav-ghost.nav-top { box-shadow: 0 0 28px rgba(0, 0, 0, .18); }
+#app.nav-top { will-change: transform; }
+#tbar { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; z-index: 30; padding-top: env(safe-area-inset-top);
+  background: rgba(255, 255, 255, .78); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: .5px solid rgba(0, 0, 0, .14); opacity: 0; pointer-events: none; transition: opacity .18s ease; }
+html[data-theme="dark"] #tbar { background: rgba(22, 24, 29, .78); border-bottom-color: rgba(255, 255, 255, .1); }
+#tbar.on { opacity: 1; pointer-events: auto; }
+#tbar .tb-in { position: relative; height: 46px; display: flex; align-items: center; justify-content: center; padding: 0 56px; }
+#tbar b { font-weight: 600; font-size: 1.02rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tbar .tb-back { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--text); background: none; border: 0; }
+#tbar .tb-back svg { stroke: var(--text); }
+@media (prefers-reduced-motion: reduce) { #tbar { transition: none; } }
+/* جووڵەی لاوەکی پەڕەکان نابێت پانی پەڕە زیاد بکات (سکرۆڵی ئاسۆیی) */
+html.drv, html.drv body { overflow-x: clip; }
